@@ -693,20 +693,98 @@ back, exactly as now.
 
 ---
 
-## 11. Open questions
+## 11. Decisions made
 
-1. **agy account terms for ten users** — blocking; needs an answer before
-   Phase 3, and ideally before Phase 1.
-2. **Domain and subdomain scheme** — `alice.facet.example` (wildcard DNS,
-   one Access app per user) or `facet.example/alice` (single hostname, path
-   routing)? Subdomains are cleaner for Access policies; paths avoid wildcard
-   DNS. Recommend subdomains.
-3. **Cloudflare API automation in Phase 3, or permanent manual mode?**
-   Manual is ~2 minutes per user and you have ten. Automation is nicer but
-   adds a token with real privileges.
-4. **Should `data/settings.json` (Adzuna/Jooble keys) stay per-user?**
-   Per-user means each person brings their own keys — simplest, no quota
-   sharing, and matches the current code exactly. Operator-level shared keys
-   would need a settings-precedence change. Recommend per-user.
-5. **Retention defaults** — 30 days unreferenced, 30-day delete grace, 2 GB
-   soft quota. Reasonable, and all three are settings.
+Settled. Recorded so they don't get re-litigated, with the reason, because a
+decision without its reason gets reversed by the next person who finds it
+inconvenient.
+
+| # | Decision | Why |
+|---|---|---|
+| D1 | **Per-user instances, not shared-process multi-tenancy** | §0. Deletes the schema split, the IDOR audit, and per-user scoring. Not a dead end — merging N databases later is a script. |
+| D2 | **`data/settings.json` (Adzuna/Jooble keys) stays per-user** | Confirmed 2026-07-28. Each person brings their own keys: no shared quota, no operator liability for someone else's usage, and it matches the current code with no settings-precedence change. |
+| D3 | **Subdomain per user** (`alice.facet.example`), not path routing | One Access policy per hostname is far cleaner than path-scoped rules, and Next's basePath would otherwise need reworking. Costs a wildcard DNS record. |
+| D4 | **The queue is polled, not streamed** | Survives reload, needs no open connection, gives queue position free. SSE would clear the proxy header timeout but dies on reconnect and still needs the queue underneath. |
+| D5 | **Admin UI is one static HTML page**, not a second Next app | No build step, no second `node_modules`, no second deploy for a panel one person uses. The API underneath is the real product. |
+| D6 | **agy stays on the host; containers never call it** | Its credentials live in `~/.gemini`, a per-OS-user thing a container can't reach. Fighting this buys nothing. |
+| D7 | **Retention defaults**: 30 days unreferenced exports, 30-day delete grace, 2 GB soft quota | All three are settings. Referenced exports are never auto-deleted; nothing is ever auto-deleted under disk pressure. |
+| D8 | **Cloudflare manual mode first, API automation second** | An API token with Access-write privileges is a real capability. Manual is ~2 minutes per user and there are ten. Automation is opt-in. |
+
+---
+
+## 12. Open items — the completion checklist
+
+Everything deferred, discovered, or still unanswered, in one place. Nothing
+here is lost; each line says where it lands.
+
+### Blocking — not an engineering question
+
+- [ ] **agy account terms for ten users.** Ten people's tailoring runs
+  through one signed-in account. This is the only item that can invalidate
+  the whole plan, and no amount of code fixes it. Answer before Phase 3 goes
+  public.
+
+### Deferred to Phase 4, with the reason
+
+- [ ] **`resume_path` hardening.** `ApplicationUpdate` accepts
+  `resume_path`/`docx_path`/`cover_letter_path` from the client and
+  `_serve_application_file` does `Path(...).read_bytes()` on the result — an
+  arbitrary-read primitive. Not cross-user exploitable under D1, but **must
+  land before Phase 3 exposes anything publicly.**
+- [ ] **Cancel a running job.** Currently refused with 409 rather than faked.
+  Needs process-tree teardown.
+- [ ] **Process-tree teardown on shutdown.** Same machinery. Today a
+  graceful stop leaves the agy subprocess running to completion.
+- [ ] **agy grandchild orphan directory.** A hard kill can leave agy alive
+  long enough to recreate its scratch directory after the startup sweep. One
+  empty directory, removed on the next boot. Same root cause as the two
+  above.
+- [ ] **Retention sweeper**: unreferenced exports, `jobs` rows, expired
+  purges, per-user quota warnings.
+- [ ] **Dashboard display of failure buckets.** The buckets (`timeout`,
+  `agy_missing`, `no_output_file`, `bad_json`, `interrupted`, `internal`)
+  already ship; only the display is missing.
+
+### Deferred to Phase 3
+
+- [ ] **Extension's hardcoded `http://localhost:8000`.** Needs an options
+  page *and* an `optional_host_permissions` grant flow; a config knob without
+  the grant cannot work, so it was not half-changed in Phase 0.
+- [ ] **Delete-a-running-instance.** Phase 2 refuses (it probes the port),
+  because moving data from under a live process doesn't stop it. Phase 3's
+  `compose down` turns this into stop-then-delete.
+
+### Deferred to Phase 5
+
+- [ ] **Backups**: `VACUUM INTO` on a cron, offsite copy.
+- [ ] **A restore drill.** An untested backup is not a backup.
+- [ ] **Runbook** in `docs/`.
+
+### Needs verification on the target machine, not here
+
+- [ ] **The POSIX `fcntl` lock path.** `filelock.py` is exercised on Windows
+  by its self-check; the Linux branch has not been run.
+- [ ] **`docker compose` provisioning and `cloudflared` ingress.** No Docker
+  daemon on the development machine, so Phase 3 verifies command construction
+  and generated config, not live execution.
+- [ ] **arm64 image builds.** Oracle's Ampere A1 is arm64.
+  `python:3.11-slim` and `node:24-alpine` both have arm64 variants and the
+  backend already uses Debian (Alpine + WeasyPrint is the fight to avoid).
+- [ ] **Oracle idle-instance reclamation.** Know the policy before relying on
+  the box.
+
+### Still to decide
+
+- [ ] **Migrate your own installation?** `POST /api/users/import` copies and
+  never moves. Your call, and safest done once Phase 3 can serve the copy
+  side by side with the original.
+- [ ] **Turn on Cloudflare API automation, or stay manual?** (D8 defers, does
+  not answer.)
+
+### Health of the existing app, unrelated to this plan
+
+- [ ] **Python 3.10 reaches EOL in October 2026.**
+- [ ] **`react-hooks/set-state-in-effect`** — 6 warnings, deliberately not
+  errors. Worth its own pass with the React Compiler.
+- [ ] **Materialise `dedup_key`** into an indexed column — documented in
+  `docs/perf.md`, still not urgent at ~1,400 rows.
