@@ -829,9 +829,40 @@ here is lost; each line says where it lands.
 
 ### Deferred to Phase 3
 
-- [ ] **Extension's hardcoded `http://localhost:8000`.** Needs an options
-  page *and* an `optional_host_permissions` grant flow; a config knob without
-  the grant cannot work, so it was not half-changed in Phase 0.
+- [ ] **Extension's hardcoded `http://localhost:8000`.** Started, then
+  deferred; the tree is back at its committed state. The design is worked out
+  — pick it up from here rather than re-deriving it:
+
+  **It is not only a hardcoded URL. There is a latent bug.** Since Chrome 85
+  a content script's fetches follow the *page's* CORS rules, so
+  `content_script.js` fetching the backend from greenhouse.io is a
+  cross-origin request the server would have to allow — and Facet's allowlist
+  is its own frontend, correctly. So the resume-attach path is likely already
+  broken today, independently of any of this.
+
+  The fix that solves both: **move every server call into the service
+  worker**, which holds host permission and is not subject to page CORS. It
+  also gets `credentials: "include"`, so a Cloudflare Access session cookie
+  rides along — which a content script on a job board could never do.
+
+  Shape:
+  - `manifest.json`: drop `http://localhost:8000/*` from `host_permissions`,
+    add `optional_host_permissions` (`http://*/*`, `https://*/*` — Chrome
+    prompts for the one specific origin at grant time) and `options_ui`.
+  - `options.html` / `options.js`: enter the Facet URL, request permission
+    for that origin, test the connection, save to `chrome.storage.sync`.
+  - `background.js`: handle `facet:profile`, `facet:resume`, `facet:config`.
+    Return errors rather than throwing — a rejected promise reaches the
+    content script as an opaque "message port closed". Detect the Access
+    login redirect (HTML instead of JSON) and report `not_signed_in`.
+    A Blob cannot cross the messaging boundary: send the resume as a data URL
+    and rebuild the `File` on the other side.
+  - `content_script.js`: replace both `fetch` calls with
+    `chrome.runtime.sendMessage`, and surface the new error cases in the
+    existing banner.
+
+  Unchanged: no `submit_selector`, no `.click()` on a final control. That
+  boundary is not part of this work.
 - [x] ~~**Delete-a-running-instance.**~~ Resolved in Phase 3: deletion stops
   the service and container, then verifies the port is closed before moving
   anything.
