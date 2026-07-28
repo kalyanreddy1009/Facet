@@ -370,6 +370,67 @@ async def run_purge(request: Request):
     return {"purged": purged}
 
 
+@app.get("/api/backups")
+async def backup_status():
+    from . import backup
+
+    return backup.status()
+
+
+@app.post("/api/backups")
+async def run_backup(request: Request):
+    from . import backup
+
+    result = backup.backup_all()
+    store.record(actor(request), "backup.run", None,
+                 f"{len(result['ok'])} ok, {len(result['failed'])} failed")
+    return result
+
+
+@app.post("/api/backups/verify")
+async def verify_backups():
+    """Check every newest bundle is actually restorable.
+
+    Integrity check plus row counts against the manifest. A backup that
+    cannot answer these is not a backup, and finding that out on a schedule
+    beats finding it out on the day it is needed.
+    """
+    from . import backup
+
+    reports = []
+    for row in backup.status()["users"]:
+        if not row["latest"]:
+            reports.append({"slug": row["slug"], "ok": False,
+                            "problems": ["no backup exists"]})
+            continue
+        try:
+            reports.append(backup.verify(backup.BACKUPS_DIR / row["latest"]))
+        except Exception as exc:  # noqa: BLE001
+            reports.append({"slug": row["slug"], "ok": False, "problems": [str(exc)]})
+    return {"reports": reports, "all_ok": all(r["ok"] for r in reports)}
+
+
+async def _backup_loop():
+    """Daily backup, then prune. Verifies what it just wrote — an unverified
+    backup is only a file."""
+    from . import backup
+
+    while True:
+        await asyncio.sleep(24 * 3600)
+        try:
+            result = backup.backup_all()
+            backup.prune(dry_run=False)
+            for name in result["ok"]:
+                report = backup.verify(backup.BACKUPS_DIR / name)
+                if not report["ok"]:
+                    logger.error("[Facet] backup %s failed verification: %s",
+                                 name, report["problems"])
+            if result["failed"]:
+                logger.error("[Facet] backups failed: %s", result["failed"])
+        except Exception:
+            logger.exception("[Facet] backup sweep failed")
+
+
 async def _purge_loop():
     """Daily. The only scheduled task that destroys anything, and it only
     ever touches accounts already past their grace period."""
@@ -387,13 +448,15 @@ async def _purge_loop():
 async def lifespan(app: FastAPI):
     store.init_control_db()
     logger.info("[Facet] control plane ready — host root %s", store.HOST_ROOT)
-    purger = asyncio.create_task(_purge_loop())
+    tasks = [asyncio.create_task(_purge_loop()), asyncio.create_task(_backup_loop())]
     yield
-    purger.cancel()
-    try:
-        await purger
-    except asyncio.CancelledError:
-        pass
+    for task in tasks:
+        task.cancel()
+    for task in tasks:
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 
 app.router.lifespan_context = lifespan

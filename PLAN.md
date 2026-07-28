@@ -57,42 +57,56 @@ Choosing this now does not foreclose that later.
 
 ## 1. Target architecture
 
+Reflects D9 and D10, decided while building Phase 3 — the backend runs
+natively and cloudflared routes `/api` by path.
+
 ```
                         Cloudflare (free tier)
                         Tunnel + Access + TLS
-   admin.facet.example  ──► 127.0.0.1:9000   facet-control   [Access: you only]
-   alice.facet.example  ──► 127.0.0.1:3101   alice's web     [Access: alice@…]
-   bob.facet.example    ──► 127.0.0.1:3102   bob's web       [Access: bob@…]
+   admin.facet.example       ──► 127.0.0.1:9000   control plane [you only]
+   alice.facet.example/api/* ──► 127.0.0.1:8101   alice backend [alice@…]
+   alice.facet.example/*     ──► 127.0.0.1:3101   alice frontend
+   bob.facet.example/api/*   ──► 127.0.0.1:8102   bob backend   [bob@…]
+   bob.facet.example/*       ──► 127.0.0.1:3102   bob frontend
 
 ╔══════════════ Oracle VM, all processes as user `facet` ══════════════╗
 ║                                                                      ║
 ║  NATIVE (systemd)                                                    ║
 ║    cloudflared.service      no inbound ports open, anywhere          ║
 ║    facet-control.service    admin API + UI                           ║
-║      ├── provisioner        docker compose up/down per user          ║
-║      ├── queue worker       drains jobs, holds flock, runs agy       ║
-║      └── retention sweeper  hourly                                   ║
+║      ├── provisioner        systemd + compose per user               ║
+║      ├── purge loop         expired accounts, daily                  ║
+║      └── backup loop        backup + prune + verify, daily           ║
+║    facet-api@alice.service  uvicorn, calls agy directly              ║
+║    facet-api@bob.service    ditto — contend on the flock             ║
 ║    agy                      binary + ~/.gemini credentials           ║
 ║                                                                      ║
-║  DOCKER (one compose project per user)                               ║
-║    facet-alice_web  :3101→3000    facet-alice_api  :8101→8000        ║
-║    facet-bob_web    :3102→3000    facet-bob_api    :8102→8000        ║
+║  DOCKER (one compose project per user, frontend only)                ║
+║    facet-alice_web  127.0.0.1:3101→3000                              ║
+║    facet-bob_web    127.0.0.1:3102→3000                              ║
 ║                                                                      ║
 ║  /srv/facet/                                                         ║
-║    control.db                 users, jobs, audit  (NEW schema)       ║
-║    users/alice/data/          tracker.db, settings.json, exports/    ║
+║    control.db                 users, audit                           ║
+║    users/alice/data/          tracker.db, queue.db, settings, exports║
 ║    users/alice/workspace/     profile.json, master_resume.md, RULES  ║
-║    jobs/<job_id>/             ephemeral agy scratch, deleted after   ║
-║    backups/                                                          ║
+║    users/alice/data/jobs/     ephemeral agy scratch, swept           ║
+║    backups/  exports/  deleted/                                      ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
-### Why the control plane is native, not containerised
+### Why the backend is native, not containerised
 
 `agy` authenticates against `~/.gemini`, which belongs to a specific OS user
 on a specific host. A container cannot call a host CLI — `.env.example`
-already documents this at length. Rather than fight it, only the control
-plane touches agy; the per-user containers never need it on PATH.
+documents this at length.
+
+Containerising the backend anyway would mean handing agy work back to the
+host: a second queue layer, a remote mode in `run_agy`, and job directories
+mounted into both sides. That is a great deal of machinery to isolate
+instances of the same trusted application from each other. Native, the
+cross-process lock from Phase 1 already serializes every instance against the
+one CLI, and Docker keeps the frontend, where a reproducible node build is
+real value.
 
 The provisioner also needs the Docker socket, which a container would have to
 be given anyway.
@@ -121,30 +135,31 @@ This is the flow that dictates the queue design, so it is worth having
 explicit.
 
 ```
-alice's api container
-   POST /api/tailor  { job_description, … }
-   INSERT INTO jobs (user_id, kind, payload, status='queued')   → /srv/facet/control.db
+alice's backend (native)
+   POST /api/tailor  { job_description, … }      ← routed by path via the tunnel
+   INSERT INTO jobs (kind, payload, status='queued')  → users/alice/data/queue.db
    202 { job_id }
 
 alice's browser
-   GET /api/jobs/<id>  every 2s   (its own row only)
+   GET /api/queue/<id>  every 1.5s   (its own row only)
 
-facet-control worker  (single, holds the flock)
-   claim oldest queued row  (UPDATE … WHERE status='queued' … RETURNING)
-   mkdir /srv/facet/jobs/<id>/
+alice's queue worker  (in-process, one job at a time)
+   claim oldest queued row  (one UPDATE … RETURNING — atomic)
+   mkdir users/alice/data/jobs/<id>/
    copy in: alice's master_resume.md, profile.json, RULES.md
-   write:   job_description.md          ← staged AFTER the lock, in an
-                                          empty dir: the overwrite race
-                                          cannot occur by construction
-   agy -p <instruction> --add-dir /srv/facet/jobs/<id> --mode=accept-edits
-   read /srv/facet/jobs/<id>/tailored_fields.json     ← the response
-   UPDATE jobs SET status='done', result=<json>
-   rm -rf /srv/facet/jobs/<id>/
-
-alice's api container
-   next poll sees status='done'
-   renders PDF/DOCX/cover letter locally (WeasyPrint, no agy needed)
+   write:   job_description.md          ← staged AFTER the flock is held,
+                                          in an empty dir: the overwrite
+                                          race cannot occur by construction
+   agy -p <instruction> --add-dir …/jobs/<id> --mode=accept-edits
+        └─ the flock here is what serializes alice against bob
+   read …/jobs/<id>/tailored_fields.json          ← the response
+   render PDF/DOCX/cover letter (WeasyPrint, no agy)
    INSERT INTO applications
+   UPDATE jobs SET status='done', result=<json>
+   rm -rf …/jobs/<id>/
+
+alice's browser
+   next poll sees status='done' and reads `result`
 ```
 
 Four properties worth noting:
@@ -362,7 +377,7 @@ gigabyte — but exports accumulate forever and nothing currently removes them.
 | `data/exports/*` **referenced** by an `applications` row | never deleted | — |
 | `data/exports/*` **unreferenced** | delete after N days | 30 days |
 | `/srv/facet/jobs/<id>/` | deleted on completion; orphans swept | hourly |
-| `control.db` `jobs` rows | delete completed/failed after N days | 90 days |
+| `queue.db` `jobs` rows (per user) | delete completed/failed after N days | 90 days |
 | `control.db` `audit` rows | never auto-deleted | — |
 | `data/logs/` | already rotating, 2 MB × 5 per user | unchanged |
 | `/srv/facet/deleted/*` | purge after grace period | 30 days |
@@ -675,10 +690,33 @@ next job ran normally, proving the lock released. The old attack — PATCH a
 path, then GET the file — is ignored at the model, and a hostile value forced
 straight into the database returns 404.
 
-### Phase 5 — operational
+### Phase 5 — operational ✅ **shipped 2026-07-29**
 
-systemd units · `VACUUM INTO` backup cron · restore *drill* (an untested
-backup is not a backup) · monitoring · runbook in `docs/`.
+`control/backup.py` (backup, verify, restore, prune) · daily backup + prune +
+verify in the control plane · `deploy/facet-control.service` ·
+`docs/runbook.md` · backup freshness on the dashboard.
+
+**The restore drill is a self-check, not a paragraph.**
+`python -m control.backup` creates an account, fills it, backs it up,
+*destroys* it, restores it, and verifies the rows came back. An untested
+backup is not a backup — so if that stops passing, you find out on a laptop
+rather than on the day you need it.
+
+Every database copy is `VACUUM INTO`, never `cp`: WAL keeps recent writes in
+a sidecar that a plain copy loses. `workspace/` is backed up too — the Stone
+is not in any database, and a backup without it restores an account that has
+lost the thing every resume is cut from.
+
+Guards that fall out of taking restores seriously: a restore refuses while
+the instance is serving (same failure mode as deleting under a live process);
+forcing one *moves* the existing directory aside rather than deleting it, so
+restoring the wrong bundle is itself undoable; and pruning always keeps the
+newest bundle per user regardless of age, because a rule that can leave an
+account with no backup is worse than keeping too much.
+
+Backups are verified after every run — integrity check plus row counts
+against the manifest. The dashboard shows age per user, amber past a day, red
+if never.
 
 ---
 
@@ -800,9 +838,9 @@ here is lost; each line says where it lands.
 
 ### Deferred to Phase 5
 
-- [ ] **Backups**: `VACUUM INTO` on a cron, offsite copy.
-- [ ] **A restore drill.** An untested backup is not a backup.
-- [ ] **Runbook** in `docs/`.
+- [x] ~~**Backups**~~ Shipped in Phase 5: `control/backup.py`, daily, `VACUUM INTO`, pruned, verified after every run.
+- [x] ~~**A restore drill.**~~ Shipped in Phase 5 as a self-check — `python -m control.backup` destroys and restores an account for real.
+- [x] ~~**Runbook**~~ Shipped in Phase 5: `docs/runbook.md`.
 
 ### Needs verification on the target machine, not here
 

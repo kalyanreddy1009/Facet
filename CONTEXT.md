@@ -67,9 +67,14 @@ features — and WeasyPrint's native Pango/Cairo libs — PDF/DOCX export only.
 admin portal and user lifecycle for a multi-user host (`PLAN.md`). Run it
 with `backend/.venv/python.exe -m control.app` → http://127.0.0.1:9000.
 `store.py` owns `control.db` (users, audit), `provision.py` the
-create/suspend/export/delete pipeline, `admin.html` the whole UI as one
-self-contained page. It reads user databases read-only and never writes to
-them.
+create/suspend/export/delete pipeline, `runtime.py` systemd/docker command
+building, `cloudflare.py` tunnel ingress + Access, `backup.py` backup/verify/
+restore, `admin.html` the whole UI as one self-contained page. It reads user
+databases read-only and never writes to them.
+
+`python -m control.backup` is the **restore drill**: it creates an account,
+fills it, backs it up, destroys it, restores it and checks the rows came
+back. An untested backup is not a backup, so it runs like any other check.
 - `docgen.py` — profile + tailored fields → resume PDF/DOCX + cover letter PDF.
 - `scheduler.py` — 6-hour poll of every source, first pull ~10s after launch.
 - `health.py` — every `/status` check, executed for real, no caching.
@@ -199,6 +204,7 @@ backend/.venv/python.exe -m routers.tracker          # export path boundary
 backend/.venv/python.exe -m control.provision        # full user lifecycle, temp root
 backend/.venv/python.exe -m control.runtime          # systemd/docker command building
 backend/.venv/python.exe -m control.cloudflare       # ingress + Access config
+backend/.venv/python.exe -m control.backup           # the restore drill
 backend/.venv/python.exe -m services.job_sources     # parsing, offline
 backend/.venv/python.exe -m services.matching        # scoring
 backend/.venv/python.exe -m services.logging_setup   # ring buffer + metrics

@@ -2,6 +2,46 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — Phase 5: backups, and the drill that proves them
+
+`control/backup.py` — backup, verify, restore, prune — plus a daily loop in
+the control plane, `deploy/facet-control.service`, `docs/runbook.md`, and
+backup freshness on the dashboard.
+
+**The restore drill is a self-check, not a paragraph in a runbook.**
+`python -m control.backup` creates an account, fills it with applications,
+postings, exports and a Stone, backs it up, **destroys the instance**,
+restores it, and verifies the rows came back. An untested backup is not a
+backup — so if that stops passing you find out on a laptop, not on the day
+you need it. Written in Python rather than shell precisely so it could be
+run here.
+
+Every database copy is `VACUUM INTO`, never `cp`: WAL keeps recent writes in
+a sidecar that a plain copy loses — measured once on this project as 906 rows
+against a live 1,166. `workspace/` is backed up too; the Stone is not in any
+database, and a backup without it restores an account that has lost the thing
+every resume is cut from.
+
+Guards that fall out of taking restores seriously:
+
+- A restore **refuses while the instance is serving** — the same failure mode
+  as deleting under a live process, and it ends the same way.
+- Forcing one **moves the existing directory aside** rather than deleting it,
+  so restoring the wrong bundle is itself undoable.
+- Pruning **always keeps the newest bundle per user** regardless of age. A
+  rule that can leave an account with no backup at all is worse than keeping
+  too much.
+- Bundles are **verified after every run** — SQLite integrity check plus row
+  counts against the manifest. A corrupt or tampered bundle fails
+  verification rather than being discovered during a restore.
+
+The dashboard shows backup age per user: amber past a day, red if never.
+A backup system nobody looks at is one that stopped working three weeks ago.
+
+`docs/runbook.md` covers the failure modes by symptom, including a section on
+things that look wrong but are working as designed — a queue with people
+waiting, steps reported `manual`, delete refusing while an instance serves.
+
 ## 2026-07-28 — Phase 4: hardening and retention
 
 **The arbitrary-read primitive is closed, at two layers.** `resume_path`,

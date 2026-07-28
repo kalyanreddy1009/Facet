@@ -149,6 +149,21 @@
   </section>
 
   <section>
+    <h2>Backups</h2>
+    <div class="panel"><div class="scroll"><table>
+      <thead><tr><th>User</th><th>Latest</th><th>Age</th><th>Size</th><th>Kept</th></tr></thead>
+      <tbody id="backups"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table></div>
+    <div class="panel-pad row" style="border-top:1px solid var(--border)">
+      <button class="sm" onclick="backupNow_()">Back up now</button>
+      <button class="sm" onclick="verifyBackups_()">Verify restorability</button>
+      <span class="faint" id="backup-note">Daily, then pruned. Verified after every run —
+        an unverified backup is only a file. Restore drill:
+        <span class="mono">python -m control.backup</span></span>
+    </div></div>
+  </section>
+
+  <section>
     <h2>Retention</h2>
     <div class="panel"><div class="scroll"><table>
       <thead><tr><th>User</th><th>Would free</th><th>Kept (attached)</th><th>Disk used</th><th>Quota</th></tr></thead>
@@ -241,6 +256,29 @@ window.suspend_ = (id) => act(id, "suspend");
 window.resume_ = (id) => act(id, "resume");
 window.undelete_ = (id) => act(id, "undelete");
 window.reprovision_ = (id) => act(id, "provision");
+window.backupNow_ = async () => {
+  $("backup-note").textContent = "Backing up…";
+  try {
+    const out = await call("/api/backups", { method: "POST" });
+    const failed = Object.keys(out.failed || {});
+    $("backup-note").textContent = failed.length
+      ? `${out.ok.length} backed up, failed: ${failed.join(", ")}`
+      : `${out.ok.length} backed up.`;
+    await refresh();
+  } catch (err) { fail(err); }
+};
+
+window.verifyBackups_ = async () => {
+  $("backup-note").textContent = "Verifying…";
+  try {
+    const out = await call("/api/backups/verify", { method: "POST" });
+    const bad = out.reports.filter((r) => !r.ok);
+    $("backup-note").textContent = out.all_ok
+      ? `All ${out.reports.length} restorable — integrity and row counts match.`
+      : bad.map((r) => `${r.slug}: ${(r.problems || []).join("; ")}`).join(" · ");
+  } catch (err) { fail(err); }
+};
+
 window.export_ = async (id) => {
   try {
     const out = await call(`/api/users/${id}/export`, { method: "POST" });
@@ -289,10 +327,10 @@ function userRow(u) {
 
 async function refresh() {
   try {
-    const [users, storage, queue, audit, health, retention] = await Promise.all([
+    const [users, storage, queue, audit, health, retention, backups] = await Promise.all([
       call("/api/users?include_deleted=true"), call("/api/storage"),
       call("/api/queue"), call("/api/audit?limit=25"), call("/api/health"),
-      call("/api/retention"),
+      call("/api/retention"), call("/api/backups"),
     ]);
     $("root").textContent = health.host_root;
 
@@ -334,6 +372,22 @@ async function refresh() {
       <div class="stat"><div class="n mono">${reasons.reduce((a, [, n]) => a + n, 0)}</div>
         <div class="l">Failures</div>
         ${reasons.length ? `<div class="faint" style="margin-top:6px">${reasons.map(([k, n]) => `${esc(k)} ×${n}`).join("<br>")}</div>` : ""}</div>`;
+
+    // Age is the only number that matters here: a backup system nobody looks
+    // at is one that stopped working three weeks ago. Over a day is amber,
+    // never-backed-up is red.
+    $("backups").innerHTML = (backups.users || []).length
+      ? backups.users.map((b) => {
+          const tone = b.latest === null ? "danger" : b.age_hours > 26 ? "warn" : "ok";
+          const label = b.latest === null ? "never" : `${b.age_hours}h ago`;
+          return `<tr>
+            <td class="mono">${esc(b.slug)}</td>
+            <td class="mono faint">${esc(b.latest || "—")}</td>
+            <td><span class="badge ${tone}">${label}</span></td>
+            <td class="mono faint">${bytes(b.bytes)}</td>
+            <td class="mono faint">${b.count}</td></tr>`;
+        }).join("")
+      : `<tr><td colspan="5" class="empty">No users yet.</td></tr>`;
 
     const jobRows = queue.jobs || [];
     $("retention").innerHTML = (retention.users || []).length
