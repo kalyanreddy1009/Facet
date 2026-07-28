@@ -154,32 +154,59 @@ def _claim() -> dict | None:
 def _finish(job_id: int, status: str, result: dict | None, error: str | None,
             error_kind: str | None) -> None:
     conn = _connect()
+    # Only a job still marked running may be finished. A cancel sets the row
+    # to `cancelled` and *then* the agy process dies, so the handler raises a
+    # moment later — without this guard that late failure would overwrite the
+    # cancellation and the row would read `failed` for something the user
+    # deliberately stopped.
     conn.execute(
         "UPDATE jobs SET status = ?, result = ?, error = ?, error_kind = ?, "
-        "finished_at = ? WHERE id = ?",
+        f"finished_at = ? WHERE id = ? AND status = '{RUNNING}'",
         (status, json.dumps(result) if result is not None else None,
          error, error_kind, time.time(), job_id),
     )
     conn.commit()
 
 
-def _cancel(job_id: int) -> bool:
-    """Only a job that hasn't started can be cancelled.
+def _cancel(job_id: int) -> tuple[bool, str]:
+    """Cancel a job, queued or running.
 
-    A running job means an agy subprocess is mid-flight; killing it cleanly
-    is the admin dashboard's problem (PLAN.md Phase 4), not something to fake
-    here by marking a row cancelled while the process keeps running.
+    A queued job is simply marked. A running one means an agy subprocess is
+    in flight, so the process tree is stopped first and the row is marked
+    only if that succeeded — reporting a job cancelled while the process
+    keeps burning the CLI would be a lie the rest of the system has to live
+    with.
     """
     conn = _connect()
-    cur = conn.execute(
-        "UPDATE jobs SET status = ?, finished_at = ? WHERE id = ? AND status = ?",
-        (CANCELLED, time.time(), job_id, QUEUED),
+    row = conn.execute("SELECT status, worker_pid FROM jobs WHERE id = ?",
+                       (job_id,)).fetchone()
+    if row is None:
+        return False, "no such job"
+    if row["status"] in TERMINAL:
+        return False, f"already {row['status']}"
+
+    if row["status"] == RUNNING:
+        if row["worker_pid"] != os.getpid():
+            # Another process owns that subprocess and we cannot signal it
+            # from here. Refuse rather than mark a row for work that carries
+            # on regardless.
+            return False, f"running in another process (pid {row['worker_pid']})"
+
+        from services.agy_runner import terminate_current  # avoids a cycle
+
+        if not terminate_current(f"job {job_id} cancelled"):
+            return False, "the run has already finished"
+
+    conn.execute(
+        "UPDATE jobs SET status = ?, error = ?, error_kind = ?, finished_at = ? "
+        "WHERE id = ?",
+        (CANCELLED, "Cancelled.", "cancelled", time.time(), job_id),
     )
     conn.commit()
-    return cur.rowcount > 0
+    return True, "cancelled"
 
 
-async def cancel(job_id: int) -> bool:
+async def cancel(job_id: int) -> tuple[bool, str]:
     return await _run(_cancel, job_id)
 
 
@@ -308,6 +335,67 @@ async def stats() -> dict:
     return await _run(_stats)
 
 
+def _percentile(values: list[float], fraction: float) -> float | None:
+    """Nearest-rank percentile. No numpy for two numbers on a dashboard."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    index = min(len(ordered) - 1, max(0, round(fraction * len(ordered)) - 1))
+    return round(ordered[index], 1)
+
+
+def _metrics(days: int) -> dict:
+    """How long people wait, how long runs take, and why they fail.
+
+    Failure reasons are bucketed rather than counted together because the
+    buckets have genuinely different fixes: `timeout` means agy is slow or
+    wedged, `agy_missing` means PATH, `no_output_file` almost always means
+    --add-dir. "3 failures" is noise; "3 failures, all no_output_file" points
+    straight at the cause.
+    """
+    conn = _connect()
+    since = time.time() - days * 86400
+
+    waits, runs = [], []
+    for row in conn.execute(
+        "SELECT queued_at, started_at, finished_at FROM jobs "
+        "WHERE started_at IS NOT NULL AND queued_at >= ?", (since,)
+    ):
+        waits.append(row["started_at"] - row["queued_at"])
+        if row["finished_at"]:
+            runs.append(row["finished_at"] - row["started_at"])
+
+    reasons = {
+        row["error_kind"]: row["n"]
+        for row in conn.execute(
+            "SELECT error_kind, COUNT(*) AS n FROM jobs "
+            f"WHERE status = '{FAILED}' AND queued_at >= ? AND error_kind IS NOT NULL "
+            "GROUP BY error_kind ORDER BY n DESC", (since,)
+        )
+    }
+    completed = conn.execute(
+        f"SELECT COUNT(*) FROM jobs WHERE status IN ('{DONE}', '{FAILED}') "
+        "AND queued_at >= ?", (since,)
+    ).fetchone()[0]
+    failed = sum(reasons.values())
+
+    return {
+        "window_days": days,
+        "completed": completed,
+        "failed": failed,
+        "failure_rate": round(failed / completed, 3) if completed else 0.0,
+        "wait_p50": _percentile(waits, 0.50),
+        "wait_p95": _percentile(waits, 0.95),
+        "run_p50": _percentile(runs, 0.50),
+        "run_p95": _percentile(runs, 0.95),
+        "failure_reasons": reasons,
+    }
+
+
+async def metrics(days: int = 30) -> dict:
+    return await _run(_metrics, days)
+
+
 # ------------------------------------------------------------------ worker
 
 # Handlers receive the whole job, not just the payload — they need `id` to
@@ -353,9 +441,12 @@ async def _execute(job: dict, handlers: dict[str, Handler]) -> None:
     try:
         result = await handler(job)
     except asyncio.CancelledError:
-        # Shutdown. Record it rather than leaving the row `running` for
-        # reconcile() to find on the next boot — the user gets a real message
-        # now instead of a spinner until restart.
+        # Shutdown. Stop agy too — the handler runs in an executor thread
+        # that cancellation does not reach, so without this the subprocess
+        # outlives the process that started it and keeps holding the CLI.
+        from services.agy_runner import terminate_current
+
+        terminate_current("shutting down")
         await _run(_finish, job_id, FAILED, None,
                    "Cancelled — Facet shut down while this was running.", "interrupted")
         raise
@@ -376,8 +467,10 @@ def _describe(exc: Exception) -> tuple[str, str]:
     or wedged, `agy_missing` means PATH, `no_output_file` almost always means
     --add-dir. Lumping them together throws away the diagnosis.
     """
-    from services.agy_runner import AgyError  # local: avoids an import cycle
+    from services.agy_runner import AgyCancelled, AgyError  # local: avoids a cycle
 
+    if isinstance(exc, AgyCancelled):
+        return "Cancelled.", "cancelled"
     if isinstance(exc, AgyError):
         message = f"{exc.message} — {exc.hint}" if exc.hint else exc.message
         lowered = f"{exc.message} {exc.hint}".lower()
@@ -411,9 +504,11 @@ def demo() -> None:
         assert (await stats())["queued"] == 2
 
         # Cancelling a queued job works and moves the one behind it forward.
-        assert await cancel(b) is True
+        assert (await cancel(b))[0] is True
         assert (await get(b))["status"] == CANCELLED
-        assert await cancel(b) is False, "cancelling twice must not re-cancel"
+        again, reason = await cancel(b)
+        assert again is False and "already cancelled" in reason, reason
+        assert (await cancel(9999))[0] is False, "unknown job cannot be cancelled"
 
         # A handler's return value lands on the row as the result, and it is
         # handed the whole job so it can use the id.
@@ -447,6 +542,25 @@ def demo() -> None:
         await _execute(await _run(_claim), {"tailor": ok})
         assert (await get(d))["error_kind"] == "no_handler"
 
+        # A cancel that lands while the handler is still running must win.
+        # The handler fails a moment later — the process it was waiting on
+        # was just killed — and that late failure must not overwrite the
+        # cancellation, or a deliberate stop would read as an error.
+        late = await enqueue("tailor", {})
+        job = await _run(_claim)
+
+        async def cancels_itself(j):
+            conn = _connect()
+            conn.execute("UPDATE jobs SET status = ?, error_kind = ? WHERE id = ?",
+                         (CANCELLED, "cancelled", j["id"]))
+            conn.commit()
+            raise RuntimeError("agy was killed")
+
+        await _execute(job, {"tailor": cancels_itself})
+        finished_late = await get(late)
+        assert finished_late["status"] == CANCELLED, finished_late
+        assert finished_late["error_kind"] == "cancelled", finished_late
+
         # reconcile() rescues rows stranded by a dead process, and leaves
         # rows belonging to a live one alone.
         e = await enqueue("tailor", {})
@@ -461,6 +575,21 @@ def demo() -> None:
         f = await enqueue("tailor", {})
         await _run(_claim)  # worker_pid is this live process
         assert await reconcile() == 1, "own-pid rows are stale too after a restart"
+
+        # Metrics: percentiles, and failures bucketed by cause.
+        stats_now = await metrics(30)
+        assert stats_now["completed"] >= 2, stats_now
+        assert stats_now["failed"] >= 1, stats_now
+        assert stats_now["failure_reasons"].get("internal") == 1, stats_now
+        assert stats_now["run_p50"] is not None and stats_now["run_p50"] >= 0
+        assert 0 <= stats_now["failure_rate"] <= 1, stats_now
+        # A window that excludes everything reports zeroes, not a crash.
+        assert (await metrics(0))["completed"] == 0
+
+        assert _percentile([], 0.5) is None
+        assert _percentile([1.0], 0.5) == 1.0
+        assert _percentile([1.0, 2.0, 3.0, 4.0], 0.5) == 2.0
+        assert _percentile([1.0, 2.0, 3.0, 4.0], 0.95) == 4.0
 
         # Failure bucketing maps agy's errors to actionable causes.
         from services.agy_runner import AgyError

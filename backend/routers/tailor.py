@@ -156,6 +156,12 @@ async def run_tailor_job(job: dict) -> dict:
     resume_docx_path.write_bytes(docx_bytes)
     cover_letter_path.write_bytes(letter_pdf_bytes)
 
+    # Stored as bare filenames, resolved against EXPORTS_DIR when served.
+    # An absolute path pins a row to one machine's directory layout, which
+    # breaks the moment an instance's data directory moves — exactly what
+    # provisioning and account import do. Rows written before this change
+    # hold absolute paths and still resolve; see tracker.resolve_export.
+
     ats_score = tailored_fields.get("match_score")
     row_fields = dict(
         company=body.company,
@@ -163,9 +169,9 @@ async def run_tailor_job(job: dict) -> dict:
         target_role=body.target_role,
         job_description=body.job_description,
         ats_score=ats_score,
-        resume_path=str(resume_pdf_path),
-        docx_path=str(resume_docx_path),
-        cover_letter_path=str(cover_letter_path),
+        resume_path=resume_pdf_path.name,
+        docx_path=resume_docx_path.name,
+        cover_letter_path=cover_letter_path.name,
         recruiter_summary=tailored_fields.get("recruiter_summary"),
         job_url=body.job_url,
     )

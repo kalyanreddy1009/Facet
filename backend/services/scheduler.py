@@ -1,6 +1,7 @@
 """APScheduler job registration — polls subscribed feeds and the calendar
-secret feed, both daily (Sections 9 and 10)."""
+secret feed, and sweeps retention daily (Sections 9 and 10)."""
 
+import logging
 from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -8,7 +9,31 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from services.calendar_sync import run_calendar_sync
 from services.feed_ingest import run_feed_ingest
 
+logger = logging.getLogger("facet.scheduler")
+
 _scheduler = BackgroundScheduler()
+
+
+def run_retention_sweep() -> None:
+    """Daily housekeeping. Never touches workspace/ or tracker.db.
+
+    Wrapped in its own try/except: a failing sweep must not take the
+    scheduler's other jobs down with it, and reclaiming space is never worth
+    interrupting the app over.
+    """
+    from services import retention
+
+    try:
+        result = retention.sweep_all(dry_run=False)
+        removed = len(result["exports"]["removed"])
+        if removed or result["jobs"]["removed"]:
+            logger.info("[Facet] retention: %s export(s), %s job row(s) removed",
+                        removed, result["jobs"]["removed"])
+        if result["usage"]["over_quota"]:
+            logger.warning("[Facet] over the soft quota: %s bytes of %s (warning only)",
+                           result["usage"]["total"], result["usage"]["quota"])
+    except Exception:
+        logger.exception("[Facet] retention sweep failed")
 
 
 def start_scheduler():
@@ -34,6 +59,19 @@ def start_scheduler():
             hours=24,
             id="calendar_sync_daily",
             replace_existing=True,
+        )
+
+        # Daily retention sweep. Only ever removes unreferenced exports and
+        # aged-out job rows — anything attached to an application is part of
+        # the user's record and is never touched. See services/retention.py.
+        _scheduler.add_job(
+            run_retention_sweep,
+            "interval",
+            hours=24,
+            id="retention_daily",
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
         )
         _scheduler.start()
 

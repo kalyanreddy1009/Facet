@@ -644,16 +644,36 @@ before moving anything.
 *Done when:* a second real person logs in at their own hostname and cuts a
 facet that queues behind yours.
 
-### Phase 4 — retention and polish
+### Phase 4 — hardening and retention ✅ **shipped 2026-07-28**
 
-Sweeper · quotas · export bundles · soft delete with grace period · dashboard
-metrics · **the `resume_path` hardening deferred from Phase 1** (must land
-before Phase 3 goes public) · **process-tree teardown**, which gives both
-cancel-a-running-job and clean shutdown of an in-flight agy run.
+The `resume_path` hardening · process-tree teardown · cancel a running job ·
+retention sweeper · quotas · dashboard metrics and failure buckets.
 
-Failure-reason bucketing (`timeout`, `agy_missing`, `no_output_file`,
-`bad_json`, `interrupted`, `internal`) already ships in Phase 1 — the
-dashboard just needs to display it.
+**The arbitrary-read primitive is closed at two layers.** The three path
+columns are gone from `ApplicationUpdate`, so a client cannot set them; and
+`resolve_export` re-resolves whatever the database holds against
+`EXPORTS_DIR` and refuses anything outside it. Either layer alone would do;
+both means a bad row from any source still cannot escape. The pipeline now
+stores bare filenames, which also stops a row pinning itself to one
+machine's directory layout — exactly what provisioning and import move.
+
+**Process-tree teardown resolved three open items at once.** agy runs under
+`Popen` in its own process group (POSIX) or killed with `taskkill /T`
+(Windows), so cancelling stops agy *and its children*. That is what made
+cancel-a-running-job real, what stops the subprocess outliving a shutdown,
+and what closes the orphaned-scratch-directory case from Phase 1.
+
+**Retention only deletes what is provably unreferenced.** An export attached
+to an `applications` row is part of the record and is never touched, at any
+age. It fails closed: a missing or unreadable database keeps everything.
+Quotas warn and never delete — deleting under disk pressure is how you lose
+the file you meant to keep.
+
+*Verified with real agy:* a running job cancelled mid-flight left zero agy
+processes, a `cancelled` row (not `failed`), and no scratch directory; the
+next job ran normally, proving the lock released. The old attack — PATCH a
+path, then GET the file — is ignored at the model, and a hostile value forced
+straight into the database returns 404.
 
 ### Phase 5 — operational
 
@@ -762,24 +782,12 @@ here is lost; each line says where it lands.
 
 ### Deferred to Phase 4, with the reason
 
-- [ ] **`resume_path` hardening.** `ApplicationUpdate` accepts
-  `resume_path`/`docx_path`/`cover_letter_path` from the client and
-  `_serve_application_file` does `Path(...).read_bytes()` on the result — an
-  arbitrary-read primitive. Not cross-user exploitable under D1, but **must
-  land before Phase 3 exposes anything publicly.**
-- [ ] **Cancel a running job.** Currently refused with 409 rather than faked.
-  Needs process-tree teardown.
-- [ ] **Process-tree teardown on shutdown.** Same machinery. Today a
-  graceful stop leaves the agy subprocess running to completion.
-- [ ] **agy grandchild orphan directory.** A hard kill can leave agy alive
-  long enough to recreate its scratch directory after the startup sweep. One
-  empty directory, removed on the next boot. Same root cause as the two
-  above.
-- [ ] **Retention sweeper**: unreferenced exports, `jobs` rows, expired
-  purges, per-user quota warnings.
-- [ ] **Dashboard display of failure buckets.** The buckets (`timeout`,
-  `agy_missing`, `no_output_file`, `bad_json`, `interrupted`, `internal`)
-  already ship; only the display is missing.
+- [x] ~~**`resume_path` hardening.**~~ Closed in Phase 4 at two layers: the columns are gone from `ApplicationUpdate`, and `resolve_export` re-resolves against `EXPORTS_DIR`.
+- [x] ~~**Cancel a running job.**~~ Shipped in Phase 4 — the agy process tree is killed first, and the row is only marked once that succeeded.
+- [x] ~~**Process-tree teardown on shutdown.**~~ Shipped in Phase 4.
+- [x] ~~**agy grandchild orphan directory.**~~ Closed by the same teardown work.
+- [x] ~~**Retention sweeper**~~ Shipped in Phase 4, fail-closed.
+- [x] ~~**Dashboard display of failure buckets.**~~ Shipped in Phase 4.
 
 ### Deferred to Phase 3
 

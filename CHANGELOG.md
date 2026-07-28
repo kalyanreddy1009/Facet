@@ -2,6 +2,54 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-28 — Phase 4: hardening and retention
+
+**The arbitrary-read primitive is closed, at two layers.** `resume_path`,
+`docx_path` and `cover_letter_path` are gone from `ApplicationUpdate`, so a
+client cannot set them; and `resolve_export` re-resolves whatever the
+database holds against `EXPORTS_DIR` and refuses anything outside it. Either
+layer alone would do. Both means a bad value arriving from *any* source —
+including a row written before this change — still cannot escape.
+
+The pipeline now stores bare filenames rather than absolute paths. Besides
+being the safer input, it stops a row pinning itself to one machine's
+directory layout, which is exactly what provisioning and account import move.
+Rows holding old absolute paths still resolve.
+
+**Process-tree teardown closed three open items at once.** agy runs under
+`Popen`, in its own process group on POSIX and killed with `taskkill /T` on
+Windows, so stopping a run kills agy *and everything it spawned*. That made
+cancel-a-running-job real, stopped the subprocess outliving a shutdown, and
+closed the orphaned-scratch-directory case left over from Phase 1 — all the
+same root cause.
+
+Cancelling now works on a running job: the process tree is stopped first and
+the row is marked only if that succeeded. Reporting a job cancelled while the
+process keeps burning the CLI would be a lie the rest of the system has to
+live with. A late failure from the killed process can no longer overwrite the
+cancellation, so a deliberate stop reads as `cancelled`, never `failed`.
+
+**Retention only removes what is provably unreferenced.** An export attached
+to an `applications` row is part of the record and is never touched, whatever
+its age; an export from an abandoned cut is scratch. Runs daily, dry-run
+capable, and `GET /api/retention` previews it. Quotas warn and never delete —
+deleting under disk pressure is how you lose the file you meant to keep.
+
+A bug the self-check caught while writing it: a *missing* `tracker.db` made
+`referenced_exports` return an empty set, which reads as "nothing is
+referenced" and would have swept every export the user had. It now fails
+closed — an absent or unreadable database keeps everything.
+
+**Dashboard** gains queue metrics (wait/run p50 and p95) and failure reasons
+bucketed by cause, plus a retention panel. "3 failures" is noise; "3 failures,
+all `no_output_file`" points straight at `--add-dir`.
+
+Verified with real agy against a throwaway data directory: a running job
+cancelled mid-flight left zero agy processes, a `cancelled` row, and no
+scratch directory; the next job ran normally, proving the lock released
+cleanly. The old attack — PATCH a path then GET the file — is ignored at the
+model, and a hostile value forced directly into the database returns 404.
+
 ## 2026-07-28 — Phase 3: host runtime and Cloudflare
 
 Provisioning now goes all the way to a routed, access-controlled instance:

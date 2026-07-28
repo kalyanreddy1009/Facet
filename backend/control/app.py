@@ -14,9 +14,11 @@ Until Phase 3 wires that up, the loopback bind *is* the boundary. Do not
 expose this port.
 """
 
+import asyncio
 import logging
 import os
 import sqlite3
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -293,13 +295,108 @@ async def queue():
         finally:
             conn.close()
     rows.sort(key=lambda r: r["queued_at"], reverse=True)
-    return rows
+
+    # Aggregate here rather than in the page: the buckets are the diagnosis,
+    # and computing them once server-side keeps the portal a renderer.
+    waits = [r["started_at"] - r["queued_at"] for r in rows if r["started_at"]]
+    runs = [r["finished_at"] - r["started_at"]
+            for r in rows if r["started_at"] and r["finished_at"]]
+    buckets: dict[str, int] = {}
+    for row in rows:
+        if row["status"] == "failed" and row["error_kind"]:
+            buckets[row["error_kind"]] = buckets.get(row["error_kind"], 0) + 1
+
+    def pct(values: list[float], fraction: float) -> float | None:
+        if not values:
+            return None
+        ordered = sorted(values)
+        return round(ordered[min(len(ordered) - 1,
+                                 max(0, round(fraction * len(ordered)) - 1))], 1)
+
+    return {
+        "jobs": rows,
+        "metrics": {
+            "wait_p50": pct(waits, 0.50), "wait_p95": pct(waits, 0.95),
+            "run_p50": pct(runs, 0.50), "run_p95": pct(runs, 0.95),
+            "failure_reasons": dict(sorted(buckets.items(), key=lambda kv: -kv[1])),
+            "total": len(rows),
+        },
+    }
 
 
-@app.on_event("startup")
-async def startup():
+@app.get("/api/retention")
+async def retention_overview():
+    """What a sweep would remove across every instance, plus quota status.
+
+    Always a dry run. `removed` here is a preview, and each instance's own
+    scheduler does the actual sweeping — the control plane reads user data,
+    it does not write to it.
+    """
+    from services import retention
+
+    rows = []
+    for user in store.list_users():
+        paths = store.user_paths(user["slug"])
+        exports = retention.sweep_exports(
+            dry_run=True, db_path=paths["tracker_db"], exports_dir=paths["exports"],
+        )
+        usage = retention.usage(paths["data"], paths["workspace"])
+        rows.append({
+            "slug": user["slug"], "email": user["email"],
+            "would_remove": len(exports["removed"]),
+            "would_free": exports["bytes"],
+            "kept_referenced": exports["kept_referenced"],
+            "error": exports.get("error"),
+            "usage": usage,
+        })
+
+    pending = [
+        {"email": u["email"], "purge_after": u["purge_after"]}
+        for u in store.list_users(include_deleted=True)
+        if u["status"] == store.DELETED
+    ]
+    return {"users": rows, "pending_purge": pending,
+            "grace_days": provision.PURGE_GRACE_SECONDS // 86400}
+
+
+@app.post("/api/retention/purge")
+async def run_purge(request: Request):
+    """Purge accounts whose grace period has expired.
+
+    Runs daily on its own; exposed so it can be triggered deliberately. It
+    refuses anything still inside its window — see provision.purge_expired.
+    """
+    purged = provision.purge_expired(actor(request))
+    return {"purged": purged}
+
+
+async def _purge_loop():
+    """Daily. The only scheduled task that destroys anything, and it only
+    ever touches accounts already past their grace period."""
+    while True:
+        await asyncio.sleep(24 * 3600)
+        try:
+            purged = provision.purge_expired("retention")
+            if purged:
+                logger.info("[Facet] purged %s expired account(s)", len(purged))
+        except Exception:
+            logger.exception("[Facet] purge sweep failed")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     store.init_control_db()
     logger.info("[Facet] control plane ready — host root %s", store.HOST_ROOT)
+    purger = asyncio.create_task(_purge_loop())
+    yield
+    purger.cancel()
+    try:
+        await purger
+    except asyncio.CancelledError:
+        pass
+
+
+app.router.lifespan_context = lifespan
 
 
 def main() -> None:

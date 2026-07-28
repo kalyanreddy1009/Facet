@@ -14,9 +14,25 @@ router = APIRouter()
 
 @router.get("/api/queue")
 async def queue_overview(limit: int = 20):
-    """Counts plus the tail of recent work. The admin dashboard's data source
-    (PLAN.md Phase 4); useful on its own for "is anything stuck"."""
-    return {"stats": await jobs.stats(), "recent": await jobs.recent(limit)}
+    """Counts, timing, failure reasons, and the tail of recent work."""
+    recent = await jobs.recent(limit)
+    return {
+        "stats": await jobs.stats(),
+        "metrics": await jobs.metrics(),
+        "recent": recent,
+    }
+
+
+@router.get("/api/retention")
+async def retention_preview():
+    """What a sweep *would* remove, plus current disk usage.
+
+    Always a dry run. Seeing the list before anything is deleted is the point
+    — and the daily sweep runs on its own schedule regardless.
+    """
+    from services import retention
+
+    return retention.sweep_all(dry_run=True)
 
 
 @router.get("/api/queue/{job_id}")
@@ -29,19 +45,18 @@ async def job_status(job_id: int):
 
 @router.delete("/api/queue/{job_id}")
 async def cancel_job(job_id: int):
-    """Cancel a job that hasn't started.
+    """Cancel a job, queued or running.
 
-    A running job means an agy subprocess is already in flight; reporting it
-    cancelled while the process keeps going would be a lie the rest of the
-    system has to live with. Killing it properly is Phase 4.
+    A running job has an agy subprocess in flight; it is stopped — the whole
+    process tree, since agy spawns its own children — and the row is only
+    marked once that succeeded. A job that cannot actually be stopped reports
+    409 with the reason rather than claiming success.
     """
     job = await jobs.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="No such job")
 
-    if not await jobs.cancel(job_id):
-        raise HTTPException(
-            status_code=409,
-            detail=f"Job is {job['status']} and can no longer be cancelled",
-        )
+    cancelled, reason = await jobs.cancel(job_id)
+    if not cancelled:
+        raise HTTPException(status_code=409, detail=f"Cannot cancel: {reason}")
     return {"cancelled": True}

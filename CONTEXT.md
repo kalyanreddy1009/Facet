@@ -58,6 +58,10 @@ features — and WeasyPrint's native Pango/Cairo libs — PDF/DOCX export only.
   operational state that can be truncated vs. the user's record.
 - `filelock.py` — portable advisory lock (`fcntl` / `msvcrt`), so agy stays
   serialized across processes rather than just across coroutines.
+- `retention.py` — daily sweep. Only ever removes **unreferenced** exports
+  and aged-out job rows; anything attached to an `applications` row is part
+  of the record and is never touched. Fails closed: an unreadable or missing
+  database keeps everything. Quotas warn, never delete.
 
 **`backend/control/`** is a second entrypoint, not a second project: the
 admin portal and user lifecycle for a multi-user host (`PLAN.md`). Run it
@@ -80,8 +84,9 @@ them.
   restore`, `GET/PUT /settings`. `GET /rough` is a legacy plain ranked list.
 - `tailor.py` — `POST /tailor` validates and returns **202 + `job_id`**; the
   pipeline runs on the queue. `run_tailor_job` is the handler.
-- `queue.py` — `GET /queue` (stats + recent), `GET /queue/{id}` (poll this),
-  `DELETE /queue/{id}` (cancels only a job that hasn't started).
+- `queue.py` — `GET /queue` (stats, metrics, recent), `GET /queue/{id}` (poll
+  this), `DELETE /queue/{id}` (cancels queued *or* running — a running job
+  has its agy process tree killed first), `GET /retention` (dry-run preview).
 - `resume.py` — `/profile`, `/resume/import`, `/resume/master` (GET+POST),
   `/resume/extraction-status`.
 - `tracker.py` — applications/contacts/interviews CRUD, `/dashboard/summary`,
@@ -189,7 +194,11 @@ backend/.venv/python.exe -m services.paths           # path resolution + env ove
 backend/.venv/python.exe -m services.filelock        # cross-process exclusion (spawns a child)
 backend/.venv/python.exe -m services.jobs            # queue, claiming, reconciliation
 backend/.venv/python.exe -m services.agy_runner      # per-job input staging
+backend/.venv/python.exe -m services.retention       # sweeps, quotas, fail-closed
+backend/.venv/python.exe -m routers.tracker          # export path boundary
 backend/.venv/python.exe -m control.provision        # full user lifecycle, temp root
+backend/.venv/python.exe -m control.runtime          # systemd/docker command building
+backend/.venv/python.exe -m control.cloudflare       # ingress + Access config
 backend/.venv/python.exe -m services.job_sources     # parsing, offline
 backend/.venv/python.exe -m services.matching        # scoring
 backend/.venv/python.exe -m services.logging_setup   # ring buffer + metrics

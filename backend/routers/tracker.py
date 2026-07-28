@@ -8,6 +8,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from services import db
+from services.paths import EXPORTS_DIR
 
 router = APIRouter()
 
@@ -32,14 +33,24 @@ class ApplicationUpdate(BaseModel):
     target_role: Optional[str] = None
     job_description: Optional[str] = None
     ats_score: Optional[int] = None
-    resume_path: Optional[str] = None
-    docx_path: Optional[str] = None
-    cover_letter_path: Optional[str] = None
     recruiter_summary: Optional[str] = None
     status: Optional[str] = None
     job_url: Optional[str] = None
     company_domain: Optional[str] = None
     notes: Optional[str] = None
+
+    # resume_path / docx_path / cover_letter_path are deliberately absent.
+    #
+    # They used to be accepted here, and `_serve_application_file` read
+    # whatever they contained straight off disk — so a client could PATCH a
+    # path and then GET the file, reading anything the service user could.
+    # Harmless on a laptop reading your own files; an arbitrary-read
+    # primitive on a host serving other people.
+    #
+    # Only the cutting pipeline writes these, server-side, with names it
+    # generated itself. A client has no legitimate reason to set them, and
+    # pydantic ignores unknown fields, so an old client sending them is
+    # simply ignored rather than broken.
 
 
 @router.post("/api/applications")
@@ -219,6 +230,34 @@ async def update_interview(interview_id: int, body: InterviewUpdate):
 _DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
+def resolve_export(stored: str) -> Path | None:
+    """Turn a stored path into a real file inside this instance's exports.
+
+    Everything served here must live under `EXPORTS_DIR`, whatever the
+    database says. Accepts both forms:
+
+    - a bare filename, which is what the pipeline writes now, so an instance
+      keeps working when its data directory moves;
+    - an absolute path, which is what rows written before this change hold.
+
+    Either way the result is resolved and checked against the exports root,
+    so `..`, a symlink out, or an absolute path somewhere else all fail. That
+    check is the point — not the shape of the input.
+
+    Returns None rather than raising, so callers answer 404 and never confirm
+    whether an out-of-bounds file exists.
+    """
+    root = EXPORTS_DIR.resolve()
+    candidate = Path(stored)
+    resolved = (candidate if candidate.is_absolute() else root / candidate).resolve()
+
+    if resolved != root and root not in resolved.parents:
+        return None
+    if not resolved.is_file():
+        return None
+    return resolved
+
+
 async def _serve_application_file(application_id: int, column: str, media_type: str):
     application = await db.fetch_one(
         f"SELECT {column} FROM applications WHERE id = ?", (application_id,)
@@ -226,8 +265,8 @@ async def _serve_application_file(application_id: int, column: str, media_type: 
     if not application or not application[column]:
         raise HTTPException(status_code=404, detail="No Facet cut for this application yet")
 
-    path = Path(application[column])
-    if not path.exists():
+    path = resolve_export(application[column])
+    if path is None:
         raise HTTPException(status_code=404, detail="File missing on disk")
 
     return Response(
@@ -235,6 +274,61 @@ async def _serve_application_file(application_id: int, column: str, media_type: 
         media_type=media_type,
         headers={"Content-Disposition": f'attachment; filename="{path.name}"'},
     )
+
+
+def demo() -> None:
+    """Self-check:  backend/.venv/python.exe -m routers.tracker
+
+    The export resolver is a trust boundary — every file this app hands back
+    goes through it — so it gets its own checks rather than relying on the
+    endpoints above being called correctly.
+    """
+    import tempfile
+
+    global EXPORTS_DIR
+    root = Path(tempfile.mkdtemp())
+    EXPORTS_DIR = root / "exports"
+    EXPORTS_DIR.mkdir(parents=True)
+    (EXPORTS_DIR / "stripe.pdf").write_bytes(b"%PDF fake")
+    (EXPORTS_DIR / "sub").mkdir()
+    (EXPORTS_DIR / "sub" / "nested.pdf").write_bytes(b"%PDF fake")
+    secret = root / "secret.txt"
+    secret.write_text("not yours", encoding="utf-8")
+
+    # What should work: the bare filename the pipeline writes now, and the
+    # absolute paths rows written before this change still hold.
+    assert resolve_export("stripe.pdf") == (EXPORTS_DIR / "stripe.pdf").resolve()
+    assert resolve_export(str(EXPORTS_DIR / "stripe.pdf")) is not None
+    assert resolve_export("sub/nested.pdf") is not None, "subdirectories are inside"
+
+    # What must not: every way out of the exports directory.
+    for hostile in (
+        "../secret.txt",                 # traversal
+        "a/../../secret.txt",            # traversal via a fake segment
+        str(secret),                     # absolute, elsewhere
+        "/etc/passwd",                   # the classic
+        "C:/Windows/win.ini",
+        str(root),                       # the parent directory itself
+        "sub/../../secret.txt",
+    ):
+        assert resolve_export(hostile) is None, f"escaped with {hostile!r}"
+
+    # Missing files are None, not an exception — the caller answers 404 and
+    # never reveals whether an out-of-bounds path exists.
+    assert resolve_export("absent.pdf") is None
+    assert resolve_export("") is None
+
+    # The exports root itself is a directory, not a file, so it is refused
+    # even though it is trivially "inside" itself.
+    assert resolve_export(str(EXPORTS_DIR)) is None
+
+    # A client cannot set these columns any more; the model must ignore them
+    # rather than accept them.
+    update = ApplicationUpdate(**{"company": "Acme", "resume_path": "/etc/passwd"})
+    assert not hasattr(update, "resume_path"), "path fields must not be settable"
+    assert update.company == "Acme", "ordinary fields still work"
+
+    print("tracker: all checks passed (export resolver holds the boundary)")
 
 
 @router.get("/api/applications/{application_id}/resume-file")
@@ -336,3 +430,7 @@ async def get_interview_detail(interview_id: int):
         )
 
     return {"interview": interview, "application": application, "contact": contact}
+
+
+if __name__ == "__main__":
+    demo()

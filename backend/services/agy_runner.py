@@ -13,7 +13,9 @@ import logging
 import os
 import re
 import shutil
+import signal
 import subprocess
+import threading
 from pathlib import Path
 
 from services.filelock import FileLock, LockTimeout
@@ -61,6 +63,53 @@ class AgyBusyError(Exception):
     "busy, try again later" is a reasonable answer for one person and a
     hostile one for several.
     """
+
+
+class AgyCancelled(Exception):
+    """The run was stopped on purpose — a cancel, or a shutdown."""
+
+
+# The agy process currently in flight, so it can be stopped. Guarded because
+# it is set from an executor thread and read from the event loop.
+_current: subprocess.Popen | None = None
+_current_lock = threading.Lock()
+_cancelled = False
+
+
+def terminate_current(reason: str = "cancelled") -> bool:
+    """Kill the running agy process *and its children*.
+
+    Killing only the direct child is not enough: agy spawns its own
+    subprocesses, and an orphan keeps holding the CLI — and its scratch
+    directory — after the parent is gone. Observed in Phase 1, where a hard
+    kill left the grandchild alive long enough to recreate a job directory
+    that startup had just swept.
+
+    Returns whether there was anything to stop.
+    """
+    global _cancelled
+    with _current_lock:
+        process = _current
+        if process is None or process.poll() is not None:
+            return False
+        _cancelled = True
+
+        logger.info("[Facet] stopping agy (pid %s) — %s", process.pid, reason)
+        try:
+            if os.name == "nt":
+                # No POSIX process groups here; taskkill /T walks the tree.
+                subprocess.run(
+                    ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                    capture_output=True, timeout=20,
+                )
+            else:
+                # The whole group, which is why the process is started with
+                # start_new_session=True below.
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.warning("[Facet] could not stop agy cleanly: %s", exc)
+            process.kill()
+        return True
 
 
 def prepare_job_dir(job_id: int | str, files: dict[str, str],
@@ -128,13 +177,15 @@ def _run_agy_sync(instruction: str, output_filename: str,
         "stdout is not read by the caller."
     )
 
+    global _current, _cancelled
+
     try:
         # Held across the whole subprocess: agy is one CLI with one
         # authenticated session, and on a shared host every process contends
         # for it. Waiting up to two runs' worth beats failing a queued job
         # that was only ever going to be second in line.
         with FileLock(AGY_LOCK_PATH, timeout=AGY_TIMEOUT_SECONDS * 2):
-            result = subprocess.run(
+            process = subprocess.Popen(
                 [
                     AGY_BIN,
                     "-p",
@@ -162,9 +213,31 @@ def _run_agy_sync(instruction: str, output_filename: str,
                     str(work_dir),
                 ],
                 cwd=str(work_dir),
-                timeout=AGY_TIMEOUT_SECONDS,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                # Popen rather than run(), so the process can be stopped from
+                # another thread — that is what makes cancelling a running
+                # job and shutting down cleanly possible at all.
+                #
+                # A new session on POSIX puts agy and everything it spawns in
+                # one process group, so terminate_current() can signal the
+                # whole tree instead of orphaning grandchildren.
+                start_new_session=(os.name != "nt"),
             )
+            with _current_lock:
+                _current, _cancelled = process, False
+            try:
+                stdout, stderr = process.communicate(timeout=AGY_TIMEOUT_SECONDS)
+            except subprocess.TimeoutExpired:
+                terminate_current("timed out")
+                process.communicate()
+                raise
+            finally:
+                with _current_lock:
+                    was_cancelled, _current = _cancelled, None
+
+            if was_cancelled:
+                raise AgyCancelled("the run was stopped")
     except LockTimeout as exc:
         raise AgyError(
             "AI engine busy",
@@ -183,7 +256,7 @@ def _run_agy_sync(instruction: str, output_filename: str,
         ) from exc
 
     if not output_path.exists() or output_path.stat().st_size == 0:
-        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        stderr = stderr.decode("utf-8", errors="replace").strip()
         raise AgyError(
             "AI engine produced no output",
             stderr
@@ -286,7 +359,101 @@ def demo() -> None:
     assert sweep_orphan_job_dirs() == 1
     assert list(JOBS_DIR.iterdir()) == []
 
-    print("agy_runner: all checks passed (job staging isolated)")
+    _check_process_tree_teardown(root)
+
+    print("agy_runner: all checks passed (job staging isolated, tree teardown)")
+
+
+def _check_process_tree_teardown(root: Path) -> None:
+    """Stopping a run must kill agy *and* whatever it spawned.
+
+    Killing only the direct child leaves an orphan holding the CLI and its
+    scratch directory — seen in Phase 1, where a hard kill left a grandchild
+    alive long enough to recreate a job directory startup had just swept. So
+    this stands up a fake agy that spawns a child of its own and checks both
+    are gone afterwards.
+    """
+    global AGY_BIN, AGY_LOCK_PATH, _current, _cancelled
+    import sys
+    import time
+
+    child_pid_file = root / "child.pid"
+
+    # A stand-in for agy: spawns a child of its own, records its pid, idles.
+    # It must be a wrapper that ignores argv, because the real call passes
+    # agy's flags (-p, --mode=..., --add-dir) which mean nothing to anything
+    # else — that is the whole reason this is a script and not `python -c`.
+    script = root / "fake_agy.py"
+    script.write_text(
+        "import subprocess, sys, time, pathlib\n"
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
+        f"pathlib.Path(r'{child_pid_file}').write_text(str(child.pid))\n"
+        "time.sleep(120)\n",
+        encoding="utf-8",
+    )
+
+    if os.name == "nt":
+        wrapper = root / "fake_agy.bat"
+        wrapper.write_text(f'@echo off\r\n"{sys.executable}" "{script}"\r\n', encoding="utf-8")
+    else:
+        wrapper = root / "fake_agy.sh"
+        wrapper.write_text(f'#!/bin/sh\nexec "{sys.executable}" "{script}"\n', encoding="utf-8")
+        wrapper.chmod(0o755)
+
+    AGY_BIN = str(wrapper)
+    AGY_LOCK_PATH = root / "agy.lock"
+
+    work = root / "run"
+    work.mkdir(parents=True, exist_ok=True)
+
+    outcome: list = []
+
+    def run_it():
+        try:
+            _run_agy_sync("ignored instruction", "never_written.json", work)
+        except Exception as exc:  # noqa: BLE001 — recording, not handling
+            outcome.append(exc)
+
+    worker = threading.Thread(target=run_it, daemon=True)
+    worker.start()
+
+    for _ in range(100):
+        if child_pid_file.exists() and _current is not None:
+            break
+        time.sleep(0.1)
+    assert _current is not None, "fake agy never started"
+    grandchild = int(child_pid_file.read_text())
+    parent = _current.pid
+
+    assert terminate_current("self-check") is True
+    worker.join(timeout=30)
+    assert not worker.is_alive(), "the run did not stop"
+
+    # The cancellation is reported as such, not as a generic failure.
+    assert outcome and isinstance(outcome[0], AgyCancelled), outcome
+
+    time.sleep(1.0)
+    assert not _pid_running(parent), f"agy itself survived (pid {parent})"
+    assert not _pid_running(grandchild), \
+        f"a grandchild survived (pid {grandchild}) — the tree was not killed"
+
+    # Nothing left in flight, so the next run starts clean.
+    assert _current is None
+    assert terminate_current("nothing to do") is False
+
+
+def _pid_running(pid: int) -> bool:
+    if os.name == "nt":
+        out = subprocess.run(["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                             capture_output=True, text=True)
+        return str(pid) in out.stdout
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 def check_agy_health() -> tuple[bool, str]:

@@ -149,7 +149,22 @@
   </section>
 
   <section>
+    <h2>Retention</h2>
+    <div class="panel"><div class="scroll"><table>
+      <thead><tr><th>User</th><th>Would free</th><th>Kept (attached)</th><th>Disk used</th><th>Quota</th></tr></thead>
+      <tbody id="retention"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table></div>
+    <div class="panel-pad faint" style="border-top:1px solid var(--border)">
+      A preview only — each instance sweeps itself daily. Exports attached to an
+      application are part of the record and are never removed, whatever their age.
+      The quota warns; nothing is ever deleted because a disk is filling.
+      <span id="purge-note"></span>
+    </div></div>
+  </section>
+
+  <section>
     <h2>Queue</h2>
+    <div class="stats" id="queue-metrics" style="margin-bottom:12px"></div>
     <div class="panel"><div class="scroll"><table>
       <thead><tr><th>User</th><th>Job</th><th>Kind</th><th>Status</th><th>Took</th><th>Queued</th></tr></thead>
       <tbody id="queue"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
@@ -274,9 +289,10 @@ function userRow(u) {
 
 async function refresh() {
   try {
-    const [users, storage, queue, audit, health] = await Promise.all([
+    const [users, storage, queue, audit, health, retention] = await Promise.all([
       call("/api/users?include_deleted=true"), call("/api/storage"),
       call("/api/queue"), call("/api/audit?limit=25"), call("/api/health"),
+      call("/api/retention"),
     ]);
     $("root").textContent = health.host_root;
 
@@ -305,8 +321,37 @@ async function refresh() {
         <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
         <div class="faint" style="margin-top:6px">${bytes(storage.disk.used)} of ${bytes(storage.disk.total)} used</div></div>`;
 
-    $("queue").innerHTML = queue.length
-      ? queue.map((j) => `<tr>
+    // Failure reasons are the diagnosis, so they get their own tile: "3
+    // failed" is noise, "3 failed, all no_output_file" points at --add-dir.
+    const m = queue.metrics || {};
+    const secs = (v) => (v === null || v === undefined ? "—" : v + "s");
+    const reasons = Object.entries(m.failure_reasons || {});
+    $("queue-metrics").innerHTML = `
+      <div class="stat"><div class="n mono">${secs(m.wait_p50)}</div><div class="l">Wait p50</div></div>
+      <div class="stat"><div class="n mono">${secs(m.wait_p95)}</div><div class="l">Wait p95</div></div>
+      <div class="stat"><div class="n mono">${secs(m.run_p50)}</div><div class="l">Run p50</div></div>
+      <div class="stat"><div class="n mono">${secs(m.run_p95)}</div><div class="l">Run p95</div></div>
+      <div class="stat"><div class="n mono">${reasons.reduce((a, [, n]) => a + n, 0)}</div>
+        <div class="l">Failures</div>
+        ${reasons.length ? `<div class="faint" style="margin-top:6px">${reasons.map(([k, n]) => `${esc(k)} ×${n}`).join("<br>")}</div>` : ""}</div>`;
+
+    const jobRows = queue.jobs || [];
+    $("retention").innerHTML = (retention.users || []).length
+      ? retention.users.map((r) => `<tr>
+          <td class="mono">${esc(r.slug)}</td>
+          <td class="mono">${r.would_remove ? `${r.would_remove} file${r.would_remove > 1 ? "s" : ""} · ${bytes(r.would_free)}` : "—"}</td>
+          <td class="mono faint">${r.kept_referenced}</td>
+          <td class="mono faint">${bytes(r.usage.total)}</td>
+          <td>${r.usage.over_quota ? '<span class="badge warn">over</span>' : `<span class="faint mono">${bytes(r.usage.quota)}</span>`}
+              ${r.error ? `<div class="faint" style="color:var(--warn)">${esc(r.error)}</div>` : ""}</td>
+        </tr>`).join("")
+      : `<tr><td colspan="5" class="empty">No users yet.</td></tr>`;
+    $("purge-note").textContent = (retention.pending_purge || []).length
+      ? ` ${retention.pending_purge.length} deleted account(s) awaiting purge after ${retention.grace_days} days.`
+      : "";
+
+    $("queue").innerHTML = jobRows.length
+      ? jobRows.map((j) => `<tr>
           <td class="mono">${esc(j.user)}</td>
           <td class="mono faint">#${j.id}</td>
           <td>${esc(j.kind)}</td>
