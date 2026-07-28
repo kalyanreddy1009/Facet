@@ -1,0 +1,21 @@
+{
+  "platform": "greenhouse",
+  "supported": true,
+  "notes": "Standard Greenhouse embedded application form field IDs. LinkedIn is usually a per-employer custom question with no fixed ID, so it also falls back to label-text matching.",
+  "fields": {
+    "first_name": { "selectors": ["#first_name"], "source": "first_name" },
+    "last_name": { "selectors": ["#last_name"], "source": "last_name" },
+    "email": { "selectors": ["#email"], "source": "email" },
+    "phone": { "selectors": ["#phone"], "source": "phone" },
+    "location": {
+      "selectors": ["#job_application_location_input", "#candidate-location"],
+      "source": "location",
+      "labelFallback": ["location", "current location"]
+    },
+    "linkedin_url": {
+      "selectors": ["input[id*='linked_in' i]", "input[name*='LinkedIn' i]"],
+      "source": "linkedin",
+      "labelFallback": ["linkedin"]
+    }
+  }
+}

@@ -1,0 +1,36 @@
+# Secrets — API keys live here. Never commit these.
+data/settings.json
+.env
+
+# Local data: your tracker database, gathered postings, logs, exports.
+# feeds.json is your subscription list, not a shipped default — the app seeds
+# DEFAULT_FEEDS when it's absent.
+data/feeds.json
+data/tracker.db
+data/tracker.db-wal
+data/tracker.db-shm
+data/logs/
+data/exports/
+
+# Your actual career record and anything cut from it.
+workspace/profile.json
+workspace/master_resume.md
+workspace/job_description.md
+workspace/tailored_fields.json
+
+# Per-machine tool settings — holds absolute paths from whoever ran it.
+# Shared .claude/settings.json (if ever added) is intentionally NOT ignored.
+.claude/settings.local.json
+.claude-flow/
+
+# Environments and build output
+backend/.venv/
+__pycache__/
+*.py[cod]
+node_modules/
+.next/
+*.tsbuildinfo
+
+# OS noise
+.DS_Store
+Thumbs.db

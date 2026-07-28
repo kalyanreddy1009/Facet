@@ -1,0 +1,35 @@
+# Build context hygiene. Both images build from the repo root, so this one
+# file covers them.
+
+# Secrets and local state — must never enter an image layer.
+data/settings.json
+data/logs/
+data/tracker.db
+data/tracker.db-wal
+data/tracker.db-shm
+data/exports/
+
+# Your actual career record. Mounted at runtime, never baked in.
+workspace/
+
+# Environments and build output
+**/.venv/
+**/__pycache__/
+**/*.py[cod]
+**/node_modules/
+**/.next/
+**/*.tsbuildinfo
+
+# VCS, editors, OS
+.git/
+.gitignore
+.claude/
+.vscode/
+.idea/
+**/.DS_Store
+**/Thumbs.db
+
+# Docs and local launchers aren't needed inside the image
+README.md
+start.bat
+start.sh

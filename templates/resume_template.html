@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>{{ name }} — Resume</title>
+<style>
+  @page {
+    size: Letter;
+    margin: 0.6in 0.7in;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Georgia", "Times New Roman", serif;
+    color: #000000;
+    background: #ffffff;
+    font-size: 10.5pt;
+    line-height: 1.35;
+    margin: 0;
+  }
+  h1 {
+    font-size: 20pt;
+    font-weight: 700;
+    margin: 0 0 2pt 0;
+  }
+  .contact-line {
+    font-size: 9.5pt;
+    margin: 0 0 12pt 0;
+  }
+  .contact-line span:not(:last-child)::after {
+    content: " \00b7 ";
+  }
+  h2 {
+    font-size: 11.5pt;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5pt;
+    border-bottom: 1pt solid #000000;
+    margin: 12pt 0 6pt 0;
+    padding-bottom: 2pt;
+  }
+  section:first-of-type h2 {
+    margin-top: 0;
+  }
+  p.summary {
+    margin: 0 0 4pt 0;
+  }
+  .skills-list {
+    margin: 0;
+  }
+  .role {
+    margin-bottom: 10pt;
+    page-break-inside: avoid;
+  }
+  .role-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+  }
+  .role-subheader {
+    display: flex;
+    justify-content: space-between;
+    font-style: italic;
+    font-size: 10pt;
+    margin-bottom: 3pt;
+  }
+  ul.bullets {
+    margin: 0;
+    padding-left: 14pt;
+  }
+  ul.bullets li {
+    margin-bottom: 2pt;
+  }
+  .project {
+    margin-bottom: 6pt;
+  }
+  .project-name {
+    font-weight: 700;
+  }
+  .edu-entry, .cert-entry {
+    margin-bottom: 4pt;
+  }
+  .edu-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+  <h1>{{ name }}</h1>
+  <div class="contact-line">
+    {% if contact.email %}<span>{{ contact.email }}</span>{% endif %}
+    {% if contact.phone %}<span>{{ contact.phone }}</span>{% endif %}
+    {% if contact.location %}<span>{{ contact.location }}</span>{% endif %}
+    {% if contact.linkedin %}<span>{{ contact.linkedin }}</span>{% endif %}
+  </div>
+
+  {% if summary %}
+  <section>
+    <h2>Summary</h2>
+    <p class="summary">{{ summary }}</p>
+  </section>
+  {% endif %}
+
+  {% if skills %}
+  <section>
+    <h2>Skills</h2>
+    <p class="skills-list">{{ skills | join(" · ") }}</p>
+  </section>
+  {% endif %}
+
+  {% if roles %}
+  <section>
+    <h2>Experience</h2>
+    {% for role in roles %}
+    <div class="role">
+      <div class="role-header">
+        <span>{{ role.title }}</span>
+        <span>{{ role.start }} – {{ role.end }}</span>
+      </div>
+      <div class="role-subheader">
+        <span>{{ role.company }}</span>
+        <span>{{ role.location }}</span>
+      </div>
+      {% if role.bullets %}
+      <ul class="bullets">
+        {% for bullet in role.bullets %}
+        <li>{{ bullet }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if projects %}
+  <section>
+    <h2>Projects</h2>
+    {% for project in projects %}
+    <div class="project">
+      <div class="project-name">{{ project.name }}</div>
+      <div>{{ project.description }}</div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if education %}
+  <section>
+    <h2>Education</h2>
+    {% for edu in education %}
+    <div class="edu-entry">
+      <div class="edu-header">
+        <span>{{ edu.school }}</span>
+        <span>{{ edu.year }}</span>
+      </div>
+      <div>{{ edu.degree }}</div>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if certifications %}
+  <section>
+    <h2>Certifications</h2>
+    {% for cert in certifications %}
+    <div class="cert-entry">{{ cert }}</div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+</body>
+</html>

@@ -1,0 +1,4 @@
+# Static assets served at the site root. Empty today — the favicon lives at
+# src/app/favicon.ico under the App Router convention. This directory exists
+# so the Docker build's COPY of public/ resolves, and so anything added later
+# is included in the image automatically.

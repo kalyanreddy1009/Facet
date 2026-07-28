@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pdfplumber
+python-docx
+weasyprint
+docxtpl
+feedparser
+httpx
+apscheduler
+icalendar

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>{{ name }} — Cover Letter</title>
+<style>
+  @page { size: Letter; margin: 0.8in; }
+  body {
+    font-family: "Georgia", "Times New Roman", serif;
+    color: #000000;
+    background: #ffffff;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+  .letterhead {
+    margin-bottom: 24pt;
+  }
+  .letterhead h1 {
+    font-size: 16pt;
+    margin: 0 0 2pt 0;
+  }
+  .letterhead p {
+    font-size: 9.5pt;
+    margin: 0;
+  }
+  .date {
+    margin-bottom: 18pt;
+  }
+  .body p {
+    margin: 0 0 12pt 0;
+  }
+  .closing {
+    margin-top: 18pt;
+  }
+</style>
+</head>
+<body>
+  <div class="letterhead">
+    <h1>{{ name }}</h1>
+    <p>
+      {% if contact.email %}{{ contact.email }}{% endif %}
+      {% if contact.phone %} · {{ contact.phone }}{% endif %}
+      {% if contact.location %} · {{ contact.location }}{% endif %}
+    </p>
+  </div>
+
+  <div class="date">{{ today }}</div>
+
+  <p>Dear Hiring Team,</p>
+
+  <div class="body">
+    {% for paragraph in cover_letter_body.split('\n\n') %}
+    <p>{{ paragraph }}</p>
+    {% endfor %}
+  </div>
+
+  <div class="closing">
+    <p>Sincerely,<br />{{ name }}</p>
+  </div>
+</body>
+</html>

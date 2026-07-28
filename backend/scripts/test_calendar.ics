@@ -1,0 +1,44 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Facet Test//EN
+BEGIN:VEVENT
+UID:test-high-confidence-1@facet-test
+DTSTART:20260801T150000Z
+DTEND:20260801T153000Z
+SUMMARY:Phone Screen
+DESCRIPTION:Quick intro call
+ATTENDEE:mailto:alex@highconf.example
+END:VEVENT
+BEGIN:VEVENT
+UID:test-medium-confidence-1@facet-test
+DTSTART:20260802T160000Z
+DTEND:20260802T163000Z
+SUMMARY:Onsite Interview
+DESCRIPTION:In-person interview loop
+ATTENDEE:mailto:someone@medconf.example
+END:VEVENT
+BEGIN:VEVENT
+UID:test-low-confidence-1@facet-test
+DTSTART:20260803T170000Z
+DTEND:20260803T173000Z
+SUMMARY:Technical Interview - Round 2
+DESCRIPTION:Coding round
+ATTENDEE:mailto:random@unrelated.example
+END:VEVENT
+BEGIN:VEVENT
+UID:test-no-match-1@facet-test
+DTSTART:20260804T120000Z
+DTEND:20260804T130000Z
+SUMMARY:Team Lunch
+DESCRIPTION:Just grabbing food together, nothing work related
+ATTENDEE:mailto:random@unrelated.example
+END:VEVENT
+BEGIN:VEVENT
+UID:test-past-event-1@facet-test
+DTSTART:20260701T150000Z
+DTEND:20260701T153000Z
+SUMMARY:Phone Screen
+DESCRIPTION:This already happened
+ATTENDEE:mailto:alex@highconf.example
+END:VEVENT
+END:VCALENDAR

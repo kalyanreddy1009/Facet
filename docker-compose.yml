@@ -1,0 +1,65 @@
+# Facet — portable compose setup.
+#
+#   docker compose up --build
+#   → http://localhost:3000
+#
+# Nothing here is specific to any machine. Every host-dependent value comes
+# from .env (copy .env.example), and both services build from this repo.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      # The frontend proxies /api/* to this service, so requests are
+      # same-origin and CORS is never consulted. Kept here for anyone who
+      # bypasses the proxy and calls the backend directly.
+      FACET_CORS_ORIGINS: ${FACET_CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      # agy is optional. Absent, the app runs and only the AI features error,
+      # which /status reports plainly. See AGY notes in .env.example.
+      FACET_AGY_BIN: ${FACET_AGY_BIN:-agy}
+      FACET_AGY_MODEL: ${FACET_AGY_MODEL:-gemini-3.1-pro-high}
+      FACET_AGY_TIMEOUT: ${FACET_AGY_TIMEOUT:-300}
+      ADZUNA_APP_ID: ${ADZUNA_APP_ID:-}
+      ADZUNA_APP_KEY: ${ADZUNA_APP_KEY:-}
+      JOOBLE_KEY: ${JOOBLE_KEY:-}
+    volumes:
+      # Named volumes, not bind mounts: they work identically on Windows,
+      # macOS and Linux, and avoid the file-permission and line-ending
+      # problems bind mounts cause across those hosts.
+      - facet-data:/app/data
+      - facet-workspace:/app/workspace
+      # agy's credentials. Defaults to a throwaway volume so the mount always
+      # resolves even when agy isn't set up; point AGY_CONFIG_DIR at a real
+      # directory to use an authenticated CLI.
+      - ${AGY_CONFIG_DIR:-facet-agy-config}:/home/facet/.gemini
+    ports:
+      # Exposed for direct API access and debugging. The frontend does not
+      # need this: it reaches the backend over the compose network.
+      - "${BACKEND_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        # Must be a BUILD arg, not a runtime variable: Next bakes rewrite
+        # destinations into routes-manifest.json during `next build`, so
+        # setting this at runtime has no effect. Service name, not localhost —
+        # inside the network "localhost" is the frontend container itself.
+        BACKEND_ORIGIN: ${BACKEND_ORIGIN:-http://backend:8000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        # Waits for /api/health, not just for the container to start, so the
+        # first page load isn't served against a backend that is still booting.
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  facet-data:
+  facet-workspace:
+  facet-agy-config:

@@ -1,0 +1,20 @@
+{
+  "platform": "lever",
+  "supported": true,
+  "notes": "Standard Lever application form field names — Lever consistently uses name=\"urls[Platform]\" for link fields (LinkedIn, GitHub, Portfolio, Twitter).",
+  "fields": {
+    "name": { "selectors": ["input[name='name']"], "source": "name" },
+    "email": { "selectors": ["input[name='email']"], "source": "email" },
+    "phone": { "selectors": ["input[name='phone']"], "source": "phone" },
+    "location": {
+      "selectors": ["input[name='location']", "input[name='org']"],
+      "source": "location",
+      "labelFallback": ["location", "current location"]
+    },
+    "linkedin_url": {
+      "selectors": ["input[name='urls[LinkedIn]']"],
+      "source": "linkedin",
+      "labelFallback": ["linkedin"]
+    }
+  }
+}
