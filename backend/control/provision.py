@@ -26,7 +26,7 @@ import zipfile
 from pathlib import Path
 
 from services.paths import ROOT, RULES_PATH
-from . import store
+from . import cloudflare, runtime, store
 
 # How long a deleted account is recoverable. The whole point: the click and
 # the irreversible act are separated by a month.
@@ -143,17 +143,109 @@ def _step_env_file(user: dict) -> str:
     return str(paths["env"])
 
 
+def _step_backend_service(user: dict) -> str:
+    """Start the user's backend as a native systemd service.
+
+    Native, not containerised: it shells out to agy, whose credentials live
+    in ~/.gemini on the host. The cross-process lock from Phase 1 is what
+    keeps every instance serialized against the one authenticated CLI.
+    """
+    caps = runtime.capabilities()
+    result = runtime.service_start(user["slug"], caps["systemd"])
+    if not result.ok:
+        raise ProvisionError("backend_service", result.detail)
+    return f"{result.mode}: {result.detail}"
+
+
+def _step_frontend_container(user: dict) -> str:
+    caps = runtime.capabilities()
+    paths = store.user_paths(user["slug"])
+    result = runtime.compose_up(user["slug"], paths["env"], caps["docker"])
+    if not result.ok:
+        raise ProvisionError("frontend_container", result.detail)
+    return f"{result.mode}: {result.detail}"
+
+
+def _step_tunnel_ingress(user: dict) -> str:
+    """Rebuild the whole ingress file, then reload.
+
+    Rebuilt rather than appended: an incremental scheme drifts as soon as one
+    edit half-fails, and drift here means a hostname pointing at the wrong
+    port — one person's Facet served to someone else. The user table is the
+    truth and the config is a projection of it.
+    """
+    caps = runtime.capabilities()
+    users = [u for u in store.list_users() if u["status"] != store.DELETED]
+    try:
+        written = cloudflare.write_tunnel_config(users)
+    except OSError as exc:
+        # /etc/cloudflared isn't writable on a dev box, and that is not a
+        # provisioning failure — it is a host that hasn't been set up yet.
+        return f"manual: could not write {cloudflare.TUNNEL_CONFIG} ({exc})"
+
+    reload_result = runtime.run(
+        ["systemctl", "reload", "cloudflared"], "reload tunnel",
+        caps["systemd"] and caps["cloudflared"],
+    )
+    return f"{reload_result.mode}: wrote {written}"
+
+
+def _step_access_policy(user: dict) -> str:
+    """One Access application per hostname, allowing exactly one address."""
+    if not runtime.capabilities()["cloudflare_api"]:
+        return "manual:\n" + cloudflare.manual_instructions(user["slug"], user["email"])
+    try:
+        if cloudflare.find_access_app(user["slug"]) is not None:
+            return "ran: application already exists"
+        cloudflare.create_access_app(user["slug"], user["email"])
+    except RuntimeError as exc:
+        raise ProvisionError("access_policy", str(exc)) from exc
+    return f"ran: Access application for {cloudflare.hostname_for(user['slug'])}"
+
+
+def _step_health_check(user: dict) -> str:
+    """Confirm the instance actually answers.
+
+    Skipped rather than failed when earlier steps were manual: nothing was
+    started, so there is nothing to check, and failing here would make a
+    correctly-provisioned host look broken.
+    """
+    caps = runtime.capabilities()
+    if not (caps["systemd"] or caps["docker"]):
+        return "skipped: nothing was started on this host"
+
+    backend = instance_running(user)
+    frontend = _port_open(user["web_port"])
+    if not backend and caps["systemd"]:
+        raise ProvisionError("health_check",
+                             f"backend is not answering on port {user['api_port']}")
+    if not frontend and caps["docker"]:
+        raise ProvisionError("health_check",
+                             f"frontend is not answering on port {user['web_port']}")
+    return f"backend={'up' if backend else 'n/a'} frontend={'up' if frontend else 'n/a'}"
+
+
+def _port_open(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.settimeout(0.4)
+        return probe.connect_ex(("127.0.0.1", port)) == 0
+
+
 # Order matters. Directories before anything written into them; ports checked
-# before the env file that records them.
+# before the env file that records them; services before the tunnel that
+# routes to them; the health check last, once there is something to check.
 STEPS: list[tuple[str, callable]] = [
     ("directories", _step_directories),
     ("seed_rules", _step_seed_rules),
     ("init_db", _step_init_db),
     ("ports", _step_ports),
     ("env_file", _step_env_file),
+    ("backend_service", _step_backend_service),
+    ("frontend_container", _step_frontend_container),
+    ("tunnel_ingress", _step_tunnel_ingress),
+    ("access_policy", _step_access_policy),
+    ("health_check", _step_health_check),
 ]
-
-# Phase 3 appends: compose_up, tunnel_ingress, access_policy, health_check.
 
 
 def provision(user_id: int, actor: str) -> dict:
@@ -247,8 +339,16 @@ def suspend(user_id: int, actor: str) -> dict:
     user = store.get_user(user_id)
     if user is None:
         raise ProvisionError("suspend", f"no user {user_id}")
+
+    caps = runtime.capabilities()
+    paths = store.user_paths(user["slug"])
+    stopped = [
+        runtime.service_stop(user["slug"], caps["systemd"]),
+        runtime.compose_stop(user["slug"], paths["env"], caps["docker"]),
+    ]
     store.set_status(user_id, store.SUSPENDED)
-    store.record(actor, "user.suspended", user["email"])
+    store.record(actor, "user.suspended", user["email"],
+                 "; ".join(r.detail for r in stopped))
     return store.get_user(user_id)
 
 
@@ -256,9 +356,38 @@ def resume(user_id: int, actor: str) -> dict:
     user = store.get_user(user_id)
     if user is None:
         raise ProvisionError("resume", f"no user {user_id}")
+
+    caps = runtime.capabilities()
+    paths = store.user_paths(user["slug"])
+    started = [
+        runtime.service_start(user["slug"], caps["systemd"]),
+        runtime.compose_start(user["slug"], paths["env"], caps["docker"]),
+    ]
+    failed = [r for r in started if not r.ok]
+    if failed:
+        raise ProvisionError("resume", failed[0].detail)
+
     store.set_status(user_id, store.ACTIVE)
-    store.record(actor, "user.resumed", user["email"])
+    store.record(actor, "user.resumed", user["email"],
+                 "; ".join(r.detail for r in started))
     return store.get_user(user_id)
+
+
+def stop_instance(user: dict) -> list[runtime.Result]:
+    """Bring down both halves of a user's instance.
+
+    Deletion's precondition. Moving data out from under a live process does
+    not stop it — SQLite and the logger simply recreate their files at the
+    old paths, and the "deleted" account reappears holding a fresh empty
+    database. Observed exactly that in Phase 2, which is why deletion refused
+    outright until there was something able to stop the instance.
+    """
+    caps = runtime.capabilities()
+    paths = store.user_paths(user["slug"])
+    return [
+        runtime.service_disable(user["slug"], caps["systemd"]),
+        runtime.compose_down(user["slug"], paths["env"], caps["docker"]),
+    ]
 
 
 def delete_user(user_id: int, confirm_email: str, actor: str) -> dict:
@@ -275,15 +404,20 @@ def delete_user(user_id: int, confirm_email: str, actor: str) -> dict:
         raise ProvisionError(
             "delete", "confirmation does not match this account's email address"
         )
+    store.set_status(user_id, store.DEPROVISIONING)
+
+    # Stop first, then verify it is actually down. A live process would
+    # recreate its directory moments after the data moved.
+    stopped = stop_instance(user)
     if instance_running(user):
+        store.set_status(user_id, user["status"])
         raise ProvisionError(
             "delete",
-            f"{user['slug']}'s instance is still serving on port {user['api_port']}. "
-            f"Stop it first — moving data out from under a live process leaves it "
-            f"recreating the directory.",
+            f"{user['slug']}'s backend is still serving on port {user['api_port']} "
+            f"after being asked to stop. Stop it by hand before deleting — moving "
+            f"data out from under a live process leaves it recreating the directory.",
         )
 
-    store.set_status(user_id, store.DEPROVISIONING)
     export_account(user_id, actor)  # always, before anything moves
 
     paths = store.user_paths(user["slug"])
@@ -293,9 +427,30 @@ def delete_user(user_id: int, confirm_email: str, actor: str) -> dict:
         shutil.move(str(paths["home"]), str(grave))
 
     store.mark_deleted(user_id, time.time() + PURGE_GRACE_SECONDS)
+
+    # Drop this hostname from the tunnel. Left in place it would point at a
+    # port that could later belong to someone else — the exact failure that
+    # never-recycling ids exists to prevent, reintroduced through the router.
+    sync_ingress()
+
     store.record(actor, "user.deleted", user["email"],
-                 f"moved to {grave.name}, purges after {PURGE_GRACE_SECONDS // 86400}d")
+                 f"moved to {grave.name}, purges after "
+                 f"{PURGE_GRACE_SECONDS // 86400}d; "
+                 + "; ".join(r.detail for r in stopped))
     return store.get_user(user_id)
+
+
+def sync_ingress() -> str:
+    """Rebuild the tunnel config from the current user table and reload."""
+    caps = runtime.capabilities()
+    users = [u for u in store.list_users() if u["status"] != store.DELETED]
+    try:
+        written = cloudflare.write_tunnel_config(users)
+    except OSError as exc:
+        return f"manual: could not write {cloudflare.TUNNEL_CONFIG} ({exc})"
+    runtime.run(["systemctl", "reload", "cloudflared"], "reload tunnel",
+                caps["systemd"] and caps["cloudflared"])
+    return str(written)
 
 
 def undelete(user_id: int, actor: str) -> dict:
@@ -318,6 +473,9 @@ def undelete(user_id: int, actor: str) -> dict:
     shutil.move(str(graves[-1]), str(paths["home"]))
 
     store.restore(user_id)
+    # Restored as suspended, so the hostname routes again but nothing starts
+    # serving until it is explicitly resumed.
+    sync_ingress()
     store.record(actor, "user.undeleted", user["email"], graves[-1].name)
     return store.get_user(user_id)
 
@@ -400,6 +558,10 @@ def demo() -> None:
     store.DELETED_DIR = root / "deleted"
     store._connection = None
     store.init_control_db()
+    # Keep the tunnel config inside the temp root — the real default is
+    # /etc/cloudflared, which a test has no business writing to.
+    cloudflare.TUNNEL_CONFIG = root / "cloudflared.yml"
+    cloudflare.BASE_DOMAIN = "facet.test"
 
     user = create_user("alice@example.com", "Alice", "test")
     paths = store.user_paths(user["slug"])
@@ -415,6 +577,22 @@ def demo() -> None:
     assert (paths["workspace"] / "RULES.md").exists(), "truthfulness contract seeded"
     assert f"FACET_DATA_DIR={paths['data']}" in paths["env"].read_text(encoding="utf-8")
     assert all(s["ok"] for s in user["steps"].values()), user["steps"]
+
+    # Every step ran, including the Phase 3 ones. With no systemd, docker or
+    # Cloudflare token on this machine they land in manual mode — which must
+    # still count as provisioned, or a host that hasn't been set up yet would
+    # look broken instead of unfinished.
+    assert set(user["steps"]) == {name for name, _ in STEPS}, user["steps"]
+    for name in ("backend_service", "frontend_container", "access_policy"):
+        assert user["steps"][name]["detail"].startswith(("manual", "ran", "skipped")), \
+            user["steps"][name]
+    assert "manual" in user["steps"]["access_policy"]["detail"]
+    assert "alice.facet.test" in user["steps"]["access_policy"]["detail"]
+
+    # The tunnel config was generated, and routes /api before the catch-all.
+    config = cloudflare.TUNNEL_CONFIG.read_text(encoding="utf-8")
+    assert "alice.facet.test" in config, config
+    assert config.index("^/api/") < config.index(f"127.0.0.1:{user['web_port']}"), config
 
     # The new database really is the app's schema, not an empty file.
     conn = sqlite3.connect(paths["tracker_db"])
@@ -485,6 +663,9 @@ def demo() -> None:
         raise AssertionError("expected deletion of a running instance to be refused")
     except ProvisionError as exc:
         assert "still serving" in exc.message, exc.message
+        # A refused delete must leave the account exactly as it was, not
+        # stranded in `deprovisioning`.
+        assert store.get_user(user["id"])["status"] != store.DEPROVISIONING
     finally:
         listener.close()
     assert instance_running(user) is False
@@ -496,6 +677,12 @@ def demo() -> None:
     assert not paths["home"].exists(), "home should have moved"
     graves = list(store.DELETED_DIR.glob("alice-*"))
     assert len(graves) == 1 and (graves[0] / "data" / "tracker.db").exists()
+
+    # The hostname is gone from the tunnel. Left behind it would point at a
+    # port that could later belong to someone else.
+    config = cloudflare.TUNNEL_CONFIG.read_text(encoding="utf-8")
+    assert "alice.facet.test" not in config, config
+    assert "alice-2.facet.test" in config, "the other user must be untouched"
 
     # Nothing is purged while inside the grace window.
     assert purge_expired("test") == []

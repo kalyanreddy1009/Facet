@@ -1,0 +1,55 @@
+# One user's Facet backend, native on the host.
+#
+#   systemctl enable --now facet-api@alice
+#
+# Native rather than containerised so it can call `agy` directly: agy's
+# credentials live in ~/.gemini for a specific OS user, and a container cannot
+# reach a host CLI. The cross-process file lock in services/filelock.py is
+# what keeps every instance serialized against the single authenticated CLI,
+# so N of these units contend correctly without any further machinery.
+#
+# Install: copy to /etc/systemd/system/, edit the paths below, then
+#   systemctl daemon-reload
+#
+# %i is the user's slug.
+
+[Unit]
+Description=Facet backend for %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+
+# MUST be the OS user that ran the agy sign-in. agy reads ~/.gemini, so a
+# mismatch here looks authenticated in your shell and unauthenticated to the
+# service — check with `systemctl show -p User facet-api@%i`.
+User=facet
+Group=facet
+
+WorkingDirectory=/opt/facet/backend
+EnvironmentFile=/srv/facet/users/%i/.env
+
+# Loopback only. cloudflared reaches this over 127.0.0.1 and Cloudflare
+# Access is the authentication; binding 0.0.0.0 would bypass both.
+ExecStart=/opt/facet/backend/.venv/bin/python -m uvicorn main:app \
+          --host 127.0.0.1 --port ${BACKEND_PORT}
+
+Restart=on-failure
+RestartSec=5s
+
+# A restart mid-cut abandons an agy run. The queue's startup reconciliation
+# turns that into a failed job with a real message rather than a browser
+# polling a spinner forever, but a generous stop timeout means a run usually
+# finishes rather than needing to.
+TimeoutStopSec=330
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+# agy writes scratch under $HOME, and the instance writes its own data
+# directory. Everything else stays read-only.
+ReadWritePaths=/srv/facet/users/%i /home/facet
+
+[Install]
+WantedBy=multi-user.target

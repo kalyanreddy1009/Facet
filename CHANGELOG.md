@@ -2,6 +2,63 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-28 — Phase 3: host runtime and Cloudflare
+
+Provisioning now goes all the way to a routed, access-controlled instance:
+ten steps, ending at a health check.
+
+**The architecture changed, and building it is what revealed why.** The plan
+had both halves in containers with a host worker draining a shared agy queue.
+Containers can't reach `~/.gemini`, so that shape needs a second queue layer,
+a remote mode in `run_agy`, and job directories mounted into both sides — a
+great deal of machinery to isolate instances of the same trusted application
+from each other.
+
+Instead the **backend runs natively and the frontend stays containerised**.
+agy then works with no new machinery at all: the cross-process lock built in
+Phase 1 already serializes N processes against one CLI. Docker keeps the job
+it is good at — pinning a reproducible node build.
+
+**One image serves every user.** cloudflared matches on hostname *and path*,
+so `/api/*` goes straight to the native backend and everything else to the
+frontend container. Next bakes rewrite destinations at build time, so a
+Next-side proxy would have forced a separate image build per user, each
+backend being on a different port. Letting the tunnel route means no per-user
+address is baked in anywhere.
+
+**Nothing is published on any interface.** Every ingress target is loopback;
+the tunnel is the only way in and Cloudflare Access is the authentication.
+That is why Facet still has no login of its own.
+
+**A missing tool is not an error.** No systemd, no Docker daemon, no
+Cloudflare token — the step reports `manual` and hands back the exact command
+to run by hand, shown in the portal. A half-configured host says what it
+needs instead of failing at step 7 with a traceback. Capabilities are on the
+portal header so manual mode is explained rather than mysterious.
+
+**Ingress is regenerated from the user table, never patched.** An incremental
+scheme drifts the moment one edit half-fails, and drift here means a hostname
+pointing at the wrong port — one person's Facet served to another. Deleting a
+user drops their hostname immediately, for the same reason ids are never
+recycled.
+
+**Phase 2's delete-a-running-instance refusal is resolved.** Deletion stops
+the service and container first, then verifies the port is closed before
+moving anything.
+
+New: `deploy/facet-api@.service`, `docker-compose.user.yml`,
+`control/runtime.py`, `control/cloudflare.py`, `deploy/README.md`.
+
+Verified here: all ten steps run; generated ingress is correct, parses as
+YAML, orders `/api` before the catch-all, targets only loopback, and drops a
+deleted user's hostname while leaving others intact; Access payloads allow
+exactly one address, never a domain.
+
+Not verified here — no Docker daemon, systemd or tunnel on this machine:
+live `compose up`, `systemctl`, tunnel reload, Cloudflare API calls. Command
+construction and generated config are covered by self-checks; execution needs
+the VM.
+
 ## 2026-07-28 — Phase 2: control plane and admin portal
 
 `backend/control/` — a second entrypoint, not a second project. Run it with

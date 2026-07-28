@@ -115,7 +115,16 @@ async def index():
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "host_root": str(store.HOST_ROOT)}
+    """Includes what this host can do, so a step that landed in manual mode
+    is explained by something visible rather than looking like a failure."""
+    from . import cloudflare, runtime
+
+    return {
+        "status": "ok",
+        "host_root": str(store.HOST_ROOT),
+        "capabilities": runtime.capabilities(),
+        "base_domain": cloudflare.BASE_DOMAIN,
+    }
 
 
 @app.get("/api/users")

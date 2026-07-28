@@ -1,0 +1,36 @@
+# One user's frontend. Started per user with a generated env file:
+#
+#   docker compose -p facet-alice --env-file /srv/facet/users/alice/.env \
+#                  -f docker-compose.user.yml up -d
+#
+# The frontend is containerised and the backend is not. That split is
+# deliberate (PLAN.md D6): the backend shells out to `agy`, whose credentials
+# live in ~/.gemini on the host and cannot be reached from a container.
+# Containerising it would mean building a second queue layer to hand agy work
+# back to the host — a lot of machinery for isolation between instances of the
+# same trusted application. Docker earns its keep on the frontend, where it
+# pins a reproducible node build; it does not on the backend.
+#
+# Note there is no BACKEND_ORIGIN here. In this topology cloudflared routes
+# `/api/*` straight to the user's native backend by path, so requests never
+# reach this container and its build-time rewrite is never exercised. One
+# image serves every user precisely because no per-user address is baked in.
+
+services:
+  web:
+    image: ${FACET_FRONTEND_IMAGE:-facet-frontend:local}
+    ports:
+      # Bound to loopback, not 0.0.0.0. Nothing on this host is published
+      # publicly — cloudflared reaches it over the loopback and Cloudflare
+      # Access is the authentication. A container that published on all
+      # interfaces would quietly bypass both.
+      - "127.0.0.1:${FRONTEND_PORT}:3000"
+    environment:
+      NODE_ENV: production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3

@@ -109,6 +109,7 @@
   <header>
     <h1>Facet — admin</h1>
     <p class="sub">User lifecycle, queue, and storage for this host. <span class="mono faint" id="root"></span></p>
+    <div class="row" id="caps" style="margin-top:10px"></div>
   </header>
 
   <div id="error"></div>
@@ -237,6 +238,9 @@ function userRow(u) {
   const q = u.queue || {};
   const queued = (q.queued || 0) + (q.running || 0);
   const failedSteps = Object.entries(u.steps || {}).filter(([, v]) => !v.ok);
+  // Steps that succeeded by telling you what to run rather than running it.
+  const manualSteps = Object.entries(u.steps || {})
+    .filter(([, v]) => v.ok && String(v.detail || "").startsWith("manual"));
   const actions = u.status === "deleted"
     ? `<button class="sm" onclick="undelete_(${u.id})">Restore</button>`
     : [
@@ -256,7 +260,8 @@ function userRow(u) {
   return `<tr>
     <td><div>${esc(u.display_name || u.slug)}</div>
         <div class="faint mono">${esc(u.email)}</div>
-        ${failedSteps.length ? `<div class="faint" style="color:var(--danger)">step failed: ${esc(failedSteps[0][0])} — ${esc(failedSteps[0][1].detail)}</div>` : ""}</td>
+        ${failedSteps.length ? `<div class="faint" style="color:var(--danger)">step failed: ${esc(failedSteps[0][0])} — ${esc(failedSteps[0][1].detail)}</div>` : ""}
+        ${manualSteps.length ? `<details class="faint" style="margin-top:4px"><summary style="cursor:pointer">${manualSteps.length} step${manualSteps.length > 1 ? "s" : ""} need doing by hand</summary><pre style="white-space:pre-wrap;margin-top:6px;font-size:11px;line-height:1.5">${manualSteps.map(([n, v]) => esc(n + " — " + v.detail)).join("\n\n")}</pre></details>` : ""}</td>
     <td>${badge(u.status)}${u.running ? ' <span class="badge ok">serving</span>' : ""}</td>
     <td class="mono faint">${u.web_port} / ${u.api_port}</td>
     <td class="mono">${u.postings ?? "—"}</td>
@@ -274,6 +279,18 @@ async function refresh() {
       call("/api/queue"), call("/api/audit?limit=25"), call("/api/health"),
     ]);
     $("root").textContent = health.host_root;
+
+    // What this host can do. A missing tool isn't an error — provisioning
+    // falls back to printing the command — but it has to be visible, or a
+    // manual step looks like something went wrong.
+    const CAP_LABEL = {
+      systemd: "systemd", docker: "docker",
+      cloudflared: "tunnel", cloudflare_api: "CF API",
+    };
+    $("caps").innerHTML = Object.entries(health.capabilities || {})
+      .map(([k, v]) =>
+        `<span class="badge ${v ? "ok" : ""}" title="${v ? "available" : "not available — these steps print the command to run by hand"}">${CAP_LABEL[k] || k}${v ? "" : " · manual"}</span>`)
+      .join(" ") + `<span class="faint" style="margin-left:6px">${esc(health.base_domain)}</span>`;
 
     $("users").innerHTML = users.length
       ? users.map(userRow).join("")

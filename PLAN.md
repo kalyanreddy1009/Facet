@@ -601,11 +601,45 @@ Differences from the plan as written:
 *Still open before Phase 3:* decide whether to migrate your own installation,
 and whether `data/settings.json` stays per-user (§11 question 4).
 
-### Phase 3 — Docker and Cloudflare
+### Phase 3 — host runtime and Cloudflare ✅ **code shipped 2026-07-28**
 
-Per-user compose projects · provisioning steps 7–10, manual mode first then
-API automation · `cloudflared` ingress management · Access applications ·
-arm64 image builds.
+Provisioning steps 6–10 · systemd unit template · per-user frontend compose
+project · generated `cloudflared` ingress · Access applications with manual
+mode · `deploy/README.md`.
+
+**The architecture changed here, and D6 is the reason.** The plan assumed
+both halves in containers with a host agy worker draining a shared queue.
+Building it made the cost visible: containers can't reach `~/.gemini`, so
+that shape needs a second queue layer, a remote mode in `run_agy`, and job
+directories mounted into both sides — a great deal of machinery to isolate
+instances of the same trusted application from each other.
+
+Instead: **the backend runs natively, the frontend stays containerised.** agy
+then works with no new machinery at all, because the cross-process lock built
+in Phase 1 already serializes N processes against one CLI. Docker keeps the
+job it is actually good at — pinning a reproducible node build.
+
+**A second consequence, and a better one than planned.** cloudflared matches
+on hostname *and path*, so `/api/*` routes straight to the native backend and
+everything else to the frontend. Next bakes rewrite destinations at build
+time, so a Next-side proxy would have forced one image build per user. Tunnel
+routing means no per-user address is baked in anywhere and **one image serves
+everybody**.
+
+*Verified here:* all ten provisioning steps run; generated ingress is
+correct, parses as YAML, orders `/api` before the catch-all, targets only
+loopback, and drops a deleted user's hostname while leaving others intact;
+Access payloads allow exactly one address; a missing tool reports `manual`
+with the exact command instead of failing.
+
+*Not verified here — no Docker daemon, no systemd, no tunnel on the dev
+machine:* live `compose up`, `systemctl`, tunnel reload, and the Cloudflare
+API calls. Command construction and generated config are covered by
+self-checks; execution needs the VM.
+
+**Phase 2's delete-a-running-instance limitation is resolved.** Deletion now
+stops the service and container first, then verifies the port is closed
+before moving anything.
 
 *Done when:* a second real person logs in at their own hostname and cuts a
 facet that queues behind yours.
@@ -707,6 +741,8 @@ inconvenient.
 | D4 | **The queue is polled, not streamed** | Survives reload, needs no open connection, gives queue position free. SSE would clear the proxy header timeout but dies on reconnect and still needs the queue underneath. |
 | D5 | **Admin UI is one static HTML page**, not a second Next app | No build step, no second `node_modules`, no second deploy for a panel one person uses. The API underneath is the real product. |
 | D6 | **agy stays on the host; containers never call it** | Its credentials live in `~/.gemini`, a per-OS-user thing a container can't reach. Fighting this buys nothing. |
+| D9 | **Backend native, frontend containerised** (confirmed 2026-07-28, revises the original all-container plan) | Follows from D6. Containerising the backend needs a second queue layer, a remote `run_agy`, and shared job-directory mounts — a lot of machinery to isolate instances of the same trusted app. Native, the Phase 1 flock already serializes N processes against one CLI. Docker keeps the frontend, where a reproducible node build is real value. |
+| D10 | **cloudflared routes `/api/*` by path**, rather than Next proxying it | Next bakes rewrite destinations at build time, so a Next-side proxy means one image build per user (each backend has a different port). Tunnel path-matching means no per-user address is baked in anywhere and one image serves everybody. |
 | D7 | **Retention defaults**: 30 days unreferenced exports, 30-day delete grace, 2 GB soft quota | All three are settings. Referenced exports are never auto-deleted; nothing is ever auto-deleted under disk pressure. |
 | D8 | **Cloudflare manual mode first, API automation second** | An API token with Access-write privileges is a real capability. Manual is ~2 minutes per user and there are ten. Automation is opt-in. |
 
@@ -750,9 +786,9 @@ here is lost; each line says where it lands.
 - [ ] **Extension's hardcoded `http://localhost:8000`.** Needs an options
   page *and* an `optional_host_permissions` grant flow; a config knob without
   the grant cannot work, so it was not half-changed in Phase 0.
-- [ ] **Delete-a-running-instance.** Phase 2 refuses (it probes the port),
-  because moving data from under a live process doesn't stop it. Phase 3's
-  `compose down` turns this into stop-then-delete.
+- [x] ~~**Delete-a-running-instance.**~~ Resolved in Phase 3: deletion stops
+  the service and container, then verifies the port is closed before moving
+  anything.
 
 ### Deferred to Phase 5
 
