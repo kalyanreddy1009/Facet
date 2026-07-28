@@ -50,7 +50,14 @@ features — and WeasyPrint's native Pango/Cairo libs — PDF/DOCX export only.
   the one that reaches LinkedIn/Indeed/Naukri listings), **Adzuna**.
 - `feed_ingest.py` — RSS/alert feeds + provider results → upsert into
   `seen_postings` keyed on `posting_hash`, scored on the way in.
-- `agy_runner.py` — see §6, the sharp edges live here.
+- `agy_runner.py` — see §6, the sharp edges live here. Also stages each run's
+  inputs in its own directory (`prepare_job_dir`) and holds a cross-process
+  lock around the subprocess.
+- `jobs.py` — the work queue. agy runs are enqueued, not awaited on the
+  request. Separate database (`data/queue.db`) from `tracker.db` on purpose:
+  operational state that can be truncated vs. the user's record.
+- `filelock.py` — portable advisory lock (`fcntl` / `msvcrt`), so agy stays
+  serialized across processes rather than just across coroutines.
 - `docgen.py` — profile + tailored fields → resume PDF/DOCX + cover letter PDF.
 - `scheduler.py` — 6-hour poll of every source, first pull ~10s after launch.
 - `health.py` — every `/status` check, executed for real, no caching.
@@ -63,7 +70,10 @@ features — and WeasyPrint's native Pango/Cairo libs — PDF/DOCX export only.
   *other* active filters), `POST /jobs/search` (live fetch), `GET/POST/DELETE
   /feeds`, `/feeds/builder`, `/feeds/sync`, `/rough/{id}/promote|dismiss|
   restore`, `GET/PUT /settings`. `GET /rough` is a legacy plain ranked list.
-- `tailor.py` — `POST /tailor`. The whole cutting pipeline in one call.
+- `tailor.py` — `POST /tailor` validates and returns **202 + `job_id`**; the
+  pipeline runs on the queue. `run_tailor_job` is the handler.
+- `queue.py` — `GET /queue` (stats + recent), `GET /queue/{id}` (poll this),
+  `DELETE /queue/{id}` (cancels only a job that hasn't started).
 - `resume.py` — `/profile`, `/resume/import`, `/resume/master` (GET+POST),
   `/resume/extraction-status`.
 - `tracker.py` — applications/contacts/interviews CRUD, `/dashboard/summary`,
@@ -113,8 +123,10 @@ reviews and corrects it* → saved as `master_resume.md` → background agy pass
 extracts `profile.json`. Before `profile.json` exists, `/` shows `/welcome`;
 after, `/` redirects to `/tailor`.
 
-**Cut a Facet:** paste or promote a JD → local keyword pre-check (warns on a
-weak match, never blocks) → agy tailoring under a truthfulness mode →
+**Cut a Facet:** paste or promote a JD → validated and queued (202 + job id;
+the browser polls `/api/queue/{id}` and shows position) → local keyword
+pre-check (warns on a weak match, never blocks) → agy tailoring under a
+truthfulness mode →
 `tailored_fields.json` → render PDF/DOCX/cover letter into `data/exports/` →
 row in `applications`. User reviews, then marks **Set This Facet** once they
 have actually applied.
@@ -166,6 +178,9 @@ Each non-trivial module carries one runnable check:
 
 ```
 backend/.venv/python.exe -m services.paths           # path resolution + env overrides
+backend/.venv/python.exe -m services.filelock        # cross-process exclusion (spawns a child)
+backend/.venv/python.exe -m services.jobs            # queue, claiming, reconciliation
+backend/.venv/python.exe -m services.agy_runner      # per-job input staging
 backend/.venv/python.exe -m services.job_sources     # parsing, offline
 backend/.venv/python.exe -m services.matching        # scoring
 backend/.venv/python.exe -m services.logging_setup   # ring buffer + metrics

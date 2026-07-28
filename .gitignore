@@ -12,6 +12,15 @@ data/tracker.db-shm
 data/logs/
 data/exports/
 
+# Queue state and agy scratch. Operational, not the user's record — safe to
+# delete wholesale, and swept at startup.
+data/queue.db
+data/queue.db-wal
+data/queue.db-shm
+data/jobs/
+data/agy.lock
+data/agy.lock.owner
+
 # Your actual career record and anything cut from it.
 workspace/profile.json
 workspace/master_resume.md

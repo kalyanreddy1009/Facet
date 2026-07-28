@@ -533,19 +533,42 @@ Two things came out differently than written above:
   hostnames that difference stops being cosmetic, so local now goes through
   the same proxy.
 
-### Phase 1 — the queue (still single-user)
+### Phase 1 — the queue (still single-user) ✅ **shipped 2026-07-28**
 
-`control.db` schema · worker as an asyncio task · `flock` replacing the
-in-process `asyncio.Lock` · per-job directories · `POST /api/tailor` returns
-`202 + job_id` · frontend polling with elapsed time and queue position ·
-crash reconciliation · the `resume_path` fix.
+Queue schema · worker as an asyncio lifespan task · portable cross-process
+lock replacing the in-process `asyncio.Lock` · per-job directories ·
+`POST /api/tailor` returns `202 + job_id` · frontend polling with elapsed
+time and queue position · crash reconciliation.
 
-This is the largest code change and the one with real risk, which is why it
-ships alone and gets used for a week before anything multi-user happens.
+*Verified* against a throwaway data directory with real agy: a cut through
+the queue in 55.7s; three simultaneous submissions accepted with positions
+rather than a 409; queued-cancel works and running-cancel correctly refuses;
+scratch directories cleaned after every run; a hard kill mid-cut recovered on
+restart as a failed job with a real message.
 
-*Done when:* you cut facets normally for a week, two concurrent requests
-queue rather than 409, and killing the worker mid-cut produces a clean failed
-job rather than a hung spinner.
+Differences from the plan as written:
+
+- **The queue lives in `data/queue.db`, not `control.db`.** There is no
+  control plane yet. `FACET_QUEUE_DB` points it at a shared file, so Phase 2
+  moves the worker out by configuration rather than by code.
+- **The lock is not `flock`** — it is a small portable wrapper, because the
+  dev machine is Windows and the target is Linux. Windows byte-range locks
+  are also *mandatory*, not advisory, which is why the holder diagnostic
+  lives in a sidecar file rather than in the locked file itself.
+- **The `resume_path` fix moved to Phase 4.** It is a hardening change with
+  no user-visible effect in a single-user deployment, and bundling it with
+  the queue would have made a risky change riskier. It must land before
+  Phase 3 exposes anything publicly.
+- **Cancelling a *running* job is deliberately refused** (409) rather than
+  faked. Killing the agy subprocess needs process-tree teardown; that is
+  Phase 4, together with the same machinery for the admin dashboard's Cancel.
+
+*Still to do before calling Phase 1 closed:* use it for a week of real cuts.
+
+**Known edge:** a hard kill can leave the agy grandchild alive long enough to
+recreate its scratch directory after the startup sweep, leaving one empty
+directory that the next boot removes. Same root cause as running-cancel, same
+fix, Phase 4.
 
 ### Phase 2 — control plane and admin portal
 
@@ -569,7 +592,13 @@ facet that queues behind yours.
 ### Phase 4 — retention and polish
 
 Sweeper · quotas · export bundles · soft delete with grace period · dashboard
-metrics · failure-reason bucketing.
+metrics · **the `resume_path` hardening deferred from Phase 1** (must land
+before Phase 3 goes public) · **process-tree teardown**, which gives both
+cancel-a-running-job and clean shutdown of an in-flight agy run.
+
+Failure-reason bucketing (`timeout`, `agy_missing`, `no_output_file`,
+`bad_json`, `interrupted`, `internal`) already ships in Phase 1 — the
+dashboard just needs to display it.
 
 ### Phase 5 — operational
 

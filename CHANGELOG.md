@@ -2,6 +2,59 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-28 — Phase 1: agy runs on a queue
+
+The cutting pipeline no longer blocks an HTTP request. `POST /api/tailor`
+validates, enqueues, and returns **202 + `job_id`**; a worker drains the
+queue one job at a time and the browser polls `/api/queue/{id}`.
+
+Three reasons, in order of what each costs to ignore:
+
+1. **agy is one CLI.** A second caller used to get `AgyBusyError` → 409:
+   "someone is using it, try again", with no sense of when. Reasonable for
+   one person, hostile for several. Now they queue and see their position.
+2. **A 300-second request cannot survive a proxy.** Cloudflare's free tier
+   returns 524 if headers don't arrive within 100s; nginx defaults to 60. Any
+   deployment behind a domain forces the work off the request — this isn't
+   polish, it's the only shape that works.
+3. **Work outlives the tab.** A queued cut finishes whether or not the
+   browser stays open.
+
+**The overwrite race is gone, structurally.** `tailor.py` used to write
+`workspace/job_description.md` *before* taking the agy lock, so a second
+request could replace it while the first run was mid-read — producing a
+resume tailored against the wrong job description, silently, with no error.
+Reachable today with two tabs. Inputs are now staged per job in a directory
+containing nothing else, which also tightens `--add-dir` from "the whole
+workspace" to "this run's files".
+
+**New:** `services/filelock.py` (portable advisory lock — `fcntl` on POSIX,
+`msvcrt` on Windows) so agy is serialized across *processes*, not just
+coroutines; `services/jobs.py` (queue, atomic claiming, failure bucketing,
+crash reconciliation); `routers/queue.py`. The queue lives in its own
+`data/queue.db` — operational state that can be truncated, kept away from
+the record that can't.
+
+**Removed:** `_extraction_state`, the module-global dict that gave every
+caller one shared extraction status and swallowed errors no handler could
+see. Extraction is a job now, so it has persistence and a real error field.
+
+Verified end-to-end against a throwaway data directory (real profile as
+input, real agy, real PDF rendering — your Cabinet untouched): a cut
+completed in 55.7s through the queue; three simultaneous submissions were all
+accepted with positions 1 and 2 rather than a 409; cancelling a queued job
+worked and cancelling a running one correctly refused with 409 instead of
+lying; job scratch directories were cleaned after every run; and a hard
+`taskkill` mid-cut left the job recoverable — on restart it was marked failed
+with "Interrupted — Facet restarted while this was running" rather than
+stranding the browser on a spinner forever.
+
+Known edge, not fixed: a hard kill can leave the agy grandchild running long
+enough to recreate its scratch directory after the startup sweep. The result
+is one empty directory that the next boot removes. Terminating the subprocess
+properly needs the same machinery as cancel-a-running-job, so both are
+Phase 4.
+
 ## 2026-07-28 — Phase 0: host-ready hygiene
 
 Groundwork for the multi-user host deployment in `PLAN.md`. **No behaviour

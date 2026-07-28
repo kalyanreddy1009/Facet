@@ -8,8 +8,13 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from routers.resume import PROFILE_PATH
-from services import db
-from services.agy_runner import parse_json_output, run_agy
+from services import db, jobs
+from services.agy_runner import (
+    cleanup_job_dir,
+    parse_json_output,
+    prepare_job_dir,
+    run_agy,
+)
 from services.docgen import (
     build_cover_letter_context,
     build_resume_context,
@@ -18,7 +23,7 @@ from services.docgen import (
     render_resume_pdf,
 )
 from services.matching import keyword_overlap_score
-from services.paths import EXPORTS_DIR, WORKSPACE_DIR as WORKSPACE
+from services.paths import EXPORTS_DIR
 
 router = APIRouter()
 
@@ -74,8 +79,16 @@ Write a JSON file `tailored_fields.json` with this exact schema:
 """
 
 
-@router.post("/api/tailor")
+@router.post("/api/tailor", status_code=202)
 async def tailor(body: TailorRequest):
+    """Queue a cut and return immediately.
+
+    Validation that can be answered without agy stays here, so a bad request
+    still gets an instant 400 rather than a job that fails 30 seconds later.
+    Everything past that point is a job: agy takes up to 300 seconds, which
+    no proxy will hold a request open for (Cloudflare's free tier cuts at
+    100s, nginx defaults to 60), and a queued cut survives the tab closing.
+    """
     if not body.job_description.strip():
         raise HTTPException(status_code=400, detail="Job description is empty")
     if len(body.job_description) > JD_MAX_CHARS:
@@ -86,6 +99,18 @@ async def tailor(body: TailorRequest):
     if not PROFILE_PATH.exists():
         raise HTTPException(status_code=404, detail="No profile yet — import a resume first")
 
+    job_id = await jobs.enqueue("tailor", body.model_dump())
+    return {"job_id": job_id}
+
+
+async def run_tailor_job(job: dict) -> dict:
+    """The cutting pipeline, run by the queue worker.
+
+    Returns exactly what POST /api/tailor used to return, so the frontend
+    reads a finished job's `result` the same way it used to read the
+    response body.
+    """
+    body = TailorRequest(**job["payload"])
     profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
 
     # Local pre-check, no agy call (Section 5 step 1) — never blocks the
@@ -94,11 +119,22 @@ async def tailor(body: TailorRequest):
     overlap = keyword_overlap_score(body.job_description, keywords)
     weak_match = overlap < WEAK_MATCH_THRESHOLD
 
-    WORKSPACE.mkdir(parents=True, exist_ok=True)
-    (WORKSPACE / "job_description.md").write_text(body.job_description, encoding="utf-8")
+    # Inputs are staged per job, in a directory holding nothing else. The old
+    # code wrote job_description.md into the shared workspace *before* taking
+    # the agy lock, so a second request could overwrite it while the first
+    # run was still reading — producing a resume tailored to the wrong job,
+    # silently. See prepare_job_dir.
+    job_dir = prepare_job_dir(
+        job["id"],
+        {"job_description.md": body.job_description},
+        copy_from_workspace=("RULES.md", "profile.json"),
+    )
+    try:
+        instruction = _build_instruction(body.truthfulness_mode)
+        output = await run_agy(instruction, "tailored_fields.json", job_dir)
+    finally:
+        cleanup_job_dir(job["id"])
 
-    instruction = _build_instruction(body.truthfulness_mode)
-    output = await run_agy(instruction, "tailored_fields.json")
     tailored_fields = parse_json_output(output)
 
     if body.truthfulness_mode == "strict":

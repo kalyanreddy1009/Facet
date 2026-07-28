@@ -143,6 +143,27 @@ export interface TailorResponse {
   application: Application;
 }
 
+export type JobStatus = "queued" | "running" | "done" | "failed" | "cancelled";
+
+/** A row in the work queue. agy takes up to five minutes and only one run
+ *  happens at a time, so the work is enqueued and polled rather than held
+ *  open on a request — no proxy will keep a connection alive that long
+ *  (Cloudflare's free tier cuts at 100s), and a queued cut survives the tab
+ *  being closed. */
+export interface QueueJob {
+  id: number;
+  kind: string;
+  status: JobStatus;
+  result: unknown;
+  error: string | null;
+  error_kind: string | null;
+  /** 1-based place in line while queued, null once it starts. */
+  position: number | null;
+  queued_at: number;
+  started_at: number | null;
+  finished_at: number | null;
+}
+
 export interface TailorRequestBody {
   company: string;
   role_title: string;
@@ -242,6 +263,49 @@ export interface Settings {
 export interface ExtractionStatus {
   status: "idle" | "running" | "done" | "error";
   error: { error: string; hint?: string } | null;
+  job_id?: number | null;
+  position?: number | null;
+}
+
+/* ------------------------------------------------------------------ queue */
+
+const JOB_POLL_MS = 1500;
+/** Long enough for a full agy run plus a wait behind others in line. A job
+ *  that exceeds this is still running server-side — only the waiting stops. */
+const JOB_WAIT_CEILING_MS = 20 * 60_000;
+
+/** Poll a queued job until it finishes, then resolve with its result.
+ *
+ *  Polling rather than streaming on purpose: it survives a reload, needs no
+ *  open connection, and gives queue position for free. An SSE stream would
+ *  also clear the proxy's header timeout, but dies on reconnect and would
+ *  still need this queue underneath it. */
+async function waitForJob<T>(
+  jobId: number,
+  onProgress?: (job: QueueJob) => void,
+  signal?: AbortSignal
+): Promise<T> {
+  const deadline = Date.now() + JOB_WAIT_CEILING_MS;
+
+  for (;;) {
+    const job = await request<QueueJob>(`/api/queue/${jobId}`, { signal });
+    onProgress?.(job);
+
+    if (job.status === "done") return job.result as T;
+    if (job.status === "failed") {
+      throw new ApiError(job.error || "The job failed", undefined, 502);
+    }
+    if (job.status === "cancelled") throw new ApiError("Cancelled", undefined, 499);
+
+    if (Date.now() > deadline) {
+      throw new ApiError(
+        "Still waiting after 20 minutes",
+        "The job is queued server-side and will finish; reload to pick it back up.",
+        504
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, JOB_POLL_MS));
+  }
 }
 
 /* --------------------------------------------------------------- querying */
@@ -299,14 +363,27 @@ export const api = {
     return res.json();
   },
 
+  /* queue */
+  job: (jobId: number, signal?: AbortSignal) =>
+    request<QueueJob>(`/api/queue/${jobId}`, { signal }),
+  cancelJob: (jobId: number) =>
+    request<{ cancelled: boolean }>(`/api/queue/${jobId}`, { method: "DELETE" }),
+
   /* tailoring */
-  tailor: (body: TailorRequestBody) =>
-    // agy runs a real model — this one is allowed to take minutes.
-    request<TailorResponse>("/api/tailor", {
+  tailor: async (
+    body: TailorRequestBody,
+    onProgress?: (job: QueueJob) => void,
+    signal?: AbortSignal
+  ): Promise<TailorResponse> => {
+    // Returns 202 with a job id; the pipeline runs on the server and this
+    // waits for it. Resolves and rejects exactly as the old blocking call
+    // did, so callers didn't have to learn about the queue.
+    const { job_id } = await request<{ job_id: number }>("/api/tailor", {
       method: "POST",
       body: JSON.stringify(body),
-      timeout: 330_000,
-    }),
+    });
+    return waitForJob<TailorResponse>(job_id, onProgress, signal);
+  },
   agyHealth: () => request<{ available: boolean; detail: string }>("/api/agy/health"),
 
   /* jobs */

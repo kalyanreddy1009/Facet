@@ -11,6 +11,7 @@ import { useToasts } from "@/lib/useToasts";
 export default function TailorPage() {
   const { toasts, push, dismiss } = useToasts();
   const [loading, setLoading] = useState(false);
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [result, setResult] = useState<TailorResponse | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -25,9 +26,12 @@ export default function TailorPage() {
 
   const handleSubmit = async (body: TailorRequestBody) => {
     setLoading(true);
+    setQueuePosition(null);
     setResult(null);
     try {
-      const response = await api.tailor(body);
+      // The cut is queued server-side; this reports where it is while waiting
+      // so a line behind someone else reads as a queue, not a hang.
+      const response = await api.tailor(body, (job) => setQueuePosition(job.position));
       setResult(response);
       // Scroll to the result rather than leaving it below the fold.
       requestAnimationFrame(() =>
@@ -59,7 +63,7 @@ export default function TailorPage() {
         </div>
       )}
 
-      {loading && <LoadingOverlay />}
+      {loading && <LoadingOverlay queuePosition={queuePosition} />}
       <Toaster toasts={toasts} onDismiss={dismiss} />
     </main>
   );

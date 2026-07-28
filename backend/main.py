@@ -7,6 +7,7 @@ from services.logging_setup import RequestLogMiddleware, setup_logging
 
 setup_logging()
 
+import asyncio  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 
 from fastapi import FastAPI, Request  # noqa: E402
@@ -14,12 +15,26 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.middleware.gzip import GZipMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
-from routers import calendar, feeds, resume, status, tailor, tracker  # noqa: E402
-from services.agy_runner import AgyBusyError, AgyError, check_agy_health  # noqa: E402
+from routers import calendar, feeds, queue, resume, status, tailor, tracker  # noqa: E402
+from services import jobs  # noqa: E402
+from services.agy_runner import (  # noqa: E402
+    AgyBusyError,
+    AgyError,
+    check_agy_health,
+    sweep_orphan_job_dirs,
+)
 from services.db import init_db  # noqa: E402
 from services.scheduler import shutdown_scheduler, start_scheduler  # noqa: E402
 
 logger = logging.getLogger("facet")
+
+# Registered here rather than in services/jobs.py: the handlers live in
+# routers, and routers import services — wiring them the other way round
+# would be an import cycle.
+JOB_HANDLERS = {
+    "tailor": tailor.run_tailor_job,
+    "extract_profile": resume.run_extract_profile_job,
+}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -30,7 +45,19 @@ async def lifespan(app: FastAPI):
     start against a closing database.
     """
     init_db()
+    jobs.init_queue()
+
+    # Before the worker takes anything new: fail rows stranded `running` by a
+    # process that died, and delete the scratch directories they left behind.
+    # Skipping this leaves a browser polling a spinner that resolves never.
+    await jobs.reconcile()
+    orphans = sweep_orphan_job_dirs()
+    if orphans:
+        logger.info("[Facet] swept %s orphaned job director%s",
+                    orphans, "y" if orphans == 1 else "ies")
+
     start_scheduler()
+    worker = asyncio.create_task(jobs.worker_loop(JOB_HANDLERS))
 
     available, detail = check_agy_health()
     app.state.agy_available = available
@@ -40,7 +67,13 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # Scheduler first: a poll must not start against a closing database.
     shutdown_scheduler()
+    worker.cancel()
+    try:
+        await worker
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(title="Facet", lifespan=lifespan)
@@ -99,6 +132,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(RequestLogMiddleware)
 
 app.include_router(status.router)
+app.include_router(queue.router)
 app.include_router(tracker.router)
 app.include_router(feeds.router)
 app.include_router(resume.router)

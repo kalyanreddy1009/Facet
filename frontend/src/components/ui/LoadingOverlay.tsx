@@ -19,7 +19,7 @@ const TIMEOUT_S = 300;
  *  up to five minutes left, and a still panel reads as a frozen page. A
  *  ticking number is the honest signal that the call is still alive — we
  *  genuinely don't know the progress, so we don't draw a progress bar. */
-export default function LoadingOverlay() {
+export default function LoadingOverlay({ queuePosition }: { queuePosition?: number | null }) {
   const reduced = useReducedMotion();
   const [elapsed, setElapsed] = useState(0);
 
@@ -28,8 +28,18 @@ export default function LoadingOverlay() {
     return () => clearInterval(interval);
   }, []);
 
+  // Waiting in line is a different state from being worked on, and saying so
+  // is the difference between "queued behind 2" and an app that looks hung.
+  // Position 1 means next up but not started — still waiting, not cutting.
+  const waiting = typeof queuePosition === "number" && queuePosition > 0;
   const index = Math.min(Math.floor(elapsed / 4), PHRASES.length - 1);
-  const phrase = reduced ? PHRASES[PHRASES.length - 1] : PHRASES[index];
+  const phrase = waiting
+    ? queuePosition === 1
+      ? "Next in line…"
+      : `Waiting — ${queuePosition} in the queue…`
+    : reduced
+      ? PHRASES[PHRASES.length - 1]
+      : PHRASES[index];
 
   return (
     <div
@@ -52,10 +62,13 @@ export default function LoadingOverlay() {
           </motion.p>
         </AnimatePresence>
         <p className="text-xs text-text-faint text-center text-pretty">
-          This runs a local model — it can take a minute.
+          {waiting
+            ? "Facet runs one cut at a time. This one is queued and will start on its own."
+            : "This runs a local model — it can take a minute."}
           <br />
           <span className="tnum">
-            {formatElapsed(elapsed)} elapsed, gives up at {formatElapsed(TIMEOUT_S)}
+            {formatElapsed(elapsed)} elapsed
+            {waiting ? "" : `, gives up at ${formatElapsed(TIMEOUT_S)}`}
           </span>
         </p>
       </div>

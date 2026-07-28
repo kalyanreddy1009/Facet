@@ -2,10 +2,16 @@
 
 import json
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from services.agy_runner import AgyBusyError, AgyError, parse_json_output, run_agy
+from services import jobs
+from services.agy_runner import (
+    cleanup_job_dir,
+    parse_json_output,
+    prepare_job_dir,
+    run_agy,
+)
 from services.parser import parse_resume
 from services.paths import MASTER_RESUME_PATH, PROFILE_PATH, WORKSPACE_DIR as WORKSPACE
 
@@ -73,46 +79,61 @@ class MasterResumeBody(BaseModel):
     markdown: str
 
 
-# BackgroundTasks run after the HTTP response is already sent, so the app's
-# global AgyError/AgyBusyError handlers (request-cycle only) never see
-# exceptions raised in here — this has to catch and record its own errors,
-# exposed via GET /api/resume/extraction-status for the frontend to poll.
-_extraction_state = {"status": "idle", "error": None}
+async def run_extract_profile_job(job: dict) -> dict:
+    """Extract profile.json from master_resume.md — run by the queue worker.
 
-
-async def _extract_profile():
-    global _extraction_state
-    _extraction_state = {"status": "running", "error": None}
+    This used to be a FastAPI BackgroundTask writing to a module-global dict,
+    which meant one shared extraction status for the whole process and errors
+    that no exception handler could see (background tasks run after the
+    response is sent). As a job it gets persistence, a real error field, and
+    a status that survives a restart.
+    """
+    job_dir = prepare_job_dir(
+        job["id"], {}, copy_from_workspace=("master_resume.md",)
+    )
     try:
-        output = await run_agy(EXTRACTION_INSTRUCTION, "profile.json")
-        profile = parse_json_output(output)
-        PROFILE_PATH.write_text(json.dumps(profile, indent=2), encoding="utf-8")
-        _extraction_state = {"status": "done", "error": None}
-    except AgyError as exc:
-        _extraction_state = {
-            "status": "error",
-            "error": {"error": exc.message, "hint": exc.hint},
-        }
-    except AgyBusyError:
-        _extraction_state = {
-            "status": "error",
-            "error": {
-                "error": "Facet is already running an AI request",
-                "hint": "Wait for it to finish, then save again.",
-            },
-        }
+        output = await run_agy(EXTRACTION_INSTRUCTION, "profile.json", job_dir)
+    finally:
+        cleanup_job_dir(job["id"])
+
+    profile = parse_json_output(output)
+    PROFILE_PATH.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+    return {"saved": True}
 
 
 @router.get("/api/resume/extraction-status")
 async def get_extraction_status():
-    return _extraction_state
+    """Reports the latest extraction in the shape the frontend already polls:
+    {status: idle|running|done|error, error: {error, hint} | null}."""
+    job = await jobs.latest("extract_profile")
+    if job is None:
+        return {"status": "idle", "error": None, "job_id": None}
+
+    status = {
+        jobs.QUEUED: "running",   # waiting is running as far as the user cares
+        jobs.RUNNING: "running",
+        jobs.DONE: "done",
+        jobs.FAILED: "error",
+        jobs.CANCELLED: "idle",
+    }[job["status"]]
+
+    error = None
+    if status == "error":
+        error = {"error": "Profile extraction failed", "hint": job["error"]}
+
+    return {
+        "status": status,
+        "error": error,
+        "job_id": job["id"],
+        "position": job["position"],
+    }
 
 
 @router.post("/api/resume/master")
-async def save_master_resume(body: MasterResumeBody, background_tasks: BackgroundTasks):
-    """Saves master_resume.md, then runs the profile.json extraction as a
-    background agy pass (Section 3) — the save itself doesn't wait on agy."""
+async def save_master_resume(body: MasterResumeBody):
+    """Saves master_resume.md, then queues the profile.json extraction
+    (Section 3) — the save itself doesn't wait on agy."""
     WORKSPACE.mkdir(parents=True, exist_ok=True)
     MASTER_RESUME_PATH.write_text(body.markdown, encoding="utf-8")
-    background_tasks.add_task(_extract_profile)
-    return {"saved": True, "extraction": "started"}
+    job_id = await jobs.enqueue("extract_profile", {})
+    return {"saved": True, "extraction": "started", "job_id": job_id}
