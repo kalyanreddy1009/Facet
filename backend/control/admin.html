@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Facet — admin</title>
+<!--
+  One self-contained page: no build step, no second node_modules, no second
+  deploy. An admin panel used by one person does not justify a whole React
+  application, and the API underneath is the real product — if this ever needs
+  to become one, nothing here is in the way.
+
+  Tokens are copied from frontend/src/app/globals.css so the portal looks like
+  Facet rather than like a different tool. Same rules apply: cool neutral
+  surfaces, ONE accent for the primary action, semantic colour reserved
+  strictly for status, depth from a 1px border and a surface step.
+-->
+<style>
+  :root {
+    --bg: #0b0d11; --surface-1: #11141a; --surface-2: #171b23;
+    --surface-3: #1f242e; --surface-4: #272d39;
+    --text: #e6edf6; --text-dim: #9aa6b8; --text-faint: #8590a1; --text-ghost: #4a5464;
+    --border: rgba(230,237,246,.09); --border-strong: rgba(230,237,246,.16);
+    --border-control: rgba(230,237,246,.38);
+    --accent: #3a68d6; --accent-hover: #3f6fe0; --accent-press: #2f58b8;
+    --accent-text: #4c7ef3; --accent-soft: rgba(58,104,214,.13);
+    --accent-border: rgba(58,104,214,.38); --on-accent: #fff;
+    --ok: #3fb950; --ok-soft: rgba(63,185,80,.13); --ok-border: rgba(63,185,80,.32);
+    --warn: #d29922; --warn-soft: rgba(210,153,34,.13); --warn-border: rgba(210,153,34,.32);
+    --danger: #f0574f; --danger-soft: rgba(240,87,79,.13); --danger-border: rgba(240,87,79,.32);
+    --neutral: #8b96a8; --neutral-soft: rgba(139,150,168,.13); --neutral-border: rgba(139,150,168,.28);
+    --radius-sm: 5px; --radius: 7px; --radius-lg: 10px;
+    --control-h: 32px; --t: 160ms; --ease: cubic-bezier(.2,0,.15,1);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono, .tnum { font-family: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+                 font-variant-numeric: tabular-nums; }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 24px 64px; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 24px; }
+  h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  h2 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .sub { color: var(--text-dim); font-size: 13px; margin-top: 4px; }
+
+  section { margin-bottom: 32px; }
+  .panel { background: var(--surface-1); border: 1px solid var(--border);
+           border-radius: var(--radius-lg); overflow: hidden; }
+  .panel-pad { padding: 16px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 500; font-size: 11px; letter-spacing: .06em;
+       text-transform: uppercase; color: var(--text-faint);
+       padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  .scroll { overflow-x: auto; }
+
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
+           padding: 2px 7px; border-radius: 100px; border: 1px solid var(--neutral-border);
+           background: var(--neutral-soft); color: var(--neutral); white-space: nowrap; }
+  .badge.ok { border-color: var(--ok-border); background: var(--ok-soft); color: var(--ok); }
+  .badge.warn { border-color: var(--warn-border); background: var(--warn-soft); color: var(--warn); }
+  .badge.danger { border-color: var(--danger-border); background: var(--danger-soft); color: var(--danger); }
+  .badge.accent { border-color: var(--accent-border); background: var(--accent-soft); color: var(--accent-text); }
+
+  button { font: inherit; height: var(--control-h); padding: 0 12px;
+           border-radius: var(--radius-sm); border: 1px solid var(--border-control);
+           background: var(--surface-2); color: var(--text); cursor: pointer;
+           transition: background var(--t) var(--ease), border-color var(--t) var(--ease); }
+  button:hover:not(:disabled) { background: var(--surface-3); }
+  button:disabled { opacity: .5; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+  button.danger { color: var(--danger); border-color: var(--danger-border); }
+  button.danger:hover:not(:disabled) { background: var(--danger-soft); }
+  button.sm { height: 26px; padding: 0 9px; font-size: 12px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  input { font: inherit; height: var(--control-h); padding: 0 10px;
+          border-radius: var(--radius-sm); border: 1px solid var(--border-control);
+          background: var(--surface-2); color: var(--text); min-width: 220px; }
+  input::placeholder { color: var(--text-ghost); }
+
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px;
+           background: var(--border); border: 1px solid var(--border);
+           border-radius: var(--radius-lg); overflow: hidden; }
+  .stat { background: var(--surface-1); padding: 14px 16px; }
+  .stat .n { font-size: 22px; font-weight: 600; }
+  .stat .l { font-size: 11px; color: var(--text-faint); text-transform: uppercase;
+             letter-spacing: .06em; margin-top: 2px; }
+  .dim { color: var(--text-dim); }
+  .faint { color: var(--text-faint); font-size: 12px; }
+  .empty { padding: 28px 16px; text-align: center; color: var(--text-faint); font-size: 13px; }
+  .err { border: 1px solid var(--danger-border); background: var(--danger-soft);
+         color: var(--danger); padding: 10px 12px; border-radius: var(--radius);
+         font-size: 13px; margin-bottom: 12px; }
+  .bar { height: 6px; border-radius: 100px; background: var(--surface-3); overflow: hidden; margin-top: 8px; }
+  .bar > i { display: block; height: 100%; background: var(--accent); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Facet — admin</h1>
+    <p class="sub">User lifecycle, queue, and storage for this host. <span class="mono faint" id="root"></span></p>
+  </header>
+
+  <div id="error"></div>
+
+  <section>
+    <h2>Add a user</h2>
+    <div class="panel panel-pad">
+      <form class="row" id="add">
+        <input type="email" id="email" name="email" autocomplete="email"
+               placeholder="name@example.com" required>
+        <input type="text" id="name" name="display_name" autocomplete="name"
+               placeholder="Display name (optional)">
+        <button class="primary" type="submit">Create and provision</button>
+      </form>
+      <p class="faint" style="margin-top:10px">
+        Creates the directory tree, seeds RULES.md, initialises a fresh tracker.db,
+        assigns ports and writes the instance .env. Every step is idempotent — a
+        failure can be retried without starting over.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Users</h2>
+    <div class="panel"><div class="scroll"><table>
+      <thead><tr>
+        <th>User</th><th>Status</th><th>Ports</th><th>Postings</th>
+        <th>Applications</th><th>Queue</th><th>Disk</th><th></th>
+      </tr></thead>
+      <tbody id="users"><tr><td colspan="8" class="empty">Loading…</td></tr></tbody>
+    </table></div></div>
+  </section>
+
+  <section>
+    <h2>Storage</h2>
+    <div class="stats" id="storage"></div>
+  </section>
+
+  <section>
+    <h2>Queue</h2>
+    <div class="panel"><div class="scroll"><table>
+      <thead><tr><th>User</th><th>Job</th><th>Kind</th><th>Status</th><th>Took</th><th>Queued</th></tr></thead>
+      <tbody id="queue"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
+    </table></div></div>
+  </section>
+
+  <section>
+    <h2>Audit</h2>
+    <div class="panel"><div class="scroll"><table>
+      <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+      <tbody id="audit"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
+    </table></div></div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function bytes(n) {
+  if (!n) return "0";
+  const u = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.min(Math.floor(Math.log(n) / Math.log(1024)), u.length - 1);
+  return (n / 1024 ** i).toFixed(i ? 1 : 0) + " " + u[i];
+}
+function ago(ts) {
+  if (!ts) return "—";
+  const s = Math.floor(Date.now() / 1000 - ts);
+  if (s < 60) return s + "s ago";
+  if (s < 3600) return Math.floor(s / 60) + "m ago";
+  if (s < 86400) return Math.floor(s / 3600) + "h ago";
+  return Math.floor(s / 86400) + "d ago";
+}
+// Status colour is the one place colour is allowed to mean something here.
+const TONE = {
+  active: "ok", provisioning: "warn", deprovisioning: "warn",
+  suspended: "", deleted: "danger",
+  done: "ok", running: "accent", queued: "", failed: "danger", cancelled: "",
+};
+const badge = (s) => `<span class="badge ${TONE[s] ?? ""}">${esc(s)}</span>`;
+
+async function call(url, options) {
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json" }, ...options,
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || body.detail || `Request failed (${res.status})`);
+  return body;
+}
+function fail(err) {
+  $("error").innerHTML = `<div class="err">${esc(err.message)}</div>`;
+  setTimeout(() => ($("error").innerHTML = ""), 8000);
+}
+
+async function act(id, path, body) {
+  try {
+    await call(`/api/users/${id}/${path}`, { method: "POST", body: JSON.stringify(body || {}) });
+    await refresh();
+  } catch (err) { fail(err); }
+}
+
+window.remove_ = async (id, email) => {
+  // Typed confirmation, not a yes/no: naming the account is a different and
+  // much rarer mistake than clicking the wrong row.
+  const typed = prompt(
+    `This moves ${email}'s data aside and writes an export first.\n` +
+    `It stays recoverable until the grace period expires.\n\n` +
+    `Type the email address to confirm:`);
+  if (typed === null) return;
+  await act(id, "delete", { confirm_email: typed });
+};
+window.suspend_ = (id) => act(id, "suspend");
+window.resume_ = (id) => act(id, "resume");
+window.undelete_ = (id) => act(id, "undelete");
+window.reprovision_ = (id) => act(id, "provision");
+window.export_ = async (id) => {
+  try {
+    const out = await call(`/api/users/${id}/export`, { method: "POST" });
+    location.href = `/api/users/${id}/export/${encodeURIComponent(out.bundle)}`;
+    await refresh();
+  } catch (err) { fail(err); }
+};
+
+function userRow(u) {
+  const q = u.queue || {};
+  const queued = (q.queued || 0) + (q.running || 0);
+  const failedSteps = Object.entries(u.steps || {}).filter(([, v]) => !v.ok);
+  const actions = u.status === "deleted"
+    ? `<button class="sm" onclick="undelete_(${u.id})">Restore</button>`
+    : [
+        failedSteps.length ? `<button class="sm" onclick="reprovision_(${u.id})">Retry</button>` : "",
+        `<button class="sm" onclick="export_(${u.id})">Export</button>`,
+        u.status === "suspended"
+          ? `<button class="sm" onclick="resume_(${u.id})">Resume</button>`
+          : `<button class="sm" onclick="suspend_(${u.id})">Suspend</button>`,
+        // Deleting a live instance would move its data while the process keeps
+        // writing, and it just recreates the directory. Until Phase 3 can stop
+        // containers, the button is unavailable rather than misleading.
+        u.running
+          ? `<button class="sm danger" disabled title="Stop this instance first — port ${u.api_port} is still serving">Delete</button>`
+          : `<button class="sm danger" onclick="remove_(${u.id}, '${esc(u.email)}')">Delete</button>`,
+      ].join(" ");
+
+  return `<tr>
+    <td><div>${esc(u.display_name || u.slug)}</div>
+        <div class="faint mono">${esc(u.email)}</div>
+        ${failedSteps.length ? `<div class="faint" style="color:var(--danger)">step failed: ${esc(failedSteps[0][0])} — ${esc(failedSteps[0][1].detail)}</div>` : ""}</td>
+    <td>${badge(u.status)}${u.running ? ' <span class="badge ok">serving</span>' : ""}</td>
+    <td class="mono faint">${u.web_port} / ${u.api_port}</td>
+    <td class="mono">${u.postings ?? "—"}</td>
+    <td class="mono">${u.applications ?? "—"}</td>
+    <td class="mono">${queued ? `<span class="badge accent">${queued} active</span>` : (q.done || 0) + " done"}</td>
+    <td class="mono faint">${bytes(u.disk.total)}</td>
+    <td><div class="row">${actions}</div></td>
+  </tr>`;
+}
+
+async function refresh() {
+  try {
+    const [users, storage, queue, audit, health] = await Promise.all([
+      call("/api/users?include_deleted=true"), call("/api/storage"),
+      call("/api/queue"), call("/api/audit?limit=25"), call("/api/health"),
+    ]);
+    $("root").textContent = health.host_root;
+
+    $("users").innerHTML = users.length
+      ? users.map(userRow).join("")
+      : `<tr><td colspan="8" class="empty">No users yet. Add one above.</td></tr>`;
+
+    const pct = storage.disk.total ? (storage.disk.used / storage.disk.total) * 100 : 0;
+    $("storage").innerHTML = `
+      <div class="stat"><div class="n mono">${bytes(storage.users_total)}</div><div class="l">Users</div></div>
+      <div class="stat"><div class="n mono">${bytes(storage.exports_total)}</div><div class="l">Exports</div></div>
+      <div class="stat"><div class="n mono">${bytes(storage.deleted_total)}</div><div class="l">Awaiting purge (${storage.purge_grace_days}d)</div></div>
+      <div class="stat"><div class="n mono">${bytes(storage.disk.free)}</div><div class="l">Disk free</div>
+        <div class="bar"><i style="width:${pct.toFixed(1)}%"></i></div>
+        <div class="faint" style="margin-top:6px">${bytes(storage.disk.used)} of ${bytes(storage.disk.total)} used</div></div>`;
+
+    $("queue").innerHTML = queue.length
+      ? queue.map((j) => `<tr>
+          <td class="mono">${esc(j.user)}</td>
+          <td class="mono faint">#${j.id}</td>
+          <td>${esc(j.kind)}</td>
+          <td>${badge(j.status)}${j.error_kind ? ` <span class="faint">${esc(j.error_kind)}</span>` : ""}</td>
+          <td class="mono faint">${j.started_at && j.finished_at ? (j.finished_at - j.started_at).toFixed(1) + "s" : "—"}</td>
+          <td class="faint">${ago(j.queued_at)}</td></tr>`).join("")
+      : `<tr><td colspan="6" class="empty">Nothing has been queued yet.</td></tr>`;
+
+    $("audit").innerHTML = audit.length
+      ? audit.map((a) => `<tr>
+          <td class="faint">${ago(a.at)}</td>
+          <td class="mono faint">${esc(a.actor)}</td>
+          <td>${esc(a.action)}</td>
+          <td class="mono faint">${esc(a.target || "—")}</td>
+          <td class="faint">${esc(a.detail || "")}</td></tr>`).join("")
+      : `<tr><td colspan="5" class="empty">Nothing recorded yet.</td></tr>`;
+  } catch (err) { fail(err); }
+}
+
+$("add").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.target.querySelector("button");
+  button.disabled = true;
+  button.textContent = "Provisioning…";
+  try {
+    await call("/api/users", {
+      method: "POST",
+      body: JSON.stringify({ email: $("email").value, display_name: $("name").value || null }),
+    });
+    $("email").value = ""; $("name").value = "";
+    await refresh();
+  } catch (err) { fail(err); }
+  finally { button.disabled = false; button.textContent = "Create and provision"; }
+});
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

@@ -570,15 +570,36 @@ recreate its scratch directory after the startup sweep, leaving one empty
 directory that the next boot removes. Same root cause as running-cancel, same
 fix, Phase 4.
 
-### Phase 2 — control plane and admin portal
+### Phase 2 — control plane and admin portal ✅ **shipped 2026-07-28**
 
-`facet-control` service · users CRUD · provisioning steps 1–6 (filesystem
-and database only, no Docker yet) · admin UI: users, queue dashboard,
-storage · audit log · your own account migrated to
-`/srv/facet/users/<you>/`.
+`backend/control/` · users CRUD · provisioning steps 1–6 · admin UI (users,
+storage, queue, audit) · audit log · soft delete with a 30-day grace period ·
+export bundles.
 
-*Done when:* you can create and delete a user and watch the directories
-appear and disappear, with your own live data served from its new location.
+*Verified:* created a user, booted the app against nothing but the
+provisioned directories, and it served and began ingesting its own postings
+(449) fully isolated from the existing instance (1,361). Delete →
+auto-export → data moved aside → restore, all through the API and the UI.
+
+Differences from the plan as written:
+
+- **The admin UI is one self-contained HTML page**, not a second Next app.
+  No build step, no second `node_modules`, no second deploy — an admin panel
+  used by one person doesn't justify a React application, and the API
+  underneath is the real product if it ever does.
+- **`HOST_ROOT` defaults to `<repo>/.facet-host`**, not `/srv/facet`, so a
+  local checkout is self-contained. The host sets `FACET_HOST_ROOT`.
+- **Deleting a running instance is refused.** Discovered while testing:
+  moving data out from under a live process doesn't stop it — SQLite and the
+  logger recreate their files, and the "deleted" account reappears with a
+  fresh empty database. Phase 3's `compose down` makes this a stop-then-delete
+  sequence; until then it fails clean.
+- **Your own migration is not done.** `POST /api/users/import` copies (never
+  moves) an existing installation into a new instance. Running it against
+  real data is your call.
+
+*Still open before Phase 3:* decide whether to migrate your own installation,
+and whether `data/settings.json` stays per-user (§11 question 4).
 
 ### Phase 3 — Docker and Cloudflare
 

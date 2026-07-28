@@ -2,6 +2,64 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-28 — Phase 2: control plane and admin portal
+
+`backend/control/` — a second entrypoint, not a second project. Run it with
+`backend/.venv/python.exe -m control.app` → http://127.0.0.1:9000.
+
+**Adding a user provisions a working instance.** Five idempotent, recorded
+steps: directory tree → seed `RULES.md` → initialise `tracker.db` → verify
+ports → write the instance `.env`. Recorded-and-idempotent is what makes a
+failure survivable — a break at step 4 leaves the first three done, and
+retrying resumes rather than restarting.
+
+`tracker.db` is created by running the app's own `scripts/init_db.py` in a
+subprocess with `FACET_DATA_DIR` set, not by a copy of the schema here. The
+schema cannot drift from what the app expects because it *is* what the app
+uses.
+
+**Ports derive from the user id, and ids are never recycled.** That closes
+the nastiest failure this design allows: a deleted user's port being reused
+while a stale container or cached tunnel rule still points at it, silently
+handing one person's Facet to someone else.
+
+**Deleting is soft, and the irreversible part is 30 days away.** The flow:
+typed-email confirmation (naming the account is a rarer mistake than clicking
+the wrong row) → an export bundle is written automatically → the data is
+*moved* to `deleted/`, not removed → recoverable in one click until the grace
+period expires. `purge_expired()` is the only function that destroys
+anything, and it writes to the audit log before the files go.
+
+`VACUUM INTO` for every database copy, never `cp` — WAL keeps recent writes
+in a sidecar and a plain copy silently loses them.
+
+**Admin portal is one self-contained HTML page.** No build step, no second
+`node_modules`, no second deploy. Tokens copied from `globals.css` so it
+looks like Facet. Users, storage, queue and audit, refreshing every 5s.
+
+**Found while testing:** deleting a user whose instance is still running
+moves the data out from under a live process, which does not stop it —
+SQLite and the logger simply recreate their files, and the "deleted" account
+reappears holding a fresh empty database. Until Phase 3 can stop containers,
+deletion now probes the instance's port and refuses, and the button is
+disabled with the reason rather than misleading. The self-check binds a real
+socket to prove the guard fires.
+
+Also fixed a bug the lifecycle test caught: `purge_expired` used a truthiness
+check on `purge_after`, so a timestamp of `0` — a legitimate "due now" —
+would have been skipped forever.
+
+Verified end-to-end: created a user, booted the app against nothing but the
+provisioned directories, and it served and began ingesting its own postings
+(449) fully isolated from the existing instance (1,361). Then delete →
+auto-export → data moved aside → restore, with the audit log carrying the
+whole story.
+
+Not done, and deliberately left for you: migrating your own installation.
+`POST /api/users/import` copies (never moves) an existing `data/` and
+`workspace/` into a new instance. The original keeps working untouched —
+that is the entire safety argument — so running it is your call, not mine.
+
 ## 2026-07-28 — Phase 1: agy runs on a queue
 
 The cutting pipeline no longer blocks an HTTP request. `POST /api/tailor`

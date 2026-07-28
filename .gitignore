@@ -21,6 +21,10 @@ data/jobs/
 data/agy.lock
 data/agy.lock.owner
 
+# Control plane: provisioned per-user instances, exports, soft-deleted
+# accounts. Other people's career records live here — never commit it.
+.facet-host/
+
 # Your actual career record and anything cut from it.
 workspace/profile.json
 workspace/master_resume.md

@@ -58,6 +58,14 @@ features — and WeasyPrint's native Pango/Cairo libs — PDF/DOCX export only.
   operational state that can be truncated vs. the user's record.
 - `filelock.py` — portable advisory lock (`fcntl` / `msvcrt`), so agy stays
   serialized across processes rather than just across coroutines.
+
+**`backend/control/`** is a second entrypoint, not a second project: the
+admin portal and user lifecycle for a multi-user host (`PLAN.md`). Run it
+with `backend/.venv/python.exe -m control.app` → http://127.0.0.1:9000.
+`store.py` owns `control.db` (users, audit), `provision.py` the
+create/suspend/export/delete pipeline, `admin.html` the whole UI as one
+self-contained page. It reads user databases read-only and never writes to
+them.
 - `docgen.py` — profile + tailored fields → resume PDF/DOCX + cover letter PDF.
 - `scheduler.py` — 6-hour poll of every source, first pull ~10s after launch.
 - `health.py` — every `/status` check, executed for real, no caching.
@@ -181,6 +189,7 @@ backend/.venv/python.exe -m services.paths           # path resolution + env ove
 backend/.venv/python.exe -m services.filelock        # cross-process exclusion (spawns a child)
 backend/.venv/python.exe -m services.jobs            # queue, claiming, reconciliation
 backend/.venv/python.exe -m services.agy_runner      # per-job input staging
+backend/.venv/python.exe -m control.provision        # full user lifecycle, temp root
 backend/.venv/python.exe -m services.job_sources     # parsing, offline
 backend/.venv/python.exe -m services.matching        # scoring
 backend/.venv/python.exe -m services.logging_setup   # ring buffer + metrics
