@@ -1,7 +1,8 @@
 # Runbook
 
-What to do when something is wrong. `deploy/README.md` covers getting the
-host up; this is for after it is running.
+What to do when something is wrong. `docs/setup.md` covers configuring the
+host from scratch and `deploy/README.md` is its condensed reference; this is
+for after it is running.
 
 Quick orientation: the admin portal at `admin.<your-domain>` shows host
 capabilities, per-user status, queue metrics, retention and backup age. Most

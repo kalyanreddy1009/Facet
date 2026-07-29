@@ -3,6 +3,11 @@
 Bringing up a multi-user Facet on one Linux VM. See `PLAN.md` for why the
 architecture is shaped this way; this is the operational sequence.
 
+> **Setting this up for the first time?** Follow **`docs/setup.md`** instead.
+> It walks the whole thing end to end — domain, Cloudflare, Access, users —
+> with the values to collect up front and a verification checklist. This file
+> is the condensed reference for someone who has done it before.
+
 Target: Oracle Always Free ARM (2 vCPU / 12 GB / 200 GB), Ubuntu 24.04,
 behind Cloudflare Tunnel + Access on your own domain. Cost: $0.
 
