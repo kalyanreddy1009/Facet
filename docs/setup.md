@@ -278,11 +278,18 @@ echo "$USER ALL=(root) NOPASSWD: /bin/systemctl reload cloudflared" \
 sudo chmod 440 /etc/sudoers.d/facet-cloudflared
 ```
 
-### 5d. Access — the actual authentication
+### 5d. Access — an optional outer gate
 
 Cloudflare dashboard → **Zero Trust** → **Access** → **Applications**.
 
-One self-hosted application, covering everyone:
+**Facet now has its own login page**, so this is no longer what
+authenticates anybody. Skip this section and Facet works: people sign in at
+`facet.yourdomain.com/login` with a password they chose.
+
+Adding Access anyway puts a second door in front, so unauthenticated traffic
+never reaches Facet's login endpoint at all. It costs your users a second
+sign-in. For ten colleagues, Facet's own login alone is the usual choice; if
+you want the outer gate, one self-hosted application covers everyone:
 
 | Field | Value |
 |---|---|
@@ -305,14 +312,8 @@ Then one more for yourself, for the admin portal:
 (`@gmail.com`) lets every Gmail user in the world past the only
 authentication this deployment has.
 
-Access decides *whether* someone gets in. Facet decides *whose data they
-see*, by matching the email Access reports against its own user table. Both
-have to say yes: an address in the Access policy but not registered in Facet
-gets a clean "you have no Facet on this host" rather than somebody else's
-tracker.
-
-Adding a user is therefore two steps that must both happen — add them in the
-admin portal, and add their address to this one policy.
+If you use it, both doors must say yes: an address in the Access policy but
+not registered in Facet still reaches only the login page.
 
 To automate this instead, set `CF_ACCOUNT_ID` and `CF_API_TOKEN` in the
 control plane's unit. The token needs **Access: Apps and Policies — Edit**.
@@ -353,21 +354,23 @@ under `$FACET_HOST_ROOT/users/<slug>/`. Their database is created the first
 time they actually load a page — **no restart, no new port, no DNS, no
 ingress change.** One instance serves everyone.
 
-Then add the same address to the Access policy from Part 5d. Both steps are
-required and they fail in opposite directions, which is deliberate:
+The portal then shows a **one-time sign-in link**. Copy it — it is displayed
+once, because only its digest is stored. Send it to that person however you
+normally reach them; Facet sends no email.
 
-| Registered in Facet | In the Access policy | What happens |
-|---|---|---|
-| yes | yes | They use Facet |
-| yes | no | Stopped at Access — they never reach Facet |
-| no | yes | Reach Facet, told they have no account here |
-| no | no | Stopped at Access |
+They open the link, choose a password, and are signed in. The link expires
+after a week and stops working the moment it is used, so one that leaks later
+opens nothing.
 
-There is no combination that shows one person another's data. The failure
-modes are all "locked out", never "let in as somebody else".
+| Button | When you need it |
+|---|---|
+| **Sign-in link** | They never set a password, or forgot it. Issuing one does not disable the old password, so a link sent to the wrong person locks nobody out. |
+| **Sign out** | A lost laptop. Ends every session; they can sign back in, whoever has the laptop cannot. |
+| **Suspend** | Someone should stop having access. Ends their sessions and refuses new ones, without touching their data. |
 
-Then send each person the same URL — `https://facet.yourdomain.com`. They
-sign in with the email you allowed, import a resume, and start.
+Passwords are hashed with scrypt — 32 MB of memory per attempt — and eight
+failed logins lock that one account for fifteen minutes. The lockout is per
+account, so nobody can lock out everyone else.
 
 ### Migrating your own existing data
 

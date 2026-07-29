@@ -15,7 +15,8 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.middleware.gzip import GZipMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
-from routers import calendar, feeds, queue, resume, status, tailor, tracker  # noqa: E402
+from routers import auth, calendar, feeds, queue, resume, status, tailor, tracker  # noqa: E402
+from services import auth as auth_service  # noqa: E402
 from services import identity, jobs, paths  # noqa: E402
 from services.agy_runner import (  # noqa: E402
     AgyBusyError,
@@ -118,6 +119,20 @@ async def agy_busy_handler(request: Request, exc: AgyBusyError):
     )
 
 
+@app.exception_handler(auth_service.AuthError)
+async def auth_error_handler(request: Request, exc: auth_service.AuthError):
+    """A refusal the person can act on, not a 500.
+
+    Without this a password below the length floor reached the catch-all
+    below and came back as "Something went wrong" — which tells someone
+    typing a password nothing about what to do differently.
+    """
+    return JSONResponse(
+        status_code=exc.status,
+        content={"error": exc.message, "hint": exc.hint},
+    )
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     # Last-resort safety net — every error should reach the frontend as
@@ -171,7 +186,7 @@ async def identify_user(request: Request, call_next):
         return await call_next(request)
 
     try:
-        slug = identity.resolve(request.headers.get(identity.ACCESS_EMAIL_HEADER))
+        slug = identity.resolve(request.cookies.get(auth_service.SESSION_COOKIE))
     except identity.IdentityError as exc:
         return JSONResponse(
             status_code=exc.status,
@@ -184,6 +199,7 @@ async def identify_user(request: Request, call_next):
     finally:
         paths.reset_user(token)
 
+app.include_router(auth.router)
 app.include_router(status.router)
 app.include_router(queue.router)
 app.include_router(tracker.router)

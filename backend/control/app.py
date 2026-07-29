@@ -168,7 +168,26 @@ class CreateUser(BaseModel):
 @app.post("/api/users", status_code=201)
 async def create_user(body: CreateUser, request: Request):
     user = provision.create_user(body.email, body.display_name, actor(request))
-    return user_summary(user)
+    # The invite link comes back exactly once, in this response. It is stored
+    # only as a digest, so it cannot be shown again -- reissue instead.
+    summary = user_summary(user)
+    summary["invite_url"] = provision.issue_invite(user["id"], actor(request))
+    return summary
+
+
+@app.post("/api/users/{user_id}/invite")
+async def reissue_invite(user_id: int, request: Request):
+    """A fresh sign-in link. Doubles as the password reset.
+
+    There is no emailed reset flow: that would need an SMTP dependency and a
+    deliverability problem, for a handful of people who have an
+    administrator. This is that administrator.
+
+    Issuing one does NOT clear the existing password -- so a link sent to the
+    wrong person does not lock the right one out. It is a second way in until
+    it is used, which is why it expires.
+    """
+    return {"invite_url": provision.issue_invite(user_id, actor(request))}
 
 
 @app.post("/api/users/{user_id}/provision")
@@ -181,6 +200,22 @@ async def reprovision(user_id: int, request: Request):
 @app.post("/api/users/{user_id}/suspend")
 async def suspend(user_id: int, request: Request):
     return user_summary(provision.suspend(user_id, actor(request)))
+
+
+@app.post("/api/users/{user_id}/revoke-sessions")
+async def revoke_sessions(user_id: int, request: Request):
+    """Sign this person out everywhere, without suspending them.
+
+    What you reach for when a laptop is lost: they can sign back in, but
+    whoever has the laptop cannot.
+    """
+    user = store.get_user(user_id)
+    if user is None:
+        raise HTTPException(404, "no such user")
+    removed = store.revoke_user_sessions(user_id)
+    store.record(actor(request), "user.sessions_revoked", user["email"],
+                 f"{removed} session(s)")
+    return {"revoked": removed}
 
 
 @app.post("/api/users/{user_id}/resume")

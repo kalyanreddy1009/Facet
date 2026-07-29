@@ -7,25 +7,20 @@ refusal, never in a fallback identity.
 
 Where identity comes from
 -------------------------
-Cloudflare Access authenticates at the edge and sets
-`Cf-Access-Authenticated-User-Email` on every request it forwards. Facet
-trusts that header, which is safe only because of a property enforced at
-startup: **the backend binds loopback**, so the only thing that can reach it
-is cloudflared on the same host. A client cannot supply the header itself
-because a client cannot reach the port at all.
+Facet's own session cookie. Someone signs in at `/login`, the server issues a
+random token, stores its SHA-256 in `control.db`, and returns it as an
+HttpOnly cookie. Every later request is identified by looking that digest up.
 
-If that ever stops being true — if the port is bound to 0.0.0.0 or published
-by a container — then anyone who can reach it becomes anyone they like by
-typing a header. That is why `assert_trustworthy_binding()` exists and why it
-raises rather than warns.
+Server-side rather than a self-contained signed token, because revocation has
+to be immediate: suspending or deleting someone must end their session now,
+and a stateless token cannot be recalled before it expires.
 
-The stricter alternative is verifying the `Cf-Access-Jwt-Assertion` JWT
-against Cloudflare's JWKS. That is the right upgrade if the origin ever needs
-to be reachable beyond loopback; it costs a dependency and a key fetch, and
-buys nothing while the loopback property holds.
+An expired or unknown cookie is not an error to work around — it produces a
+401 and the frontend sends the person to the login page.
 
-# ponytail: header trust + loopback binding. Verify the Access JWT instead if
-# the origin ever needs to accept traffic from anywhere but cloudflared.
+The origin still binds loopback and still sits behind the tunnel. That is no
+longer what authenticates anybody, but it is what keeps the app off the open
+internet except through Cloudflare, so it stays enforced.
 
 Single-user mode
 ----------------
@@ -41,11 +36,18 @@ from services import paths
 
 logger = logging.getLogger("facet.identity")
 
-ACCESS_EMAIL_HEADER = "Cf-Access-Authenticated-User-Email"
-
-# Paths served before anyone is identified. Health is here so an operator can
-# see a sick instance without holding an Access session.
-PUBLIC_PATHS = frozenset({"/api/status/health", "/api/status/ready", "/health"})
+# Paths served before anyone is identified.
+#
+# Deliberately a small, explicit set rather than a prefix match: `/api/auth`
+# as a prefix would have exposed anything later added under it, and the
+# things that must be reachable without a session are exactly the ones below.
+PUBLIC_PATHS = frozenset({
+    "/api/status/health", "/api/status/ready", "/health", "/api/health",
+    "/api/auth/login",           # obviously
+    "/api/auth/accept-invite",   # setting a first password, from a one-time link
+    "/api/auth/me",              # answers "nobody" rather than 401, so the UI can ask
+    "/api/auth/logout",          # clearing a dead cookie must not require a live one
+})
 
 
 class IdentityError(Exception):
@@ -80,21 +82,23 @@ def assert_trustworthy_binding() -> None:
     if not _loopback(host):
         raise RuntimeError(
             f"FACET_MULTIUSER is on but the backend binds {host!r}. "
-            "Identity comes from a header that only cloudflared may set, so "
-            "the origin must bind loopback. Set FACET_BIND_HOST=127.0.0.1, or "
-            "turn off FACET_MULTIUSER."
+            "Facet is meant to be reached through the Cloudflare tunnel, not "
+            "directly: binding a public interface puts the login endpoint on "
+            "the open internet with nothing in front of it. Set "
+            "FACET_BIND_HOST=127.0.0.1, or turn off FACET_MULTIUSER."
         )
 
 
-def _lookup(email: str) -> dict | None:
-    """The registry lives in the control plane; this is a read of it."""
+def _lookup_session(token: str) -> dict | None:
+    """The session store lives in the control plane; this is a read of it."""
     from control import store
+    from services import auth
 
-    return store.get_user_by_email(email)
+    return store.session_user(auth.token_digest(token))
 
 
-def resolve(email: str | None) -> str | None:
-    """Map an authenticated email to the user slug whose data it may touch.
+def resolve(token: str | None) -> str | None:
+    """Map a session cookie to the user slug whose data it may touch.
 
     Returns None in single-user mode. Raises IdentityError otherwise — there
     is deliberately no return value meaning "carry on as nobody", because
@@ -103,24 +107,19 @@ def resolve(email: str | None) -> str | None:
     if not multiuser_enabled():
         return None
 
-    # Normalise *before* testing for emptiness. A header of "   " is truthy,
-    # so checking first sent a whitespace-only value on to the registry as an
-    # empty email — a lookup that should never be attempted, let alone match.
-    email = (email or "").strip().lower()
-    if not email:
-        raise IdentityError(
-            401,
-            "Not signed in.",
-            "This Facet is behind Cloudflare Access and saw no identity on the "
-            "request. Open it through your Facet address rather than directly.",
-        )
+    # Normalise *before* testing for emptiness. A cookie of "   " is truthy,
+    # so checking first would send whitespace on to be looked up — a lookup
+    # that should never be attempted, let alone match.
+    token = (token or "").strip()
+    if not token:
+        raise IdentityError(401, "Not signed in.", "Sign in to use Facet.")
 
-    user = _lookup(email)
+    user = _lookup_session(token)
     if user is None:
-        raise IdentityError(
-            403, f"{email} has no Facet on this host.",
-            "Ask whoever administers this deployment to add you.",
-        )
+        # One message for "no such session" and "expired session" alike.
+        # Telling them apart would confirm to an attacker which stolen tokens
+        # were once real, and tells the person nothing they can act on.
+        raise IdentityError(401, "Your session has ended.", "Sign in again.")
 
     # An account mid-provision has directories that may not exist yet, and a
     # suspended or deleted one must not be served at all. Only `active` is a
@@ -160,82 +159,66 @@ def demo() -> None:
         os.environ.pop("FACET_MULTIUSER", None)
         assert not ident.multiuser_enabled()
         assert ident.resolve(None) is None, "single-user must stay single-user"
-        assert ident.resolve("anyone@example.com") is None
+        assert ident.resolve("any-token") is None
         ident.assert_trustworthy_binding()  # no-op when off
 
         # ---------------------------------------------------- multi-user
         os.environ["FACET_MULTIUSER"] = "1"
         assert ident.multiuser_enabled()
 
-        # No header must NEVER become "the shared directory". This is the
+        # No cookie must NEVER become "the shared directory". This is the
         # single most important assertion in the file: the failure it guards
         # against is silent, and it serves one person's data to everyone.
+        for missing in (None, "", "   "):
+            try:
+                ident.resolve(missing)
+            except IdentityError as exc:
+                assert exc.status == 401, exc.status
+            else:
+                raise AssertionError(f"identity {missing!r} was allowed through")
+
+        # An unknown or expired session is refused, not treated as new.
+        original_lookup = ident._lookup_session
+        ident._lookup_session = lambda token: None
         try:
-            ident.resolve(None)
+            ident.resolve("a-token-that-is-not-in-the-database")
         except IdentityError as exc:
             assert exc.status == 401, exc.status
         else:
-            raise AssertionError("a request with no identity was allowed through")
+            raise AssertionError("an unknown session was allowed through")
 
-        try:
-            ident.resolve("")
-        except IdentityError as exc:
-            assert exc.status == 401
-        else:
-            raise AssertionError("an empty identity was allowed through")
-
-        # An unknown but well-formed email is a refusal, not a new account.
-        # Auto-creating here would let anyone in the Access org provision
-        # themselves by visiting the page.
-        original_lookup = ident._lookup
-        ident._lookup = lambda email: None
-        try:
-            ident.resolve("stranger@example.com")
-        except IdentityError as exc:
-            assert exc.status == 403, exc.status
-        else:
-            raise AssertionError("an unregistered email was allowed through")
-
-        # Only `active` is served.
+        # Only `active` is served. A suspended account holding a live cookie
+        # must be turned away -- this is what makes suspension mean anything.
         for status in ("provisioning", "suspended", "deprovisioning", "deleted",
                        "something-invented-later"):
-            ident._lookup = lambda email, s=status: {"slug": "alice", "status": s}
+            ident._lookup_session = lambda token, s=status: {"slug": "alice", "status": s}
             try:
-                ident.resolve("alice@example.com")
+                ident.resolve("live-token")
             except IdentityError as exc:
                 assert exc.status == 403, (status, exc.status)
             else:
                 raise AssertionError(f"a {status} account was served")
 
-        # The happy path, including case-insensitivity — Access may report a
-        # different case than the address was registered with.
-        seen = {}
+        # The happy path.
+        ident._lookup_session = lambda token: {"slug": "alice", "status": "active"}
+        assert ident.resolve("live-token") == "alice"
 
-        def _record(email):
-            seen["email"] = email
-            return {"slug": "alice", "status": "active"}
-
-        ident._lookup = _record
-        assert ident.resolve("  Alice@Example.COM  ") == "alice"
-        assert seen["email"] == "alice@example.com", seen
-
-        # A registry row holding a hostile slug is still refused. The registry
-        # is trusted to say *who*, never to say *where*.
-        ident._lookup = lambda email: {"slug": "../bob", "status": "active"}
+        # A session row holding a hostile slug is still refused. The store is
+        # trusted to say *who*, never to say *where*.
+        ident._lookup_session = lambda token: {"slug": "../bob", "status": "active"}
         try:
-            ident.resolve("alice@example.com")
+            ident.resolve("live-token")
         except paths.InvalidUserId:
             pass
         else:
-            raise AssertionError("a traversal slug survived the registry")
+            raise AssertionError("a traversal slug survived the session lookup")
 
-        ident._lookup = original_lookup
+        ident._lookup_session = original_lookup
 
         # ------------------------------------------------ binding guard
-        os.environ["FACET_BIND_HOST"] = "127.0.0.1"
-        ident.assert_trustworthy_binding()
-        os.environ["FACET_BIND_HOST"] = "::1"
-        ident.assert_trustworthy_binding()
+        for loopback in ("127.0.0.1", "::1", "localhost"):
+            os.environ["FACET_BIND_HOST"] = loopback
+            ident.assert_trustworthy_binding()
 
         for exposed in ("0.0.0.0", "10.0.0.5", "::"):
             os.environ["FACET_BIND_HOST"] = exposed
@@ -245,10 +228,19 @@ def demo() -> None:
                 pass
             else:
                 raise AssertionError(f"multi-user allowed on {exposed}")
+
+        # --------------------------------------------- the public paths
+        # Whatever else changes, these must not require a session -- and
+        # nothing else may sneak in by sharing a prefix with them.
+        assert "/api/auth/login" in ident.PUBLIC_PATHS
+        assert "/api/applications" not in ident.PUBLIC_PATHS
+        assert "/api/auth/change-password" not in ident.PUBLIC_PATHS, \
+            "changing a password must require being signed in"
+        assert "/api/auth/sessions" not in ident.PUBLIC_PATHS
     finally:
         restore()
 
-    print("identity: all checks passed (fails closed, no fallback identity)")
+    print("identity: all checks passed (sessions, fails closed, no fallback)")
 
 
 if __name__ == "__main__":

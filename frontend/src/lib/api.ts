@@ -19,6 +19,23 @@ const DEFAULT_TIMEOUT = 20_000;
  * Every call is abortable and time-boxed. A hung backend must surface as a
  * clear error, never as a spinner that spins forever.
  */
+/**
+ * Send an expired session to the login page, once.
+ *
+ * Guarded because a dashboard fires several requests at once: without the
+ * flag, five simultaneous 401s queue five navigations and the `next`
+ * parameter ends up pointing at `/login` itself.
+ */
+let redirecting = false;
+
+function redirectToLogin(): void {
+  if (typeof window === "undefined" || redirecting) return;
+  if (window.location.pathname.startsWith("/login")) return;
+  redirecting = true;
+  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.href = `/login?reason=expired&next=${next}`;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit & { timeout?: number } = {}
@@ -32,9 +49,19 @@ async function request<T>(
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       headers: { "Content-Type": "application/json" },
+      // The session cookie has to ride along. Without this every request is
+      // anonymous and the whole app looks signed out.
+      credentials: "include",
       signal: controller.signal,
       ...init,
     });
+    if (res.status === 401) {
+      // A session that ended mid-use. Handled here rather than in each
+      // caller: there are dozens of call sites and any one that forgot would
+      // show an error toast where a login page belongs.
+      redirectToLogin();
+      throw new ApiError("Your session has ended", "Sign in again.", 401);
+    }
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new ApiError(

@@ -101,8 +101,48 @@ def _init_schema(conn: sqlite3.Connection) -> None:
           detail  TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_audit_at ON audit(at DESC);
+
+        -- Sessions are server-side so they can be revoked. Suspending or
+        -- deleting somebody has to end their session now, and a stateless
+        -- token cannot be taken back before it expires.
+        --
+        -- `token_hash`, never the token: a leaked backup of this file must
+        -- not hand over live sessions.
+        CREATE TABLE IF NOT EXISTS sessions (
+          token_hash  TEXT PRIMARY KEY,
+          user_id     INTEGER NOT NULL REFERENCES users(id),
+          created_at  REAL NOT NULL,
+          expires_at  REAL NOT NULL,
+          last_seen_at REAL,
+          user_agent  TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
+        -- Failed logins, for lockout. Kept per account because that is what
+        -- an attacker targets; per-IP alone is defeated by a proxy list.
+        CREATE TABLE IF NOT EXISTS login_attempts (
+          id       INTEGER PRIMARY KEY AUTOINCREMENT,
+          email    TEXT NOT NULL,
+          at       REAL NOT NULL,
+          remote   TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_attempts_email ON login_attempts(email, at DESC);
         """
     )
+
+    # Additive, like tracker.db's. A control.db from before passwords existed
+    # opens unchanged and its users simply have no password set yet — which
+    # is exactly the state an invited user is in.
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(users)")}
+    for column, decl in {
+        "password_hash": "TEXT",
+        "password_set_at": "REAL",
+        "invite_hash": "TEXT",
+        "invite_expires": "REAL",
+    }.items():
+        if column not in existing:
+            conn.execute(f"ALTER TABLE users ADD COLUMN {column} {decl}")
+
     conn.commit()
     for directory in (USERS_DIR, EXPORTS_DIR, DELETED_DIR):
         directory.mkdir(parents=True, exist_ok=True)
@@ -248,4 +288,135 @@ def forget(user_id: int) -> None:
     """Drop the row entirely — only after the data is already purged."""
     conn = connect()
     conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    conn.commit()
+
+
+# ---------------------------------------------------------------- sessions
+#
+# The credential half of the user table. Kept here rather than in
+# services/auth.py so that module stays pure -- it decides *policy* (how to
+# hash, when to lock out) and this decides *storage*.
+
+def set_password(user_id: int, password_hash: str) -> None:
+    """Set the password and consume any outstanding invite.
+
+    Clearing the invite matters: a link that still works after the password
+    is set is a second, permanent way into the account.
+    """
+    conn = connect()
+    conn.execute(
+        "UPDATE users SET password_hash = ?, password_set_at = ?, "
+        "invite_hash = NULL, invite_expires = NULL WHERE id = ?",
+        (password_hash, time.time(), user_id),
+    )
+    conn.commit()
+
+
+def create_invite(user_id: int, invite_hash: str, expires_at: float) -> None:
+    """Store the digest of a one-time link. Replaces any previous one."""
+    conn = connect()
+    conn.execute(
+        "UPDATE users SET invite_hash = ?, invite_expires = ? WHERE id = ?",
+        (invite_hash, expires_at, user_id),
+    )
+    conn.commit()
+
+
+def user_by_invite(invite_hash: str) -> dict | None:
+    """The user holding this unexpired invite, if any."""
+    conn = connect()
+    row = conn.execute(
+        "SELECT * FROM users WHERE invite_hash = ? AND invite_expires > ?",
+        (invite_hash, time.time()),
+    ).fetchone()
+    return _hydrate(row)
+
+
+def create_session(user_id: int, token_hash: str, ttl_seconds: float,
+                   user_agent: str | None = None) -> None:
+    now = time.time()
+    conn = connect()
+    conn.execute(
+        "INSERT INTO sessions (token_hash, user_id, created_at, expires_at, "
+        "last_seen_at, user_agent) VALUES (?, ?, ?, ?, ?, ?)",
+        (token_hash, user_id, now, now + ttl_seconds, now, (user_agent or "")[:200]),
+    )
+    conn.commit()
+
+
+def session_user(token_hash: str) -> dict | None:
+    """The user this session belongs to, or None if it is unknown or expired.
+
+    Expiry is enforced in the query rather than after it, so there is no path
+    where an expired session is read and then forgotten to be checked.
+    """
+    conn = connect()
+    row = conn.execute(
+        "SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id "
+        "WHERE s.token_hash = ? AND s.expires_at > ?",
+        (token_hash, time.time()),
+    ).fetchone()
+    if row is None:
+        return None
+    conn.execute("UPDATE sessions SET last_seen_at = ? WHERE token_hash = ?",
+                 (time.time(), token_hash))
+    conn.execute("UPDATE users SET last_seen_at = ? WHERE id = ?",
+                 (time.time(), row["id"]))
+    conn.commit()
+    return _hydrate(row)
+
+
+def revoke_session(token_hash: str) -> None:
+    conn = connect()
+    conn.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
+    conn.commit()
+
+
+def revoke_user_sessions(user_id: int) -> int:
+    """End every session this user holds. Suspension and deletion depend on
+    it: a status change that leaves a live session running has not actually
+    stopped anybody."""
+    conn = connect()
+    cur = conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    conn.commit()
+    return cur.rowcount
+
+
+def purge_expired_sessions() -> int:
+    conn = connect()
+    cur = conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (time.time(),))
+    conn.commit()
+    return cur.rowcount
+
+
+def list_sessions(user_id: int) -> list[dict]:
+    conn = connect()
+    return [dict(r) for r in conn.execute(
+        "SELECT token_hash, created_at, expires_at, last_seen_at, user_agent "
+        "FROM sessions WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
+    )]
+
+
+# ----------------------------------------------------------- login attempts
+
+def record_failure(email: str, remote: str | None) -> None:
+    conn = connect()
+    conn.execute("INSERT INTO login_attempts (email, at, remote) VALUES (?, ?, ?)",
+                 (email.lower(), time.time(), (remote or "")[:64]))
+    conn.commit()
+
+
+def recent_failures(email: str, window_seconds: float) -> list[float]:
+    conn = connect()
+    return [r["at"] for r in conn.execute(
+        "SELECT at FROM login_attempts WHERE email = ? AND at > ? ORDER BY at",
+        (email.lower(), time.time() - window_seconds),
+    )]
+
+
+def clear_failures(email: str) -> None:
+    """Called on a successful login. Without it a person who mistyped four
+    times and then got it right stays four failures closer to a lockout."""
+    conn = connect()
+    conn.execute("DELETE FROM login_attempts WHERE email = ?", (email.lower(),))
     conn.commit()

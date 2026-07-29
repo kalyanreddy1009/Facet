@@ -2,6 +2,59 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — Facet's own login
+
+Cloudflare Access is no longer what authenticates anybody. Facet has a login
+page, a password per person, and an admin portal that issues sign-in links.
+
+That is a real change in what this codebase is responsible for. It did not
+hold credentials before; a bug in the wrong place here does not lose a
+feature, it hands somebody's job search to whoever is trying. So every choice
+was the boring one.
+
+**scrypt from `hashlib`**, not a new dependency. Memory-hard at 32 MB per
+attempt, and argon2-cffi is marginally better but not worth a compiled
+package on an ARM VM. Parameters are stored *with* each hash, so raising them
+later does not lock anyone out — an old hash verifies with its own parameters
+and is upgraded on the next successful login, the one moment the plaintext
+exists.
+
+**Sessions are server-side.** A signed self-contained token cannot be
+recalled, and revocation had to be immediate: suspending someone, deleting
+them, or changing a password all end sessions *now*. The cookie holds a
+random token; the database holds its SHA-256, so a leaked backup is not a set
+of working keys.
+
+The properties `scripts/test_auth.py` asserts against the real app, each one
+invisible when the happy path works:
+
+- a wrong password and an unknown address return byte-identical responses,
+  and take the same time — `verify_password` burns a full scrypt on a missing
+  account rather than returning early
+- eight failures lock that account, the correct password included; a lockout
+  that lets the right password through stops nobody
+- lockout does not leak across accounts, or one attacker locks out everyone
+- an invited account cannot be signed into with a blank password
+- an invite link works once and expires; setting the password clears it in
+  the same statement
+- changing a password requires the old one, and ends every other session
+- a suspended user's live cookie stops working immediately
+
+One bug the tests found: `AuthError` had no exception handler, so a password
+below the length floor reached the catch-all and came back as a 500
+"Something went wrong" — which tells someone typing a password nothing.
+
+The 401 redirect lives in `api.ts`'s single `request()` rather than at each
+call site, guarded against firing twice: a dashboard makes several requests
+at once, and five simultaneous 401s would queue five navigations with `next`
+pointing at `/login` itself.
+
+`scripts/dev_access.py`, added an hour earlier to fake the Access header
+locally, is deleted. A real login page is a better answer to the same problem.
+
+Access can still be layered in front if you want unauthenticated traffic
+stopped at the edge. It is documented as optional now, not required.
+
 ## 2026-07-29 — One instance, many users
 
 Facet now serves everyone from a single backend and a single frontend at one

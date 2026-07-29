@@ -327,8 +327,14 @@ def suspend(user_id: int, actor: str) -> dict:
     # and refuses everything else, so the next request from this person is
     # turned away at the door with their data untouched.
     store.set_status(user_id, store.SUSPENDED)
+
+    # And their sessions end now. The status gate alone would already refuse
+    # them, but leaving live rows behind means a resumed account silently
+    # restores whatever browsers were signed in when it was suspended --
+    # including the one that prompted the suspension.
+    revoked = store.revoke_user_sessions(user_id)
     store.record(actor, "user.suspended", user["email"],
-                 "status set to suspended; the app refuses non-active accounts")
+                 f"status set to suspended; {revoked} session(s) ended")
     return store.get_user(user_id)
 
 
@@ -359,8 +365,10 @@ def quiesce(user: dict) -> str:
     """
     from services import db
 
+    revoked = store.revoke_user_sessions(user["id"])
     db.close_user(user["slug"])
-    return f"closed {user['slug']}'s database handle; status gate refuses new requests"
+    return (f"ended {revoked} session(s), closed {user['slug']}'s database handle; "
+            f"the status gate refuses new requests")
 
 
 def delete_user(user_id: int, confirm_email: str, actor: str) -> dict:
@@ -704,3 +712,29 @@ def _demo_lifecycle(root: Path, _zip) -> None:
 
 if __name__ == "__main__":
     demo()
+
+
+def issue_invite(user_id: int, actor: str) -> str:
+    """Mint a one-time sign-in link and return it. Shown once, never stored.
+
+    Only the SHA-256 goes in the database, for the same reason session tokens
+    do: a leaked backup of control.db must not be a set of working keys to
+    everybody's account.
+
+    The link is a credential in a URL, which is not ideal -- URLs end up in
+    browser history and shoulder-surfing range. It is bounded by being
+    single-use and short-lived, and by the alternative being an SMTP
+    dependency this deployment does not need.
+    """
+    from services import auth
+
+    user = store.get_user(user_id)
+    if user is None:
+        raise ProvisionError("invite", f"no user {user_id}")
+
+    token, digest = auth.new_token()
+    store.create_invite(user_id, digest, time.time() + auth.INVITE_TTL_SECONDS)
+    store.record(actor, "user.invited", user["email"],
+                 f"expires in {auth.INVITE_TTL_SECONDS // 86400}d")
+
+    return f"https://{cloudflare.facet_hostname()}/set-password?token={token}"

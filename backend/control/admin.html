@@ -124,10 +124,15 @@
                placeholder="Display name (optional)">
         <button class="primary" type="submit">Create and provision</button>
       </form>
+      <div id="invite" class="panel panel-pad" hidden
+           style="margin-top:12px;border-color:var(--accent-border,#3a68d6)"></div>
       <p class="faint" style="margin-top:10px">
-        Creates the directory tree, seeds RULES.md, initialises a fresh tracker.db,
-        assigns ports and writes the instance .env. Every step is idempotent — a
-        failure can be retried without starting over.
+        Creates the directory tree, seeds RULES.md, initialises a fresh tracker.db
+        and returns a one-time sign-in link. Every step is idempotent — a failure
+        can be retried without starting over.
+        <br>
+        Facet sends no email: copy the link and pass it on yourself. It is shown
+        once, because only its digest is stored.
       </p>
     </div>
   </section>
@@ -253,6 +258,34 @@ window.remove_ = async (id, email) => {
   await act(id, "delete", { confirm_email: typed });
 };
 window.suspend_ = (id) => act(id, "suspend");
+
+function showInvite(email, url) {
+  if (!url) return;
+  const box = $("invite");
+  box.hidden = false;
+  box.innerHTML = `
+    <p><strong>Sign-in link for ${esc(email)}</strong> — copy it now, it is shown once.</p>
+    <input readonly value="${esc(url)}" onclick="this.select()">
+    <p class="muted">Expires in a week and works once. Send it however you
+    normally reach them; Facet does not send email.</p>`;
+  box.querySelector("input").select();
+}
+
+window.invite_ = async (id, email) => {
+  try {
+    const out = await call(`/api/users/${id}/invite`, { method: "POST", body: "{}" });
+    showInvite(email, out.invite_url);
+  } catch (err) { fail(err); }
+};
+
+window.revoke_ = async (id, email) => {
+  if (!confirm(`Sign ${email} out of every browser?`)) return;
+  try {
+    const out = await call(`/api/users/${id}/revoke-sessions`, { method: "POST", body: "{}" });
+    alert(`Ended ${out.revoked} session(s).`);
+    await refresh();
+  } catch (err) { fail(err); }
+};
 window.resume_ = (id) => act(id, "resume");
 window.undelete_ = (id) => act(id, "undelete");
 window.reprovision_ = (id) => act(id, "provision");
@@ -305,9 +338,9 @@ function userRow(u) {
         // Deleting a live instance would move its data while the process keeps
         // writing, and it just recreates the directory. Until Phase 3 can stop
         // containers, the button is unavailable rather than misleading.
-        u.running
-          ? `<button class="sm danger" disabled title="Stop this instance first — port ${u.api_port} is still serving">Delete</button>`
-          : `<button class="sm danger" onclick="remove_(${u.id}, '${esc(u.email)}')">Delete</button>`,
+        `<button class="sm" onclick="invite_(${u.id}, '${esc(u.email)}')" title="A fresh sign-in link. Doubles as a password reset.">Sign-in link</button>`,
+        `<button class="sm" onclick="revoke_(${u.id}, '${esc(u.email)}')" title="Sign this person out everywhere. They can sign back in; a lost laptop cannot.">Sign out</button>`,
+        `<button class="sm danger" onclick="remove_(${u.id}, '${esc(u.email)}')">Delete</button>`,
       ].join(" ");
 
   return `<tr>
@@ -431,12 +464,15 @@ $("add").addEventListener("submit", async (event) => {
   button.disabled = true;
   button.textContent = "Provisioning…";
   try {
-    await call("/api/users", {
+    const created = await call("/api/users", {
       method: "POST",
       body: JSON.stringify({ email: $("email").value, display_name: $("name").value || null }),
     });
     $("email").value = ""; $("name").value = "";
     await refresh();
+    // Shown once. Only the digest is stored, so this exact link cannot be
+    // produced again -- reissuing mints a new one.
+    showInvite(created.email, created.invite_url);
   } catch (err) { fail(err); }
   finally { button.disabled = false; button.textContent = "Create and provision"; }
 });
