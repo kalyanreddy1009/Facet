@@ -39,8 +39,15 @@ def apply_pragmas(conn: sqlite3.Connection) -> None:
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA temp_store = MEMORY")
-    conn.execute("PRAGMA cache_size = -16000")  # ~16MB
+    conn.execute("PRAGMA cache_size = -131072")  # ~128MB
     conn.execute("PRAGMA busy_timeout = 5000")
+    # Read pages straight out of the page cache the kernel already holds,
+    # with no copy into SQLite's own buffer. A tracker.db is a couple of MB,
+    # so in practice this maps all of it and reads stop touching the syscall
+    # boundary at all. SQLite allocates the cache lazily — the 128MB above is
+    # a ceiling for a database that grows, not memory taken at startup.
+    conn.execute("PRAGMA mmap_size = 268435456")  # 256MB ceiling
+
 
 
 def _get_connection() -> sqlite3.Connection:

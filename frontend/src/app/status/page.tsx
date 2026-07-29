@@ -75,6 +75,7 @@ export default function StatusPage() {
             <span className="label px-2">Auto</span>
             {REFRESH_OPTIONS.map((option) => (
               <button
+                type="button"
                 key={option.value}
                 role="radio"
                 aria-checked={interval === option.value}
@@ -89,7 +90,7 @@ export default function StatusPage() {
               </button>
             ))}
           </div>
-          <button onClick={refresh} className="btn btn-default" disabled={refreshing}>
+          <button type="button" onClick={refresh} className="btn btn-default" disabled={refreshing}>
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
             Refresh
           </button>
@@ -117,7 +118,7 @@ export default function StatusPage() {
           <p className="text-xs text-text-faint mt-1 tnum">
             {failures} consecutive failed attempt{failures === 1 ? "" : "s"}
           </p>
-          <button onClick={refresh} className="btn btn-primary mt-3" disabled={refreshing}>
+          <button type="button" onClick={refresh} className="btn btn-primary mt-3" disabled={refreshing}>
             Try again
           </button>
         </div>

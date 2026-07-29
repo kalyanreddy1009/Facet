@@ -61,7 +61,7 @@ export default function Sheet({ open, onClose, title, description, children }: S
                 <h2 className="text-base font-semibold text-text">{title}</h2>
                 {description && <p className="text-sm text-text-faint mt-0.5">{description}</p>}
               </div>
-              <button onClick={onClose} aria-label="Close" className="btn btn-ghost shrink-0 -mr-1.5">
+              <button type="button" onClick={onClose} aria-label="Close" className="btn btn-ghost shrink-0 -mr-1.5">
                 <X className="w-4 h-4" />
               </button>
             </div>

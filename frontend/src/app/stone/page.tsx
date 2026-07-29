@@ -152,6 +152,7 @@ export default function StonePage() {
             ref={fileInput}
             type="file"
             accept={ACCEPTED.join(",")}
+            aria-label="Import a resume file"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -191,6 +192,7 @@ export default function StonePage() {
             master_resume.md {dirty && <span className="text-warn">· unsaved</span>}
           </span>
           <button
+            type="button"
             onClick={() => {
               navigator.clipboard.writeText(markdown);
               setCopied(true);

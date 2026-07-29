@@ -42,7 +42,7 @@ logger = logging.getLogger("facet.identity")
 # as a prefix would have exposed anything later added under it, and the
 # things that must be reachable without a session are exactly the ones below.
 PUBLIC_PATHS = frozenset({
-    "/api/status/health", "/api/status/ready", "/health", "/api/health",
+    "/api/health",              # the only liveness route that exists
     "/api/auth/login",           # obviously
     "/api/auth/accept-invite",   # setting a first password, from a one-time link
     "/api/auth/invite-status",   # "is this link usable?", asked before anyone types

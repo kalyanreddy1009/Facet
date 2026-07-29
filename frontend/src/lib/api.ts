@@ -32,11 +32,93 @@ function redirectToLogin(): void {
   if (typeof window === "undefined" || redirecting) return;
   if (window.location.pathname.startsWith("/login")) return;
   redirecting = true;
+  clearApiCache();
   const next = encodeURIComponent(window.location.pathname + window.location.search);
   window.location.href = `/login?reason=expired&next=${next}`;
 }
 
+/* --------------------------------------------------------------- memory
+ *
+ * A read this tab has already done, kept in memory.
+ *
+ * The Cabinet fires four requests on every mount and The Rough two; walking
+ * Cabinet → Rough → Cabinet re-ran all of them and repainted from skeletons
+ * each time, even though nothing had changed in the four seconds between.
+ * Now the second visit paints from RAM.
+ *
+ * Three rules keep it honest:
+ *   - Opt-in by prefix, never blanket. `/api/queue/:id` and the extraction
+ *     status are polled precisely because they change under you; a cache
+ *     there would be a hang, not a speedup.
+ *   - Any non-GET drops the whole cache. Cheap, and it means no mutation
+ *     needs to remember which reads it invalidated — the mistake that makes
+ *     caches show people stale rows after their own edit.
+ *   - In-flight requests are shared, so the Cabinet's four parallel calls
+ *     can't become eight when a re-render lands mid-flight.
+ *
+ * Held per tab and lost on reload: no storage, nothing on disk, nothing to
+ * leak between accounts on a shared machine.
+ */
+const CACHEABLE = [
+  "/api/applications",
+  "/api/contacts",
+  "/api/interviews",
+  "/api/dashboard/summary",
+  "/api/jobs",
+  "/api/feeds",
+  "/api/settings",
+  "/api/resume/master",
+];
+
+/** Long enough to cover navigating away and back, short enough that a change
+ *  made elsewhere (the scheduler ingesting a feed) surfaces on its own. */
+const CACHE_TTL = 30_000;
+
+const cache = new Map<string, { at: number; value: unknown }>();
+const inflight = new Map<string, Promise<unknown>>();
+
+function cacheable(path: string, method: string, signal?: AbortSignal | null): boolean {
+  if (method !== "GET") return false;
+  // A caller holding an abort signal owns the lifetime of its request — the
+  // search box cancels superseded ones. Sharing that promise with a second
+  // caller would let one component's cancellation reject the other's read.
+  if (signal) return false;
+  const base = path.split("?")[0];
+  return CACHEABLE.some((p) => base === p || base.startsWith(p + "/"));
+}
+
+/** Called after every write, and on sign-out. */
+export function clearApiCache(): void {
+  cache.clear();
+  inflight.clear();
+}
+
 async function request<T>(
+  path: string,
+  options: RequestInit & { timeout?: number } = {}
+): Promise<T> {
+  const method = (options.method || "GET").toUpperCase();
+
+  if (cacheable(path, method, options.signal)) {
+    const hit = cache.get(path);
+    if (hit && Date.now() - hit.at < CACHE_TTL) return hit.value as T;
+    const pending = inflight.get(path);
+    if (pending) return pending as Promise<T>;
+    const run = send<T>(path, options)
+      .then((value) => {
+        cache.set(path, { at: Date.now(), value });
+        return value;
+      })
+      .finally(() => inflight.delete(path));
+    inflight.set(path, run);
+    return run;
+  }
+
+  if (method !== "GET") clearApiCache();
+  return send<T>(path, options);
+}
+
+async function send<T>(
   path: string,
   options: RequestInit & { timeout?: number } = {}
 ): Promise<T> {
@@ -387,6 +469,8 @@ export const api = {
       const body = await res.json().catch(() => ({}));
       throw new ApiError(body.detail || body.error || `Request failed (${res.status})`, body.hint, res.status);
     }
+    // Raw fetch, so it bypasses the invalidation every other write gets.
+    clearApiCache();
     return res.json();
   },
 

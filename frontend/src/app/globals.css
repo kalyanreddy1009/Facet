@@ -608,6 +608,33 @@ button:not(:disabled),
     animation: dot-pulse 1.6s var(--ease) infinite;
   }
 
+  /* The landing wordmark. The name is the first thing on the page, so on the
+     landing route it is set large and lit: a glint travels across the letters
+     the way light travels a cut stone. Only `background-position` animates,
+     so it composites — and it is the app's own metaphor rather than a
+     generic shimmer, which is why it earns the pixels. */
+  .wordmark {
+    background-image: linear-gradient(
+      100deg,
+      var(--text) 38%,
+      var(--glint) 50%,
+      var(--text) 62%
+    );
+    background-size: 280% 100%;
+    background-position: 100% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Not the global reduced-motion reset: that only shortens durations, and a
+     shortened sweep still flashes. Here the sweep must not exist at all, so
+     the animation is only ever attached when motion is welcome. */
+  @media (prefers-reduced-motion: no-preference) {
+    .wordmark {
+      animation: wordmark-glint 8s var(--ease) 900ms infinite;
+    }
+  }
+
   .label {
     font-size: 11px;
     font-weight: 500;
@@ -708,6 +735,18 @@ button:not(:disabled),
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
+  }
+}
+
+/* The glint crosses once, then rests for most of the cycle. A continuous
+   sweep in the corner of the eye is the thing people disable. */
+@keyframes wordmark-glint {
+  0% {
+    background-position: 100% 0;
+  }
+  20%,
+  100% {
+    background-position: -80% 0;
   }
 }
 

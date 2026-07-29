@@ -19,6 +19,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { LogOut, Shield, User as UserIcon } from "lucide-react";
 
+import { clearApiCache } from "@/lib/api";
 import { ENTER, EXIT, REDUCED } from "@/lib/motion";
 import { refreshSession, useSession } from "@/lib/useSession";
 
@@ -59,6 +60,10 @@ export default function AccountMenu() {
 
   async function signOut() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    // Reads this tab has cached in memory belong to the session that just
+    // ended. Nothing sensitive survives a reload, but the next person to sign
+    // in on this tab must not see a frame of the last person's Cabinet.
+    clearApiCache();
     await refreshSession();
     router.replace("/login");
   }
@@ -66,6 +71,7 @@ export default function AccountMenu() {
   return (
     <div className="relative" ref={wrapper}>
       <button
+        type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
@@ -125,6 +131,7 @@ export default function AccountMenu() {
             )}
 
             <button
+              type="button"
               role="menuitem"
               onClick={signOut}
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-dim hover:text-text hover:bg-surface-3 transition-colors duration-fast border-t border-border mt-1"

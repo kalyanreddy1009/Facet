@@ -2,6 +2,92 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — A QA pass, and the name in the corner
+
+A validation sprint rather than a feature one. Everything below was found by
+writing the check first and letting it fail.
+
+**The tests that were not running.** Three suites had been broken since the
+multi-user refactor moved the names they imported — `db.DB_PATH`,
+`agy_runner.WORKSPACE`. Nothing noticed, because running them meant
+remembering them. Worse than the silence: two of the three were pointed at the
+*real* database while broken. `test_feed_dedup.py` had written two fake
+postings into `data/tracker.db` (they are still there, and are the user's to
+remove); `test_calendar_sync.py` opens by DELETEing rows and would have edited
+live data on every run. All three now redirect the FACET_* roots before their
+first import and assert the path they got back is a scratch one. There is a
+`scripts/check_all.py` that runs every suite and self-check in one command and
+discovers new ones by filename, so this cannot happen the same way twice.
+
+**A route sweep, instead of a list of routes.** `scripts/test_api_surface.py`
+walks the app's own route table and asserts of *every* endpoint that it
+refuses an anonymous caller, and of every admin endpoint that it refuses a
+signed-in non-admin. A route added next month is covered the day it is
+written. The first version of the sweep read `app.routes`, which this FastAPI
+wraps in an opaque object — it swept two routes and reported a pass. Sweeps
+that silently cover nothing are worse than no sweep, so it now asserts it
+found more than forty.
+
+**What the sweep and its neighbours found, and what changed:**
+
+- Validation lived in the handlers, and each guard only covered the field
+  somebody had thought about. `if updates.get("status") and ...` let `""`
+  through, because an empty string is falsy — an application could be PATCHed
+  into a status no view can render. A score of -5 or 5000 stored just as
+  happily. The constraints are now on the pydantic models, where one refusal
+  covers create, update, every field of the same shape, and any handler
+  written later.
+- The catch-all 500 handler put `str(exc)` in the response. On a laptop that
+  was a useful hint; on a host serving other people it is an absolute path, a
+  query, or a row of somebody's data handed to whoever provoked the error. It
+  goes to the log now. `FACET_DEBUG_ERRORS=1` restores the old behaviour
+  locally.
+- No `X-Content-Type-Options`, `X-Frame-Options` or `Referrer-Policy` on any
+  response. The last one matters most here: an invite link carries its token
+  in the query string, and without a referrer policy, clicking any outbound
+  link from that page hands the token to the site being visited.
+- `PUBLIC_PATHS` named three liveness routes the app does not serve. Nothing
+  broke — they 404'd — but a list of public paths containing names nobody
+  serves is how a real one ends up on it unnoticed.
+
+**Concurrency.** `scripts/test_load.py` interleaves requests from five
+signed-in people and asserts every row went to its owner. Identity lives in a
+ContextVar, connections are cached per user, and queries run on threads: a
+mistake anywhere in that chain surfaces only when two people overlap, and it
+surfaces as one person reading another's Cabinet. Eighty overlapping reads,
+five simultaneous writes, a 200-request burst. It is a data-isolation test
+wearing a load test's clothes.
+
+**Accessibility and consistency, made checkable.** `check-interface.mjs`
+computes the WCAG ratio of every text token against every surface it can be
+drawn on — compositing the translucent ones over what is behind them, because
+checking glass as if it were opaque checks a colour that never appears. It
+also asserts every input has a label, every button an explicit `type`, every
+icon-only control a name, and every `_blank` link a `rel`. It found eight
+unlabelled fields and about twenty-five buttons that would have submitted the
+nearest form. Worst contrast in the palette is now 5.24:1.
+
+**Speed, spending memory freely.** The SQLite page cache goes from 16MB to
+128MB per connection with a 256MB mmap ceiling, so reads come out of pages the
+kernel already holds. The client keeps a 30-second in-memory cache of
+idempotent reads, so walking Rough → Cabinet → Rough paints from RAM instead
+of from skeletons; it is opt-in per path (a polled queue status must never be
+cached), any write drops all of it, and simultaneous identical reads share one
+request. Next's router cache holds rendered routes for five minutes instead of
+thirty seconds.
+
+**The name.** On the landing page the wordmark is set at 2rem beside a 26px
+mark, and a glint crosses the letters once every eight seconds — the app's own
+metaphor rather than a generic shimmer, animating `background-position` only,
+and attached solely inside `prefers-reduced-motion: no-preference`. Inside the
+app it stays the quiet 14px it was, because there it is a way home, not an
+introduction.
+
+Every check in this entry was verified to fail when the thing it protects is
+removed: eight mutations of the API surface, five of the interface checks,
+three of the response cache, one of the isolation test. A test that cannot
+fail is a comment.
+
 ## 2026-07-29 — The sign-in link, made survivable
 
 Two real people were locked out by the invitation flow. Neither hit an exotic

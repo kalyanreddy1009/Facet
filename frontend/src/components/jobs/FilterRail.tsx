@@ -71,6 +71,7 @@ function Choice({
 }) {
   return (
     <button
+      type="button"
       role="radio"
       aria-checked={selected}
       tabIndex={selected ? 0 : -1}
@@ -104,6 +105,7 @@ export default function FilterRail({ filters, facets, onChange }: FilterRailProp
         </p>
         {activeCount > 0 && (
           <button
+            type="button"
             onClick={() => onChange({ ...EMPTY_FILTERS, q: filters.q, sort: filters.sort })}
             className="btn btn-ghost btn-sm"
           >

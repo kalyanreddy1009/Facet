@@ -21,10 +21,12 @@ const LINKS = [
 // /api/status from every page: that report does real work on each call.
 const STATUS_LINK = { href: "/status", label: "Status" };
 
-/** Monochrome — it inherits text colour like every other icon in the app. */
-function FacetMark() {
+/** Monochrome — it inherits text colour like every other icon in the app.
+ *  Sized by the caller: 17px inside the app, larger on the landing page,
+ *  where the name is the page's first line rather than a way back. */
+function FacetMark({ size = 17 }: { size?: number }) {
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
         d="M12 2 22 9l-3.8 12H5.8L2 9l10-7Z"
         stroke="currentColor"
@@ -58,15 +60,31 @@ export default function NavBar() {
   const bare = pathname === "/login" || pathname === "/set-password";
   const showApp = inApp && !bare;
 
+  // On the landing page the wordmark is doing a different job — it is the
+  // product's name to someone who has never seen it, not a home button to
+  // someone who lives here. So it is set larger and lit there, and stays
+  // quiet everywhere else.
+  const landing = pathname === "/";
+
   return (
     <header className="sticky top-0 z-40 chrome border-x-0 border-t-0">
       <div className="max-w-shell mx-auto h-nav px-5 sm:px-8 flex items-center justify-between gap-6">
         <Link
           href={inApp ? "/rough" : "/"}
-          className="flex items-center gap-2 shrink-0 text-text transition-opacity duration-fast hover:opacity-80"
+          className={`flex items-center shrink-0 text-text transition-opacity duration-fast hover:opacity-80 ${
+            landing ? "gap-2.5" : "gap-2"
+          }`}
         >
-          <FacetMark />
-          <span className="text-sm font-semibold tracking-tight">Facet</span>
+          <FacetMark size={landing ? 26 : 17} />
+          <span
+            className={
+              landing
+                ? "wordmark text-2xl sm:text-[1.75rem] font-semibold tracking-[-0.03em] leading-none"
+                : "text-sm font-semibold tracking-tight"
+            }
+          >
+            Facet
+          </span>
         </Link>
 
         {showApp && (
@@ -127,6 +145,7 @@ export default function NavBar() {
 
           {showApp && (
             <button
+              type="button"
               onClick={() => setOpen((o) => !o)}
               className="btn btn-ghost md:hidden"
               aria-expanded={open}

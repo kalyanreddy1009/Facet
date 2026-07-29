@@ -45,6 +45,7 @@ export default function Toaster({ toasts, onDismiss }: ToasterProps) {
                 {toast.hint && <p className="text-xs text-text-faint mt-1">{toast.hint}</p>}
                 {toast.action && (
                   <button
+                    type="button"
                     onClick={() => {
                       toast.action!.run();
                       onDismiss(toast.id);
@@ -56,6 +57,7 @@ export default function Toaster({ toasts, onDismiss }: ToasterProps) {
                 )}
               </div>
               <button
+                type="button"
                 onClick={() => onDismiss(toast.id)}
                 aria-label="Dismiss notification"
                 className="text-text-faint hover:text-text focus-visible:text-text transition-colors shrink-0"

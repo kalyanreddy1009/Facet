@@ -164,6 +164,7 @@ export default function RoughPage() {
             </p>
             {activeFilters > 0 && (
               <button
+                type="button"
                 onClick={() => setFilters({ ...EMPTY_FILTERS, q: filters.q, sort: filters.sort })}
                 className="btn btn-ghost btn-sm lg:hidden"
               >
@@ -232,7 +233,7 @@ export default function RoughPage() {
         >
           <div className="divider px-5 h-nav flex items-center justify-between shrink-0">
             <p className="text-base font-semibold text-text">Filters</p>
-            <button onClick={() => setMobileFiltersOpen(false)} className="btn btn-ghost" aria-label="Close filters">
+            <button type="button" onClick={() => setMobileFiltersOpen(false)} className="btn btn-ghost" aria-label="Close filters">
               <X className="w-4 h-4" />
             </button>
           </div>

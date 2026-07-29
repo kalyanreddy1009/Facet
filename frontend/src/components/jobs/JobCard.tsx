@@ -119,7 +119,7 @@ function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
       </div>
 
       <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
-        <button className="btn btn-primary" onClick={() => onTailor(job)}>
+        <button type="button" className="btn btn-primary" onClick={() => onTailor(job)}>
           <Scissors className="w-3.5 h-3.5" aria-hidden />
           Tailor
         </button>
@@ -136,6 +136,7 @@ function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
           </a>
         )}
         <button
+          type="button"
           onClick={() => onDismiss(job)}
           className="btn btn-ghost sm:mt-auto"
           aria-label={`Dismiss ${job.title ?? "posting"}`}

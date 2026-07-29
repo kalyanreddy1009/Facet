@@ -19,6 +19,15 @@ const nextConfig = {
   // node_modules nor the source tree.
   output: process.env.NEXT_OUTPUT_STANDALONE === "1" ? "standalone" : undefined,
 
+  experimental: {
+    // Keep already-rendered routes in the client router cache far longer than
+    // the 30s default. Navigating Rough → Cabinet → Rough then replays from
+    // memory instead of re-fetching an RSC payload that has not changed. The
+    // pages' own data still comes from /api, which has its own short-lived
+    // cache in `lib/api.ts` — this is only about the rendered shell.
+    staleTimes: { dynamic: 300, static: 600 },
+  },
+
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${backendOrigin}/api/:path*` }];
   },

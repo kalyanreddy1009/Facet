@@ -5,8 +5,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from services.agy_runner import WORKSPACE, run_agy, check_agy_health  # noqa: E402
+from services.agy_runner import run_agy, check_agy_health  # noqa: E402
+from services import paths  # noqa: E402
 
+# `agy_runner.WORKSPACE` moved into `services.paths` with the multi-user
+# change; this file kept importing the old name and had not run since.
+WORKSPACE = paths.WORKSPACE_ROOT
 WORKSPACE.mkdir(parents=True, exist_ok=True)
 
 

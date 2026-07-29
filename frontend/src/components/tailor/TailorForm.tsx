@@ -120,7 +120,9 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
 
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <span className="label">Job description</span>
+            <label className="label" htmlFor="job-description">
+              Job description
+            </label>
             <span
               className={`text-xs tnum ${
                 jobDescription.length > JD_MAX_CHARS * 0.9 ? "text-warn" : "text-text-faint"
@@ -130,6 +132,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
             </span>
           </div>
           <textarea
+            id="job-description"
             className="field resize-y"
             rows={11}
             value={jobDescription}

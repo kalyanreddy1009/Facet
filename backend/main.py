@@ -155,9 +155,19 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         "[Facet] unhandled exception on %s: %r", request.url.path, exc,
         exc_info=exc, extra={"path": request.url.path},
     )
+    # The exception text goes to the log, not to the client. It routinely
+    # contains an absolute path, a query, or a row of somebody's data —
+    # `sqlite3.OperationalError` in particular quotes the statement. On a
+    # laptop that was a useful hint; on a host serving other people it is a
+    # description of the server handed to whoever provoked the error.
+    #
+    # Set FACET_DEBUG_ERRORS=1 locally to get it back in the response.
+    hint = "Try again. If it keeps happening, the server log has the detail."
+    if os.environ.get("FACET_DEBUG_ERRORS") == "1":
+        hint = str(exc)
     return JSONResponse(
         status_code=500,
-        content={"error": "Something went wrong", "hint": str(exc)},
+        content={"error": "Something went wrong", "hint": hint},
     )
 
 
@@ -180,6 +190,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Three headers a browser needs on every response.
+
+    None of them defends against a bug in this codebase — they defend against
+    the browser being clever on our behalf:
+
+      * `nosniff`, because a JSON body is full of text somebody else typed. A
+        response sniffed as HTML is that text executing.
+      * `DENY`, because nothing here is ever meant to be framed, and a Facet
+        framed invisibly over someone else's page is a clickjacked "suspend
+        this user".
+      * a referrer policy, because an invite link carries its token in the
+        query string. Without this, clicking any outbound link from that page
+        hands the token to the site being visited.
+    """
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return response
+
+
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(RequestLogMiddleware)
 

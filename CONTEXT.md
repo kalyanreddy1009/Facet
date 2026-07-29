@@ -239,12 +239,30 @@ backend/.venv/bin/python -m services.job_sources     # parsing, offline
 backend/.venv/bin/python -m services.matching        # scoring
 backend/.venv/bin/python -m services.logging_setup   # ring buffer + metrics
 backend/.venv/bin/python -m services.health          # every status check
-backend/.venv/bin/python scripts/test_feed_dedup.py  # dedup, dismissals
-backend/.venv/bin/python scripts/test_health.py      # /api/status contract
-cd frontend && npm run check                         # salary/date formatting
+backend/.venv/bin/python scripts/check_all.py        # every suite + self-check, one command
+cd frontend && npm run check                         # formatting, api cache, design system, interface
 cd frontend && npx tsc --noEmit && npm run lint && npm run build
 node extension/check.mjs                             # manifest, permissions, no-submit gate
 ```
+
+`scripts/check_all.py` discovers `scripts/test_*.py` by filename, so a new
+suite is included the day it is written. It excludes `test_agy_roundtrip.py`,
+which needs a live authenticated agy and writes into the real workspace.
+
+Three of those suites had been broken since the multi-user refactor moved the
+names they imported (`db.DB_PATH`, `agy_runner.WORKSPACE`). Two of them, while
+broken, were also pointed at the *real* database — `test_calendar_sync.py`
+opens by DELETEing rows. Any suite must redirect `FACET_DATA_DIR` /
+`FACET_WORKSPACE_DIR` / `FACET_QUEUE_DB` **before** its first Facet import, and
+then assert the path it got back is under that scratch root. The assert is the
+part that matters: the redirect failing silently is what made this survive.
+
+The frontend has three static checks beyond formatting, all in `npm run check`:
+`check-design-system.mjs` (every class and custom property resolves),
+`check-interface.mjs` (WCAG contrast of every text token against every surface,
+form labels, explicit button `type`, icon-button names, `rel` on `_blank`), and
+`src/lib/api.check.ts` (the response cache: reuse, invalidation, poll bypass,
+dedupe).
 
 New non-trivial logic adds one `demo()`/`assert` check in the same style.
 Don't introduce pytest/jest/vitest without being asked.

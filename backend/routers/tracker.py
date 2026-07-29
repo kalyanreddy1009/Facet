@@ -1,40 +1,61 @@
 """The Cabinet — applications, contacts, interviews CRUD (Section 10)."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Literal, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints
 
 from services import db
 from services import paths
 
 router = APIRouter()
 
-VALID_STATUSES = {"Saved", "Cut", "Set", "Interviewing", "Rejected", "Offer"}
+Status = Literal["Saved", "Cut", "Set", "Interviewing", "Rejected", "Offer"]
+VALID_STATUSES = set(Status.__args__)
+
+# Constraints belong on the models, not in the handlers.
+#
+# They were in the handlers, and each one only guarded the field somebody had
+# thought about: `if updates.get("status") and ...` let `""` through, because
+# an empty string is falsy — so an application could be PATCHed into a status
+# no view knows how to render, and the Cabinet's filters would drop the row.
+# A score of -5 or 5000 stored just as happily and drew a ring off the end of
+# its track. Declared here, one refusal covers create and update, every field
+# of the same shape, and any handler written later.
+#
+# `strip_whitespace` is deliberate: a company of " " is not a company, and
+# storing the untrimmed version means two rows for the same employer.
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+OptionalName = Annotated[
+    Optional[str], StringConstraints(strip_whitespace=True, max_length=200)
+]
+# 0–100 because it is a percentage shown as a ring. Outside that it is not a
+# score that means anything, whatever produced it.
+Score = Annotated[int, Field(ge=0, le=100)]
 
 
 # ---------- Applications ----------
 
 
 class ApplicationCreate(BaseModel):
-    company: str
-    role_title: str
-    target_role: Optional[str] = None
+    company: Name
+    role_title: Name
+    target_role: OptionalName = None
     job_description: Optional[str] = None
     job_url: Optional[str] = None
     company_domain: Optional[str] = None
 
 
 class ApplicationUpdate(BaseModel):
-    company: Optional[str] = None
-    role_title: Optional[str] = None
-    target_role: Optional[str] = None
+    company: Optional[Name] = None
+    role_title: Optional[Name] = None
+    target_role: OptionalName = None
     job_description: Optional[str] = None
-    ats_score: Optional[int] = None
+    ats_score: Optional[Score] = None
     recruiter_summary: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[Status] = None
     job_url: Optional[str] = None
     company_domain: Optional[str] = None
     notes: Optional[str] = None
@@ -91,8 +112,6 @@ async def update_application(application_id: int, body: ApplicationUpdate):
         raise HTTPException(status_code=404, detail="Application not found")
 
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
-    if updates.get("status") and updates["status"] not in VALID_STATUSES:
-        raise HTTPException(status_code=400, detail=f"Invalid status: {updates['status']}")
 
     if updates:
         set_clause = ", ".join(f"{k} = ?" for k in updates)
@@ -108,8 +127,8 @@ async def update_application(application_id: int, body: ApplicationUpdate):
 
 class ContactCreate(BaseModel):
     application_id: int
-    name: str
-    role_title: Optional[str] = None
+    name: Name
+    role_title: OptionalName = None
     email: Optional[str] = None
     phone: Optional[str] = None
     linkedin_url: Optional[str] = None
@@ -157,7 +176,7 @@ async def list_contacts(application_id: Optional[int] = None):
 class InterviewCreate(BaseModel):
     application_id: int
     contact_id: Optional[int] = None
-    round_name: Optional[str] = None
+    round_name: OptionalName = None
     scheduled_at: Optional[str] = None
     notes: Optional[str] = None
 

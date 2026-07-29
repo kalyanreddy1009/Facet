@@ -167,6 +167,7 @@ export default function SourcesSheet({
                   <p className="text-xs text-text-faint truncate">{feed.url}</p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => removeFeed(feed.url)}
                   aria-label={`Remove ${feed.label}`}
                   className="btn btn-ghost text-danger shrink-0"
@@ -180,12 +181,14 @@ export default function SourcesSheet({
               <p className="label">Add a feed manually</p>
               <input
                 className="field"
+                aria-label="Feed name"
                 placeholder="Label — e.g. LinkedIn Python Remote"
                 value={newFeed.label}
                 onChange={(e) => setNewFeed({ ...newFeed, label: e.target.value })}
               />
               <input
                 className="field"
+                aria-label="Feed URL"
                 placeholder="https://… RSS URL"
                 value={newFeed.url}
                 onChange={(e) => setNewFeed({ ...newFeed, url: e.target.value })}
@@ -224,6 +227,7 @@ export default function SourcesSheet({
               <input
                 className="field mono text-xs"
                 type="password"
+                aria-label="Jooble API key"
                 placeholder="Jooble API key"
                 value={keys.jooble_key}
                 onChange={(e) => setKeys({ ...keys, jooble_key: e.target.value })}
@@ -242,6 +246,7 @@ export default function SourcesSheet({
               </p>
               <input
                 className="field mono text-xs"
+                aria-label="Adzuna app ID"
                 placeholder="App ID"
                 value={keys.adzuna_app_id}
                 onChange={(e) => setKeys({ ...keys, adzuna_app_id: e.target.value })}
@@ -249,6 +254,7 @@ export default function SourcesSheet({
               <input
                 className="field mono text-xs"
                 type="password"
+                aria-label="Adzuna app key"
                 placeholder="App key"
                 value={keys.adzuna_app_key}
                 onChange={(e) => setKeys({ ...keys, adzuna_app_key: e.target.value })}

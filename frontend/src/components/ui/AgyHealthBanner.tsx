@@ -27,6 +27,7 @@ export default function AgyHealthBanner() {
           normally; cutting a facet won&apos;t until it&apos;s fixed.
         </p>
         <button
+          type="button"
           onClick={() => setDismissed(true)}
           aria-label="Dismiss"
           className="shrink-0 hover:text-text focus-visible:text-text transition-colors"

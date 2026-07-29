@@ -217,6 +217,7 @@ export default function AdminPage() {
                   </span>
                   {match && (
                     <button
+                      type="button"
                       className="btn btn-default btn-sm"
                       disabled={pending === match.id}
                       onClick={async () => {
@@ -356,6 +357,7 @@ export default function AdminPage() {
 
               <div className="flex flex-wrap md:justify-end gap-1.5">
                 <button
+                  type="button"
                   className="btn btn-ghost btn-sm"
                   disabled={pending === user.id}
                   onClick={async () => {
@@ -368,6 +370,7 @@ export default function AdminPage() {
                 </button>
 
                 <button
+                  type="button"
                   className="btn btn-ghost btn-sm"
                   onClick={() => act(user.id, `/api/admin/users/${user.id}/revoke-sessions`)}
                   disabled={user.sessions === 0 || pending === user.id}
@@ -378,6 +381,7 @@ export default function AdminPage() {
 
                 {user.status === "suspended" ? (
                   <button
+                    type="button"
                     className="btn btn-default btn-sm"
                     disabled={pending === user.id}
                     onClick={() => act(user.id, `/api/admin/users/${user.id}/resume`)}
@@ -386,6 +390,7 @@ export default function AdminPage() {
                   </button>
                 ) : (
                   <button
+                    type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => act(user.id, `/api/admin/users/${user.id}/suspend`)}
                     disabled={user.email === currentEmail || pending === user.id}
@@ -432,6 +437,7 @@ function InviteLink({ email, url }: { email: string; url: string }) {
           className="field flex-1 min-w-[14rem] mono text-xs"
         />
         <button
+          type="button"
           className="btn btn-default"
           onClick={async () => {
             await navigator.clipboard.writeText(url);

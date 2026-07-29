@@ -14,6 +14,7 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
   const [copied, setCopied] = useState(false);
   return (
     <button
+      type="button"
       onClick={() => {
         navigator.clipboard.writeText(text);
         setCopied(true);

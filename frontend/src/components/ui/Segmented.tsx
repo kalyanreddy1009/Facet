@@ -43,6 +43,7 @@ export default function Segmented<T extends string>({
         const Icon = segment.icon;
         return (
           <button
+            type="button"
             key={segment.value}
             role="tab"
             aria-selected={active}

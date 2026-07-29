@@ -309,7 +309,7 @@ function Problem({
           </Link>
         )}
         {retry && (
-          <button className="btn btn-default" onClick={retry}>
+          <button type="button" className="btn btn-default" onClick={retry}>
             Check again
           </button>
         )}
