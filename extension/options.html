@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Facet Apply Assist — settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Facet Apply Assist</h1>
+      <p class="lede">
+        Fills known application-form fields from your Facet profile in a tab
+        you opened yourself. It never submits — you read what it filled and
+        click Submit.
+      </p>
+    </header>
+
+    <section>
+      <label for="base-url">Your Facet address</label>
+      <div class="row">
+        <input
+          id="base-url"
+          type="text"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder="https://alice.facet.example">
+        <button id="save" type="button">Connect</button>
+      </div>
+      <p class="hint">
+        The address you open Facet at. For a local install that is
+        <code>http://localhost:8000</code>; for a hosted one it is your own
+        subdomain.
+      </p>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="connected" hidden>
+      <h2>Connected</h2>
+      <dl>
+        <dt>Address</dt><dd id="current-url"></dd>
+        <dt>Permission</dt><dd id="current-permission"></dd>
+      </dl>
+      <div class="row">
+        <button id="test" type="button" class="secondary">Test connection</button>
+        <button id="forget" type="button" class="danger">Disconnect</button>
+      </div>
+    </section>
+
+    <footer>
+      <h2>What this extension can and cannot do</h2>
+      <ul>
+        <li>It reads your profile and your tailored resume from the address above.</li>
+        <li>It fills fields on Greenhouse, Lever and Workday application forms.</li>
+        <li>
+          <strong>It never submits an application.</strong> There is no submit
+          path in the code, and that is deliberate.
+        </li>
+        <li>It sends nothing anywhere except to the address you entered.</li>
+      </ul>
+    </footer>
+  </main>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

@@ -829,40 +829,30 @@ here is lost; each line says where it lands.
 
 ### Deferred to Phase 3
 
-- [ ] **Extension's hardcoded `http://localhost:8000`.** Started, then
-  deferred; the tree is back at its committed state. The design is worked out
-  — pick it up from here rather than re-deriving it:
+- [x] ~~**Extension's hardcoded `http://localhost:8000`.**~~ Shipped. The
+  design recorded here was implemented as written, and the latent bug it
+  predicted was real: a content script's `fetch` follows the *page's* CORS
+  rules since Chrome 85, so the resume-attach path could not have worked
+  against a correctly-configured server.
 
-  **It is not only a hardcoded URL. There is a latent bug.** Since Chrome 85
-  a content script's fetches follow the *page's* CORS rules, so
-  `content_script.js` fetching the backend from greenhouse.io is a
-  cross-origin request the server would have to allow — and Facet's allowlist
-  is its own frontend, correctly. So the resume-attach path is likely already
-  broken today, independently of any of this.
+  All server calls now happen in the service worker, which is not subject to
+  page CORS and can send the Cloudflare Access cookie with
+  `credentials: "include"`. The address is an optional host permission
+  granted from a new options page rather than a fixed manifest entry;
+  disconnecting hands the permission back. Resume bytes cross the messaging
+  boundary as a data URL, since a Blob structured-clones into an empty
+  object. Access's signed-out response is detected by content type, because
+  it answers 200 with a login page and the status code alone is a lie.
 
-  The fix that solves both: **move every server call into the service
-  worker**, which holds host permission and is not subject to page CORS. It
-  also gets `credentials: "include"`, so a Cloudflare Access session cookie
-  rides along — which a content script on a job board could never do.
+  `node extension/check.mjs` covers manifest structure and file references,
+  permission shape, selector schema, address normalization, the base64
+  transport, and the no-submit gate — which was verified to fail when a
+  submit path is introduced. The byte transport was additionally checked
+  end-to-end against a real 18 KB PDF from the running backend: identical
+  in, identical out.
 
-  Shape:
-  - `manifest.json`: drop `http://localhost:8000/*` from `host_permissions`,
-    add `optional_host_permissions` (`http://*/*`, `https://*/*` — Chrome
-    prompts for the one specific origin at grant time) and `options_ui`.
-  - `options.html` / `options.js`: enter the Facet URL, request permission
-    for that origin, test the connection, save to `chrome.storage.sync`.
-  - `background.js`: handle `facet:profile`, `facet:resume`, `facet:config`.
-    Return errors rather than throwing — a rejected promise reaches the
-    content script as an opaque "message port closed". Detect the Access
-    login redirect (HTML instead of JSON) and report `not_signed_in`.
-    A Blob cannot cross the messaging boundary: send the resume as a data URL
-    and rebuild the `File` on the other side.
-  - `content_script.js`: replace both `fetch` calls with
-    `chrome.runtime.sendMessage`, and surface the new error cases in the
-    existing banner.
-
-  Unchanged: no `submit_selector`, no `.click()` on a final control. That
-  boundary is not part of this work.
+  Unchanged, as promised: no `submit_selector`, no `.click()` on a final
+  control. The gate is now asserted on both the code and the selector data.
 - [x] ~~**Delete-a-running-instance.**~~ Resolved in Phase 3: deletion stops
   the service and container, then verifies the port is closed before moving
   anything.

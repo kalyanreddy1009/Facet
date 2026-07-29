@@ -1,18 +1,22 @@
 {
   "manifest_version": 3,
   "name": "Facet — Apply Assist",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Fills known application-form fields from your Facet profile in a tab you opened yourself. It never submits — you read what it filled and click Submit.",
   "permissions": ["storage"],
   "host_permissions": [
-    "http://localhost:8000/*",
     "*://*.greenhouse.io/*",
     "*://*.lever.co/*",
     "*://*.myworkdayjobs.com/*",
     "*://*.linkedin.com/*"
   ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -26,6 +30,10 @@
       "run_at": "document_idle"
     }
   ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "action": {
     "default_title": "Facet Apply Assist — fills known fields, never submits"
   }

@@ -2,6 +2,64 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — The extension, and the bug it was hiding
+
+`extension/` rebuilt around one change: every call to the Facet server now
+happens in the service worker instead of the content script.
+
+That was filed as "the hardcoded `http://localhost:8000` needs to go", and it
+did — but the address was the smaller half. Since Chrome 85 a content
+script's `fetch` follows the **page's** CORS rules rather than the
+extension's. A content script on greenhouse.io calling your Facet server is
+therefore a cross-origin request the server has to permit, and Facet's
+allowlist is its own frontend, correctly. So the resume-attach path could not
+have worked against a correctly-configured server, and had been quietly
+broken rather than merely unportable.
+
+The fix is not to widen the allowlist. It is to make the call somewhere page
+CORS does not apply. A service worker holding host permission is that place,
+and it brings the thing that makes a hosted deployment possible at all:
+`credentials: "include"` sends the Cloudflare Access session cookie, so a
+signed-in browser reaches its own instance. A content script on a job board
+could never send that cookie.
+
+The address is now an optional host permission granted from a new options
+page, requested per install. The old manifest demanded `localhost:8000` at
+install time — an alarming permission for everyone, and the wrong address for
+every hosted user. Disconnecting hands the permission back rather than
+keeping host access to a server the extension has been told to forget.
+
+Three details that are only obvious once they have gone wrong:
+
+- **A Blob cannot cross the messaging boundary.** Structured clone turns it
+  into an empty object, and the failure surfaces as a File with no contents
+  attached to a form, far from the cause. Resume bytes travel as a data URL.
+- **`btoa(String.fromCharCode(...bytes))` throws RangeError** on anything
+  past a few hundred KB, so it passes on every small fixture and fails on
+  real resumes. Encoding walks the buffer in chunks, and the check exercises
+  300 KB plus the bytes either side of the chunk boundary.
+- **Cloudflare Access answers a signed-out request with 200 and a login
+  page.** Trusting the status gives `Unexpected token '<'`, which reads like
+  a bug in Facet rather than "you are signed out". Detection is by content
+  type and final origin.
+
+Errors are returned as values, never thrown: an unhandled rejection inside
+`onMessage` reaches the caller as "message port closed", which tells nobody
+anything. Every failure ends in a banner naming the problem, and offering
+"Open settings" when that is the fix.
+
+`node extension/check.mjs` covers manifest structure and file references,
+permission shape, selector schema, address normalization and the byte
+transport. It caught one real bug while being written: `file:///etc/passwd`
+was being coerced into the origin `https://file`, because a missing scheme
+was filled in unconditionally rather than only when genuinely absent.
+
+The no-submit gate is now asserted rather than commented — on the code and on
+the selector data, so the schema has nowhere to put a submit selector. It was
+verified to fail when a submit path is introduced, because a test that cannot
+fail is not a test. The byte transport was checked end to end against a real
+18 KB PDF from the running backend: identical in, identical out.
+
 ## 2026-07-29 — Phase 6: on the host at last, and six bugs it found
 
 Moved to the Oracle Ampere A1 the whole plan was written for — aarch64,

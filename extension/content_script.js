@@ -7,9 +7,13 @@
  * clicks, or dispatches a submit event on any control. That is not an
  * oversight to "complete" later — the missing submit path is intentional.
  * Do not add one.
+ *
+ * This file makes no network requests. Every call to the Facet server goes
+ * through the service worker (see background.js), because a content script's
+ * fetch follows the *page's* CORS rules and a job board will not permit a
+ * call to your Facet instance. The worker is also the only context that can
+ * send the Cloudflare Access session cookie.
  */
-
-const BACKEND = "http://localhost:8000";
 
 function detectPlatform() {
   const host = location.hostname;
@@ -18,6 +22,23 @@ function detectPlatform() {
   if (host.endsWith("myworkdayjobs.com")) return "workday";
   if (host.endsWith("linkedin.com")) return "linkedin";
   return null;
+}
+
+/**
+ * Ask the service worker for something.
+ *
+ * A worker that failed to start, or an extension that was just reloaded,
+ * rejects with "Could not establish connection". That is not a reason to
+ * throw at the caller — every path here ends in a banner, so it becomes an
+ * error value like any other.
+ */
+async function ask(message) {
+  try {
+    const response = await chrome.runtime.sendMessage(message);
+    return response || { ok: false, error: "no_response" };
+  } catch (err) {
+    return { ok: false, error: "worker_unreachable", detail: String(err) };
+  }
 }
 
 function splitName(fullName) {
@@ -84,13 +105,20 @@ function findField(fieldConfig) {
   return null;
 }
 
-function showBanner(message, tone = "info") {
+/**
+ * @param {object} [action] optional { label, message } — renders a button
+ *   that sends `message` to the worker. Used to offer "Open settings" when
+ *   the extension has nowhere to connect to, since a banner that names a
+ *   problem the person cannot act on is only half a message.
+ */
+function showBanner(message, tone = "info", action = null) {
   const colors = {
     info: "#0a84ff",
     warn: "#ff9f0a",
+    error: "#ff453a",
   };
+
   const banner = document.createElement("div");
-  banner.textContent = message;
   Object.assign(banner.style, {
     position: "fixed",
     top: "16px",
@@ -98,31 +126,113 @@ function showBanner(message, tone = "info") {
     zIndex: 2147483647,
     background: "#1c1c1e",
     color: "#ffffff",
-    border: `1px solid ${colors[tone]}`,
+    border: `1px solid ${colors[tone] || colors.info}`,
     borderRadius: "12px",
     padding: "12px 16px",
     fontFamily: "-apple-system, sans-serif",
     fontSize: "13px",
+    lineHeight: "1.5",
     maxWidth: "320px",
     boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
   });
+
+  const text = document.createElement("div");
+  text.textContent = message;
+  banner.appendChild(text);
+
+  if (action) {
+    const button = document.createElement("button");
+    button.textContent = action.label;
+    Object.assign(button.style, {
+      marginTop: "10px",
+      padding: "6px 12px",
+      background: colors[tone] || colors.info,
+      color: "#fff",
+      border: "none",
+      borderRadius: "7px",
+      font: "inherit",
+      fontWeight: "600",
+      cursor: "pointer",
+    });
+    button.addEventListener("click", () => {
+      ask(action.message);
+      banner.remove();
+    });
+    banner.appendChild(button);
+  }
+
   document.body.appendChild(banner);
-  setTimeout(() => banner.remove(), 8000);
+  // Something with a button in it should not vanish while being read.
+  setTimeout(() => banner.remove(), action ? 20000 : 8000);
+  return banner;
 }
 
+const OPEN_SETTINGS = {
+  label: "Open settings",
+  message: { type: "facet:open-options" },
+};
+
+/** Turn a worker error into something the person can act on. */
+function reportError(result, what) {
+  switch (result.error) {
+    case "not_configured":
+      showBanner(
+        "Facet Apply Assist doesn't know where your Facet is yet. Set the address once and this page will fill itself next time.",
+        "warn",
+        OPEN_SETTINGS
+      );
+      return;
+    case "no_permission":
+      showBanner(
+        `Permission to reach ${result.baseUrl} was withdrawn. Grant it again to autofill.`,
+        "warn",
+        OPEN_SETTINGS
+      );
+      return;
+    case "not_signed_in":
+      showBanner(
+        "You're signed out of Facet. Open it in another tab, sign in, then reload this page.",
+        "warn"
+      );
+      return;
+    case "unreachable":
+    case "worker_unreachable":
+      showBanner(
+        `Facet couldn't reach ${result.baseUrl || "your Facet"} to read ${what}.`,
+        "error"
+      );
+      return;
+    case "timeout":
+      showBanner("Facet didn't answer in time. Reload to try again.", "error");
+      return;
+    case "not_found":
+      showBanner(
+        "Facet has no profile yet — import a resume in The Stone first.",
+        "warn"
+      );
+      return;
+    default:
+      showBanner(`Facet couldn't read ${what}.`, "error");
+  }
+}
+
+/**
+ * Rebuild the resume as a File and hand it to the form's file input.
+ *
+ * The bytes arrive as a data URL because a Blob cannot survive the extension
+ * messaging boundary — it structured-clones into an empty object, which
+ * fails later and nowhere near the cause.
+ */
 async function attachResumeFile(applicationId) {
   const fileInput = document.querySelector("input[type=file]");
   if (!fileInput || !applicationId) return false;
 
-  try {
-    const res = await fetch(`${BACKEND}/api/applications/${applicationId}/resume-file`);
-    if (!res.ok) return false;
-    const blob = await res.blob();
-    const disposition = res.headers.get("Content-Disposition") || "";
-    const nameMatch = disposition.match(/filename="?([^"]+)"?/);
-    const filename = nameMatch ? nameMatch[1] : "resume.pdf";
+  const result = await ask({ type: "facet:resume", applicationId });
+  if (!result.ok) return false;
 
-    const file = new File([blob], filename, { type: blob.type });
+  try {
+    const blob = await (await fetch(result.dataUrl)).blob();
+    const file = new File([blob], result.filename, { type: result.mimeType });
     const dataTransfer = new DataTransfer();
     dataTransfer.items.add(file);
     fileInput.files = dataTransfer.files;
@@ -153,17 +263,13 @@ async function run() {
     return;
   }
 
-  let profile;
-  try {
-    const res = await fetch(`${BACKEND}/api/profile`);
-    if (!res.ok) throw new Error("no profile");
-    profile = await res.json();
-  } catch {
-    showBanner("Facet couldn't reach the local app to read your profile.", "warn");
+  const profileResult = await ask({ type: "facet:profile" });
+  if (!profileResult.ok) {
+    reportError(profileResult, "your profile");
     return;
   }
 
-  const candidate = buildCandidateFields(profile);
+  const candidate = buildCandidateFields(profileResult.profile);
   let filled = 0;
   const total = Object.keys(selectorMap.fields).length;
 

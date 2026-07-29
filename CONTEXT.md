@@ -213,6 +213,7 @@ backend/.venv/bin/python scripts/test_feed_dedup.py  # dedup, dismissals
 backend/.venv/bin/python scripts/test_health.py      # /api/status contract
 cd frontend && npm run check                         # salary/date formatting
 cd frontend && npx tsc --noEmit && npm run lint && npm run build
+node extension/check.mjs                             # manifest, permissions, no-submit gate
 ```
 
 New non-trivial logic adds one `demo()`/`assert` check in the same style.
