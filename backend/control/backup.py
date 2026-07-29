@@ -84,7 +84,23 @@ def backup_user(slug: str, dest: Path | None = None) -> Path:
 
     root = dest or BACKUPS_DIR
     root.mkdir(parents=True, exist_ok=True)
+
+    # The stamp is only second-granular, so two backups of one user inside
+    # the same second would otherwise land on the same filename and the
+    # second would silently replace the first. That is a backup destroying a
+    # backup, which is the one thing this module must never do. A suffix is
+    # cheaper than the alternative: an admin taking a manual snapshot just
+    # before a risky change, in the same second as the nightly timer, and
+    # ending up with one bundle where they believed they had two.
     stamp = time.strftime("%Y%m%d-%H%M%S")
+    if (root / f"{slug}-{stamp}.tar.gz").exists():
+        for suffix in range(2, 100):
+            if not (root / f"{slug}-{stamp}-{suffix}.tar.gz").exists():
+                stamp = f"{stamp}-{suffix}"
+                break
+        else:
+            raise BackupError(f"too many backups of {slug} in one second")
+
     staging = root / f".{slug}-{stamp}.staging"
     staging.mkdir(parents=True, exist_ok=True)
 
@@ -188,16 +204,28 @@ def verify(bundle: Path) -> dict:
             report["problems"].append("tracker.db missing from the bundle")
             return report
 
-        conn = sqlite3.connect(tracker)
+        # A database damaged badly enough that SQLite will not even open it
+        # raises here rather than returning a verdict. That is still an
+        # answer, and it is this function's answer to give: verify() reports,
+        # it does not propagate. Letting the exception out turned the one
+        # call that exists to detect corruption into a crash whenever it
+        # found some.
         try:
-            result = conn.execute("PRAGMA integrity_check").fetchone()[0]
-            if result != "ok":
-                report["ok"] = False
-                report["problems"].append(f"integrity check: {result}")
-        finally:
-            conn.close()
+            conn = sqlite3.connect(tracker)
+            try:
+                result = conn.execute("PRAGMA integrity_check").fetchone()[0]
+                if result != "ok":
+                    report["ok"] = False
+                    report["problems"].append(f"integrity check: {result}")
+            finally:
+                conn.close()
 
-        actual = _row_counts(tracker)
+            actual = _row_counts(tracker)
+        except sqlite3.Error as exc:
+            report["ok"] = False
+            report["problems"].append(f"tracker.db is unreadable: {exc}")
+            return report
+
         for table, expected in manifest.get("rows", {}).items():
             if actual.get(table) != expected:
                 report["ok"] = False
@@ -329,7 +357,7 @@ def status(dest: Path | None = None) -> dict:
 
 
 def demo() -> None:
-    """The restore drill:  backend/.venv/python.exe -m control.backup
+    """The restore drill:  backend/.venv/bin/python -m control.backup
 
     Not a unit test of the helpers — an actual round trip. Creates an
     account, fills it with data, backs it up, destroys the data, restores it,
@@ -351,6 +379,12 @@ def demo() -> None:
 
     from . import cloudflare
     cloudflare.TUNNEL_CONFIG = root / "cloudflared.yml"
+
+    # Same reason as control.provision.demo: the drill provisions a fictional
+    # user, and on a host with real systemd that would enable real units.
+    from . import runtime
+    real_capabilities = runtime.capabilities
+    runtime.capabilities = lambda: {k: False for k in real_capabilities()}
 
     backups = root / "backups"
 
@@ -421,6 +455,15 @@ def demo() -> None:
     assert any(p.name.startswith(f"{user['slug']}-replaced-")
                for p in store.USERS_DIR.iterdir()), "previous contents must be kept"
 
+    # Two backups in the same second are two bundles, not one. Asserted
+    # explicitly because the only thing that used to enforce it was the
+    # host being slow enough that the clock ticked in between.
+    twin = backup_user(user["slug"], backups)
+    assert twin != bundle, "a same-second backup overwrote the previous one"
+    assert bundle.exists() and twin.exists(), (bundle, twin)
+    assert verify(twin)["ok"]
+    twin.unlink()
+
     # A corrupt bundle is caught by verify, not discovered during a restore.
     broken = backups / "broken-20200101-000000.tar.gz"
     broken.write_bytes(b"not a tarball")
@@ -468,6 +511,7 @@ def demo() -> None:
     assert state["users"][0]["latest"] is not None
     assert state["users"][0]["age_hours"] is not None
 
+    runtime.capabilities = real_capabilities
     print("backup: restore drill passed — backed up, destroyed, restored, verified")
 
 

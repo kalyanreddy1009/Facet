@@ -1,0 +1,60 @@
+# One user's Facet backend, as a systemd *user* unit.
+#
+#   systemctl --user enable --now facet-api@alice
+#
+# Why a user unit rather than a system one:
+#
+#   * It needs no root and no polkit. The control plane does not run as root,
+#     and `systemctl enable` against the system instance fails for it with
+#     "Interactive authentication required".
+#   * It runs as the account that owns this session — which must be the
+#     account that ran the agy sign-in, because agy reads its credentials out
+#     of that account's home directory. A system unit configures the service
+#     user separately, so the two identities can disagree silently: agy looks
+#     authenticated in your shell and unauthenticated to the service.
+#
+# The cost is that user units stop at logout unless lingering is on:
+#
+#   loginctl enable-linger $USER
+#
+# deploy/install.sh sets that up and writes FACET_ROOT below for you.
+#
+# %i is the user's slug.
+
+[Unit]
+Description=Facet backend for %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+
+WorkingDirectory=${FACET_ROOT}/backend
+EnvironmentFile=${FACET_HOST_ROOT}/users/%i/.env
+
+# systemd does not inherit your login shell's PATH, and agy installs to
+# ~/.local/bin. Without this the service starts, looks healthy, serves every
+# page — and reports "agy CLI not found on PATH" the moment anyone tries to
+# tailor. %h is this user's home, so the path stays correct wherever the
+# account lives.
+Environment=PATH=%h/.local/bin:%h/bin:/usr/local/bin:/usr/bin:/bin
+
+# Loopback only. cloudflared reaches this over 127.0.0.1 and Cloudflare
+# Access is the authentication; binding 0.0.0.0 would bypass both.
+ExecStart=${FACET_ROOT}/backend/.venv/bin/python -m uvicorn main:app \
+          --host 127.0.0.1 --port ${BACKEND_PORT}
+
+Restart=on-failure
+RestartSec=5s
+
+# A restart mid-cut abandons an agy run. The queue's startup reconciliation
+# turns that into a failed job with a real message rather than a browser
+# polling a spinner forever, but a generous stop timeout means a run usually
+# finishes rather than needing to.
+TimeoutStopSec=330
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=default.target

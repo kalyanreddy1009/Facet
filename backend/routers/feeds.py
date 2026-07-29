@@ -324,7 +324,7 @@ async def put_settings(body: SettingsPatch):
 
 
 def demo() -> None:
-    """Self-check:  backend/.venv/python.exe -m routers.feeds"""
+    """Self-check:  backend/.venv/bin/python -m routers.feeds"""
     assert decode_list(None) == []
     assert decode_list("") == []
     assert decode_list("[]") == []

@@ -370,11 +370,28 @@ def reset_agy_cache() -> None:
 
 
 def _check_agy_busy() -> dict:
-    busy = agy_runner._agy_lock.locked()
+    """Whether an agy run is in flight anywhere on this host.
+
+    The lock stopped being an in-process threading primitive when the queue
+    landed — it is a file lock now, precisely so the answer covers every
+    user's instance and not just this one. Probing means trying to take it:
+    if it is free we hold it for microseconds and hand it straight back,
+    which is honest in a way that reading a local flag cannot be.
+    """
+    from services.filelock import FileLock
+
+    probe = FileLock(agy_runner.AGY_LOCK_PATH, timeout=0)
+    busy = probe.is_held()
+
+    meta = {"in_flight": busy, "lock": str(agy_runner.AGY_LOCK_PATH)}
+    if busy:
+        # Who is holding it — which, across instances, is the only way to
+        # tell "my run is slow" from "someone else's run is ahead of me".
+        meta["holder"] = probe.holder()
     return {
         "status": "ok",
         "detail": "an agy run is in flight" if busy else "idle",
-        "meta": {"in_flight": busy},
+        "meta": meta,
     }
 
 

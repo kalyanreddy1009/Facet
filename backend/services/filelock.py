@@ -110,6 +110,44 @@ class FileLock:
             os.close(self._fd)
             self._fd = None
 
+    def is_held(self) -> bool:
+        """Is anyone, in any process, holding this lock right now?
+
+        Asks the only question that has a reliable answer: can it be taken?
+        If it can, we took it for the duration of this call and gave it back,
+        which is why this is safe to call from a status endpoint but wrong to
+        build a decision on — by the time you read the result it can already
+        be stale. Use it to report, not to gate.
+
+        A separate open file description is used on purpose, so that a lock
+        held by another thread of this same process still reads as held.
+        """
+        fd = None
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            fd = os.open(self.path, os.O_RDWR | os.O_CREAT, 0o644)
+            try:
+                if os.name == "nt":
+                    msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+                    os.lseek(fd, 0, os.SEEK_SET)
+                    msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(fd, fcntl.LOCK_UN)
+                return False
+            except OSError as exc:
+                if exc.errno in (errno.EACCES, errno.EAGAIN, errno.EDEADLOCK):
+                    return True
+                raise
+        except OSError:
+            # An unreadable lock path is not proof of anything. Reporting
+            # "idle" would be a guess; reporting "busy" at worst delays a
+            # status line. Neither blocks a run, since this never gates one.
+            return False
+        finally:
+            if fd is not None:
+                os.close(fd)
+
     def holder(self) -> str | None:
         """"<pid> <unix time>" of the last acquirer, or None.
 
@@ -131,7 +169,7 @@ class FileLock:
 
 
 def demo() -> None:
-    """Self-check:  backend/.venv/python.exe -m services.filelock
+    """Self-check:  backend/.venv/bin/python -m services.filelock
 
     Spawns a real second process — the whole point of this module is
     behaviour *between* processes, which a single-process test cannot show.
@@ -160,12 +198,23 @@ def demo() -> None:
     )
     here = str(Path(__file__).resolve().parent.parent)
 
+    # is_held() reports the truth from outside the holder, which is what the
+    # /status "agy busy" line depends on. Checked against a lock held by
+    # *another* process, because that is the case it exists for: one user
+    # asking whether somebody else's tailoring run is currently in flight.
+    probe = FileLock(lock_path)
+    assert not probe.is_held(), "nobody holds it yet"
+
     with FileLock(lock_path):
+        assert probe.is_held(), "a held lock must read as held"
         out = subprocess.run(
             [sys.executable, "-c", child % (here, str(lock_path), "1.0")],
             capture_output=True, text=True, timeout=60,
         )
         assert "TIMEOUT" in out.stdout, f"expected exclusion, got {out.stdout!r} {out.stderr}"
+
+    # And probing must not have consumed the lock: released means released.
+    assert not probe.is_held(), "is_held() left the lock taken"
 
     out = subprocess.run(
         [sys.executable, "-c", child % (here, str(lock_path), "5.0")],

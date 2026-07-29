@@ -303,7 +303,7 @@ def parse_json_output(text: str) -> dict:
 
 
 def demo() -> None:
-    """Self-check:  backend/.venv/python.exe -m services.agy_runner
+    """Self-check:  backend/.venv/bin/python -m services.agy_runner
 
     Covers the job-directory staging only — no agy call. The real round trip
     is scripts/test_agy_roundtrip.py, which needs an authenticated CLI.

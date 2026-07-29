@@ -2,6 +2,82 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — Phase 6: on the host at last, and six bugs it found
+
+Moved to the Oracle Ampere A1 the whole plan was written for — aarch64,
+Ubuntu 24.04, Python 3.12, Node 22.23, Docker 29.1 — and ran everything that
+had only ever been reasoned about. Six real bugs, all of the kind that a
+development machine structurally cannot show you.
+
+**The agy lock was never shared.** `FACET_AGY_LOCK` was set nowhere, so each
+instance fell back to `$FACET_DATA_DIR/agy.lock` — a lock inside its own
+private directory. Ten users would have made ten locks and run ten concurrent
+agy processes against one authenticated CLI: precisely the failure the queue,
+the file lock and the native-backend split all exist to prevent. Nothing in a
+single-instance test can see this; the architecture only fails when two real
+users overlap. Now written into every generated `.env`, and
+`control.provision`'s self-check asserts the lock is outside the user's data
+directory and stays that way.
+
+Then the proof, which is the point of coming here: two instances, separate
+data, one lock, both submitting a tailoring run at the same instant. 25.4 s
+and 49.8 s, the second beginning as the first ended. Serialization across
+processes, on the real host, against the real CLI.
+
+**Provisioning could not use systemd at all.** The control plane does not run
+as root, so `systemctl enable` returned *Interactive authentication
+required*. This was invisible on Windows for an unpleasant reason: systemd
+was absent, every step took its manual branch, and the self-check asserted
+that manual steps count as success. The test passed because the feature was
+unreachable. Now the units are systemd **user** units — no root, no polkit,
+and they run as the account that owns agy's credentials, which makes the
+"authenticated in my shell, unauthenticated in the service" mismatch
+impossible by construction rather than by documentation. `deploy/install.sh`
+renders them from the real checkout path; `deploy/user/` holds the templates.
+
+The self-checks that depended on systemd being absent now say so out loud and
+pin capabilities to false, because a test that reconfigures the host it runs
+on is not a test.
+
+**agy was invisible to systemd.** Units inherit a minimal PATH without
+`~/.local/bin`. Services started, reported healthy, served every page, and
+had no agy — a failure that surfaces at the first tailoring attempt rather
+than at startup. Fixed in the unit; `deploy/install.sh` now checks agy
+against the units' PATH rather than your shell's, since those are different
+questions and only one of them matters.
+
+**`verify()` raised instead of reporting.** A database too corrupt for SQLite
+to open threw `DatabaseError` straight out of the one function whose entire
+job is detecting corruption. The Windows run had been slow enough that a
+byte-flip landed in the gzip layer first. The same slowness hid a second bug:
+two backups of one user in the same second collided on one filename and the
+second silently replaced the first — a backup destroying a backup. Both
+fixed, both asserted rather than left to timing.
+
+**`/status`'s agy check was dead code**, still calling `_agy_lock` from
+before the queue landed. Replaced with `FileLock.is_held()`, which answers
+across instances instead of within one process — the only useful form of the
+question once there is more than one instance.
+
+**`run.py` leaked processes and bound publicly.** `npm` is a launcher, so
+terminating it left `next` holding port 3000 and the next `./start.sh` died
+on a port owned by nobody visible. And `next start` binds 0.0.0.0 by default:
+on a VM with a public IP, the friendliest command in the repo published the
+whole app with no authentication in front of it. Now loopback by default
+(`FACET_BIND` to override, deliberately) with process-group teardown on both
+services. Telemetry is disabled through the environment rather than a
+per-machine config file, so "no telemetry" travels with the repo.
+
+Also verified live: the arm64 image (2m50s, 308 MB), per-user compose
+containers bound to loopback, generated tunnel ingress with `^/api/` ahead of
+the catch-all, and the full lifecycle — create, delete (which refuses without
+a matching email), undelete, resume — with data intact and other users
+untouched. A real agy pass produced a tailored PDF, DOCX and cover letter
+faithful to the source resume.
+
+The application is now called **Facet**. Docs and self-check commands use the
+POSIX interpreter path.
+
 ## 2026-07-29 — Phase 5: backups, and the drill that proves them
 
 `control/backup.py` — backup, verify, restore, prune — plus a daily loop in

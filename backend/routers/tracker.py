@@ -277,7 +277,7 @@ async def _serve_application_file(application_id: int, column: str, media_type: 
 
 
 def demo() -> None:
-    """Self-check:  backend/.venv/python.exe -m routers.tracker
+    """Self-check:  backend/.venv/bin/python -m routers.tracker
 
     The export resolver is a trust boundary — every file this app hands back
     goes through it — so it gets its own checks rather than relying on the

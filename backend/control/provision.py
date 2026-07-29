@@ -137,6 +137,17 @@ def _step_env_file(user: dict) -> str:
             f"FACET_DATA_DIR={paths['data']}",
             f"FACET_WORKSPACE_DIR={paths['workspace']}",
             "",
+            "# The one lock every instance contends on.",
+            "#",
+            "# This MUST be outside the per-user data directory. There is a",
+            "# single authenticated agy CLI on this host, so serializing runs",
+            "# is the entire reason the queue exists — and a lock file each",
+            "# user owns privately serializes nothing. Left unset, that is",
+            "# exactly what happens: agy_runner falls back to",
+            "# $FACET_DATA_DIR/agy.lock, ten instances take ten different",
+            "# locks, and they all call one CLI at once.",
+            f"FACET_AGY_LOCK={store.HOST_ROOT / 'agy.lock'}",
+            "",
         ]),
         encoding="utf-8",
     )
@@ -214,8 +225,16 @@ def _step_health_check(user: dict) -> str:
     if not (caps["systemd"] or caps["docker"]):
         return "skipped: nothing was started on this host"
 
-    backend = instance_running(user)
-    frontend = _port_open(user["web_port"])
+    # Give the services a moment to bind.
+    #
+    # `systemctl start` returns once the process has been forked, not once
+    # uvicorn is listening — roughly a second apart on this host, and longer
+    # on a cold page cache. Probing immediately failed provisioning for
+    # instances that were about to come up perfectly well, which is the worst
+    # kind of wrong answer: the user gets an error and a working service.
+    backend = _wait_for_port(user["api_port"]) if caps["systemd"] else False
+    frontend = _wait_for_port(user["web_port"]) if caps["docker"] else False
+
     if not backend and caps["systemd"]:
         raise ProvisionError("health_check",
                              f"backend is not answering on port {user['api_port']}")
@@ -229,6 +248,23 @@ def _port_open(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.settimeout(0.4)
         return probe.connect_ex(("127.0.0.1", port)) == 0
+
+
+def _wait_for_port(port: int, timeout: float = 30.0) -> bool:
+    """Poll until something is listening, or give up.
+
+    Returns as soon as the port answers, so the common case costs about as
+    much as a single probe; the timeout only matters when the service is
+    genuinely not coming up, and then waiting 30s to say so is far better
+    than declaring failure at 0.4s.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        if _port_open(port):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.5)
 
 
 # Order matters. Directories before anything written into them; ports checked
@@ -542,7 +578,7 @@ def import_existing(email: str, source_data: Path, source_workspace: Path,
 
 
 def demo() -> None:
-    """Self-check:  backend/.venv/python.exe -m control.provision
+    """Self-check:  backend/.venv/bin/python -m control.provision
 
     Exercises the whole lifecycle against a throwaway host root. Nothing here
     touches a real installation.
@@ -563,6 +599,23 @@ def demo() -> None:
     cloudflare.TUNNEL_CONFIG = root / "cloudflared.yml"
     cloudflare.BASE_DOMAIN = "facet.test"
 
+    # Report no host tools, so every step takes its manual branch.
+    #
+    # This used to be true by accident: the machine this was written on had
+    # no systemd, so the assertions below passed without anyone saying what
+    # they depended on. On the deployment host systemd is real, and an
+    # unpinned self-check would enable and start actual units named after a
+    # fictional user. A test must not reconfigure the host it runs on.
+    real_capabilities = runtime.capabilities
+    runtime.capabilities = lambda: {k: False for k in real_capabilities()}
+    try:
+        _demo_lifecycle(root, _zip)
+    finally:
+        runtime.capabilities = real_capabilities
+
+
+def _demo_lifecycle(root: Path, _zip) -> None:
+
     user = create_user("alice@example.com", "Alice", "test")
     paths = store.user_paths(user["slug"])
 
@@ -575,7 +628,18 @@ def demo() -> None:
     assert paths["data"].is_dir() and paths["workspace"].is_dir()
     assert paths["tracker_db"].exists(), "tracker.db should be initialized"
     assert (paths["workspace"] / "RULES.md").exists(), "truthfulness contract seeded"
-    assert f"FACET_DATA_DIR={paths['data']}" in paths["env"].read_text(encoding="utf-8")
+    env_text = paths["env"].read_text(encoding="utf-8")
+    assert f"FACET_DATA_DIR={paths['data']}" in env_text
+
+    # The agy lock must be shared, not per-user. This assertion exists
+    # because the failure mode is invisible in every test that runs one
+    # instance: nothing breaks until two real users tailor at the same
+    # moment against a CLI that can only serve one.
+    lock_line = next(l for l in env_text.splitlines() if l.startswith("FACET_AGY_LOCK="))
+    lock_path = Path(lock_line.split("=", 1)[1])
+    assert lock_path == store.HOST_ROOT / "agy.lock", lock_path
+    assert paths["data"] not in lock_path.parents, \
+        f"the agy lock is inside {user['slug']}'s data dir — it would serialize nobody"
     assert all(s["ok"] for s in user["steps"].values()), user["steps"]
 
     # Every step ran, including the Phase 3 ones. With no systemd, docker or

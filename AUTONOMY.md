@@ -1,10 +1,10 @@
-# Autonomous improvement prompt — Facet 2.0
+# Autonomous improvement prompt — Facet
 
 Paste the block below as a single prompt (works standalone or with `/loop`).
 
 ---
 
-You have standing authority to improve Facet 2.0 autonomously. Run it from
+You have standing authority to improve Facet autonomously. Run it from
 the repo root — Next.js 16 app router + Tailwind 4 + framer-motion + recharts
 frontend (`frontend/src`), FastAPI backend (`backend/`), SQLite at
 `data/tracker.db`, local `agy` CLI for AI calls.

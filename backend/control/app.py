@@ -2,7 +2,7 @@
 
 Run it:
 
-    backend/.venv/python.exe -m control.app          # http://127.0.0.1:9000
+    backend/.venv/bin/python -m control.app          # http://127.0.0.1:9000
 
 Binds to localhost only. In the host deployment nothing is published
 directly: cloudflared reaches it over the loopback, and a Cloudflare Access

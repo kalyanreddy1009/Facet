@@ -1,0 +1,45 @@
+# The control plane: admin portal, provisioning, retention, backups.
+#
+#   systemctl --user enable --now facet-control
+#
+# A user unit for the same reasons as facet-api@ (see that file), plus one
+# more: it is the process that starts and stops the per-user backends, so it
+# has to be able to talk to the same systemd instance they live in.
+
+[Unit]
+Description=Facet control plane
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+WorkingDirectory=${FACET_ROOT}/backend
+
+Environment=FACET_HOST_ROOT=${FACET_HOST_ROOT}
+Environment=FACET_BASE_DOMAIN=${FACET_BASE_DOMAIN}
+Environment=FACET_TUNNEL_CONFIG=${FACET_TUNNEL_CONFIG}
+Environment=FACET_SYSTEMD_SCOPE=user
+# See facet-api@.service: systemd gives a unit a minimal PATH, and the
+# control plane shells out to systemctl, docker and cloudflared.
+Environment=PATH=%h/.local/bin:%h/bin:/usr/local/bin:/usr/bin:/bin
+# Environment=FACET_TUNNEL_ID=<your-tunnel-id>
+#
+# Cloudflare API automation is opt-in (PLAN.md D8) — a token with
+# Access-write is a real capability. Left unset, provisioning prints the
+# exact steps to click instead.
+# Environment=CF_ACCOUNT_ID=...
+# Environment=CF_API_TOKEN=...
+
+# Binds 127.0.0.1 only. cloudflared reaches it over the loopback and a
+# one-email Access policy is the authentication; publishing this port would
+# bypass both.
+ExecStart=${FACET_ROOT}/backend/.venv/bin/python -m control.app
+
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=default.target

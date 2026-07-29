@@ -487,7 +487,7 @@ def _describe(exc: Exception) -> tuple[str, str]:
 
 
 def demo() -> None:
-    """Self-check:  backend/.venv/python.exe -m services.jobs"""
+    """Self-check:  backend/.venv/bin/python -m services.jobs"""
     import tempfile
 
     global QUEUE_DB, _connection

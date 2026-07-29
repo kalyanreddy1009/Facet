@@ -49,7 +49,7 @@ TAILORED_FIELDS_PATH = WORKSPACE_DIR / "tailored_fields.json"
 
 
 def demo() -> None:
-    """Self-check:  backend/.venv/python.exe -m services.paths"""
+    """Self-check:  backend/.venv/bin/python -m services.paths"""
     # Defaults land inside the repo — the pre-override behaviour.
     assert DB_PATH == ROOT / "data" / "tracker.db", DB_PATH
     assert PROFILE_PATH == ROOT / "workspace" / "profile.json", PROFILE_PATH

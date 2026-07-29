@@ -21,6 +21,7 @@ Two dependencies can't be auto-installed and are only checked/reported:
 
 import os
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -33,6 +34,31 @@ IS_WIN = os.name == "nt"
 
 BACKEND_PORT = 8000
 FRONTEND_PORT = 3000
+
+# Loopback by default, and deliberately.
+#
+# `next start` binds 0.0.0.0 unless told otherwise. On a laptop that is
+# harmless; on a cloud VM with a public IP it publishes the whole app to the
+# internet with no authentication in front of it, because the authentication
+# is Cloudflare Access and Access is reached through the tunnel. The one
+# command that is easiest to run must not be the one that exposes everything.
+#
+# Set FACET_BIND=0.0.0.0 to override, which is a thing you now have to do on
+# purpose.
+BIND_HOST = os.environ.get("FACET_BIND", "").strip() or "127.0.0.1"
+
+
+def node_env() -> dict:
+    """Environment for npm subprocesses.
+
+    NEXT_TELEMETRY_DISABLED is set here rather than left to `next telemetry
+    disable`, because that command writes to a per-user config file on one
+    machine. "No telemetry" is a property of this application, so it travels
+    with the repo. The Dockerfile sets the same variable for the same reason.
+    """
+    env = os.environ.copy()
+    env["NEXT_TELEMETRY_DISABLED"] = "1"
+    return env
 
 
 def say(msg: str) -> None:
@@ -130,7 +156,8 @@ def ensure_build(npm: str, force: bool) -> None:
         return
 
     say("Building frontend for production...")
-    subprocess.run([npm, "run", "build"], cwd=str(ROOT / "frontend"), check=True)
+    subprocess.run([npm, "run", "build"], cwd=str(ROOT / "frontend"),
+                   env=node_env(), check=True)
 
 
 def check_optional(py: Path) -> None:
@@ -191,6 +218,35 @@ def backend_env(py: Path) -> dict:
     return env
 
 
+def stop_tree(proc: subprocess.Popen) -> None:
+    """Ask a whole process group to stop.
+
+    On POSIX the group exists because Popen was given start_new_session; the
+    signal reaches npm's children, which is the point. On Windows there are
+    no groups, so taskkill /T walks the tree instead.
+    """
+    try:
+        if IS_WIN:
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T"],
+                           capture_output=True, timeout=15)
+        else:
+            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except (OSError, ProcessLookupError, subprocess.SubprocessError):
+        proc.terminate()  # the group is already gone; the direct child may not be
+
+
+def kill_tree(proc: subprocess.Popen) -> None:
+    """Same, without asking. Only after stop_tree has been given its timeout."""
+    try:
+        if IS_WIN:
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                           capture_output=True, timeout=15)
+        else:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (OSError, ProcessLookupError, subprocess.SubprocessError):
+        proc.kill()
+
+
 def main() -> None:
     dev = "--dev" in sys.argv
 
@@ -216,21 +272,48 @@ def main() -> None:
     say(f"Starting Facet ({mode}) — backend :{BACKEND_PORT}, frontend "
         f":{FRONTEND_PORT}  (Ctrl+C stops both)")
 
-    backend_cmd = [str(py), "-m", "uvicorn", "main:app", "--port", str(BACKEND_PORT)]
+    backend_cmd = [str(py), "-m", "uvicorn", "main:app",
+                   "--host", BIND_HOST, "--port", str(BACKEND_PORT)]
     if dev:
         backend_cmd.append("--reload")
 
+    # npm is a launcher: it spawns the real `next` process as a child and
+    # exits the signal chain there. Terminating npm alone leaves next holding
+    # port 3000, so the next `./start.sh` dies on "address already in use"
+    # pointing at a process that looks like nobody started it. Own the whole
+    # group, the same way services/agy_runner.py owns agy's.
+    new_session = not IS_WIN
+
+    frontend_cmd = [npm, "run", "dev" if dev else "start", "--",
+                    "-H", BIND_HOST, "-p", str(FRONTEND_PORT)]
+
     backend = subprocess.Popen(
-        backend_cmd, cwd=str(ROOT / "backend"), env=backend_env(py)
+        backend_cmd, cwd=str(ROOT / "backend"), env=backend_env(py),
+        start_new_session=new_session,
     )
     frontend = subprocess.Popen(
-        [npm, "run", "dev" if dev else "start"], cwd=str(ROOT / "frontend")
+        frontend_cmd, cwd=str(ROOT / "frontend"), env=node_env(),
+        start_new_session=new_session,
     )
 
-    print("\n  Frontend: http://localhost:3000")
-    print("  Backend:  http://localhost:8000")
+    print(f"\n  Frontend: http://{BIND_HOST}:{FRONTEND_PORT}")
+    print(f"  Backend:  http://{BIND_HOST}:{BACKEND_PORT}")
     print("  Extension: chrome://extensions -> Developer Mode -> Load unpacked ->",
           ROOT / "extension", "\n")
+
+    # Ctrl+C is not the only way this gets stopped.
+    #
+    # SIGTERM is what systemd, `kill`, and every process supervisor send, and
+    # its default action ends the interpreter outright — the `finally` below
+    # never runs, and both children are left holding their ports. Turning it
+    # into the same exception the keyboard raises means one teardown path
+    # serves every way of asking this to stop.
+    def _on_term(_signum, _frame):
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, _on_term)
+    if not IS_WIN:
+        signal.signal(signal.SIGHUP, _on_term)  # the SSH session going away
 
     try:
         while backend.poll() is None and frontend.poll() is None:
@@ -240,12 +323,12 @@ def main() -> None:
     finally:
         for p in (frontend, backend):
             if p.poll() is None:
-                p.terminate()
+                stop_tree(p)
         for p in (frontend, backend):
             try:
                 p.wait(timeout=10)
             except subprocess.TimeoutExpired:
-                p.kill()
+                kill_tree(p)
 
 
 if __name__ == "__main__":

@@ -206,7 +206,7 @@ def manual_instructions(slug: str, email: str) -> str:
 
 
 def demo() -> None:
-    """Self-check:  backend/.venv/python.exe -m control.cloudflare
+    """Self-check:  backend/.venv/bin/python -m control.cloudflare
 
     Pure config generation. No network calls — these have to be right for a
     Cloudflare account this was never run against.

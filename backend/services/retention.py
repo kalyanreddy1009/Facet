@@ -180,7 +180,7 @@ def sweep_all(dry_run: bool = True) -> dict:
 
 
 def demo() -> None:
-    """Self-check:  backend/.venv/python.exe -m services.retention"""
+    """Self-check:  backend/.venv/bin/python -m services.retention"""
     import tempfile
 
     root = Path(tempfile.mkdtemp())

@@ -1,4 +1,4 @@
-# Facet 2.0 — orientation brief
+# Facet — orientation brief
 
 For an agent that needs the full picture before writing prompts or code.
 Read alongside `README.md` (user-facing, exhaustive), `AUTONOMY.md` (how to
@@ -19,7 +19,7 @@ copy: **Stone** = profile, **Rough** = the raw pool of gathered postings,
 | Piece | What |
 |---|---|
 | `frontend/` | Next.js 16 (app router), React 19, TypeScript 6, Tailwind 4, framer-motion, recharts, lucide-react. Port 3000. Needs Node 22.6+. |
-| `backend/` | FastAPI + uvicorn, Python **3.10** (conda-forge venv at `backend/.venv`, `python.exe` at its root — *not* `Scripts/`). Port 8000. |
+| `backend/` | FastAPI + uvicorn, Python **3.12** (venv at `backend/.venv`; interpreter at `bin/python` on Linux, `python.exe` at the venv root on the old Windows conda layout). Port 8000. |
 | `data/` | `tracker.db` (SQLite, WAL), `settings.json` (API keys), `feeds.json`, `logs/facet.log`, `exports/`. Gitignored. Relocatable via `FACET_DATA_DIR`. |
 | `workspace/` | `profile.json`, `master_resume.md`, `RULES.md`, and the agy file-handoff scratch (`job_description.md`, `tailored_fields.json`). Gitignored. Relocatable via `FACET_WORKSPACE_DIR`. |
 | `templates/` | `resume_template.html`, `cover_letter_template.html`, `resume_template.docx`. |
@@ -65,7 +65,7 @@ features — and WeasyPrint's native Pango/Cairo libs — PDF/DOCX export only.
 
 **`backend/control/`** is a second entrypoint, not a second project: the
 admin portal and user lifecycle for a multi-user host (`PLAN.md`). Run it
-with `backend/.venv/python.exe -m control.app` → http://127.0.0.1:9000.
+with `backend/.venv/bin/python -m control.app` → http://127.0.0.1:9000.
 `store.py` owns `control.db` (users, audit), `provision.py` the
 create/suspend/export/delete pipeline, `runtime.py` systemd/docker command
 building, `cloudflare.py` tunnel ingress + Access, `backup.py` backup/verify/
@@ -195,22 +195,22 @@ deliberately replaced with inline SVG + CSS.
 Each non-trivial module carries one runnable check:
 
 ```
-backend/.venv/python.exe -m services.paths           # path resolution + env overrides
-backend/.venv/python.exe -m services.filelock        # cross-process exclusion (spawns a child)
-backend/.venv/python.exe -m services.jobs            # queue, claiming, reconciliation
-backend/.venv/python.exe -m services.agy_runner      # per-job input staging
-backend/.venv/python.exe -m services.retention       # sweeps, quotas, fail-closed
-backend/.venv/python.exe -m routers.tracker          # export path boundary
-backend/.venv/python.exe -m control.provision        # full user lifecycle, temp root
-backend/.venv/python.exe -m control.runtime          # systemd/docker command building
-backend/.venv/python.exe -m control.cloudflare       # ingress + Access config
-backend/.venv/python.exe -m control.backup           # the restore drill
-backend/.venv/python.exe -m services.job_sources     # parsing, offline
-backend/.venv/python.exe -m services.matching        # scoring
-backend/.venv/python.exe -m services.logging_setup   # ring buffer + metrics
-backend/.venv/python.exe -m services.health          # every status check
-backend/.venv/python.exe scripts/test_feed_dedup.py  # dedup, dismissals
-backend/.venv/python.exe scripts/test_health.py      # /api/status contract
+backend/.venv/bin/python -m services.paths           # path resolution + env overrides
+backend/.venv/bin/python -m services.filelock        # cross-process exclusion (spawns a child)
+backend/.venv/bin/python -m services.jobs            # queue, claiming, reconciliation
+backend/.venv/bin/python -m services.agy_runner      # per-job input staging
+backend/.venv/bin/python -m services.retention       # sweeps, quotas, fail-closed
+backend/.venv/bin/python -m routers.tracker          # export path boundary
+backend/.venv/bin/python -m control.provision        # full user lifecycle, temp root
+backend/.venv/bin/python -m control.runtime          # systemd/docker command building
+backend/.venv/bin/python -m control.cloudflare       # ingress + Access config
+backend/.venv/bin/python -m control.backup           # the restore drill
+backend/.venv/bin/python -m services.job_sources     # parsing, offline
+backend/.venv/bin/python -m services.matching        # scoring
+backend/.venv/bin/python -m services.logging_setup   # ring buffer + metrics
+backend/.venv/bin/python -m services.health          # every status check
+backend/.venv/bin/python scripts/test_feed_dedup.py  # dedup, dismissals
+backend/.venv/bin/python scripts/test_health.py      # /api/status contract
 cd frontend && npm run check                         # salary/date formatting
 cd frontend && npx tsc --noEmit && npm run lint && npm run build
 ```
@@ -220,7 +220,7 @@ Don't introduce pytest/jest/vitest without being asked.
 
 ## 11. Gotchas that will bite an agent immediately
 
-1. **Use `backend/.venv/python.exe`** — bare `python` on this machine is a
+1. **Use `backend/.venv/bin/python`** — bare `python` on this machine is a
    3.8-era interpreter and dies on `set[str]` subscripting.
 2. Port 8000/3000 may already hold a running instance; `bind` fails with
    WinError 10048. Check before launching another.

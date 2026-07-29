@@ -46,6 +46,68 @@ class Result:
         return f"Result({self.mode}, {self.detail!r})"
 
 
+# ------------------------------------------------------------ systemd scope
+
+def systemd_scope() -> str:
+    """"user" or "system" — which systemd instance owns the per-user units.
+
+    System units need root. The control plane deliberately does not run as
+    root, so on an unprivileged host `systemctl enable` fails with
+    "Interactive authentication required" — which is what happens on the
+    Oracle VM this is deployed to.
+
+    User units solve that and one other thing at the same time. They need no
+    polkit and no sudo, and they run as the invoking OS user — which must be
+    the user that ran the agy sign-in, because agy reads credentials out of
+    that account's home directory. Under system units those two identities
+    are configured separately and can silently disagree; under user units
+    they cannot.
+
+    The cost is that user units stop at logout unless lingering is enabled:
+        loginctl enable-linger $USER
+    `preflight()` checks for it, because without it every instance dies the
+    moment the admin closes their SSH session.
+    """
+    override = os.environ.get("FACET_SYSTEMD_SCOPE", "").strip().lower()
+    if override in ("user", "system"):
+        return override
+    if os.name == "nt":
+        return "system"
+    # Root can drive the system instance; nobody else can.
+    return "system" if os.geteuid() == 0 else "user"
+
+
+def systemctl(*args: str) -> list[str]:
+    """The systemctl argv for this host, scope included."""
+    scope = ["--user"] if systemd_scope() == "user" else []
+    return ["systemctl", *scope, *args]
+
+
+def _systemd_reachable() -> bool:
+    """`systemctl` on PATH does not mean we can drive it. A user instance
+    needs a live session bus; a system instance needs root."""
+    try:
+        return subprocess.run(
+            systemctl("show-environment"), capture_output=True, timeout=10,
+        ).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def lingering_enabled() -> bool:
+    """Whether user units survive logout. Meaningless for system scope."""
+    if systemd_scope() != "user":
+        return True
+    try:
+        proc = subprocess.run(
+            ["loginctl", "show-user", str(os.geteuid()), "-p", "Linger", "--value"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return proc.stdout.strip().lower() == "yes"
+
+
 # ------------------------------------------------------------ capabilities
 
 def has(tool: str) -> bool:
@@ -59,7 +121,7 @@ def capabilities() -> dict[str, bool]:
     explained by something visible, rather than looking like a failure.
     """
     return {
-        "systemd": has("systemctl") and os.name != "nt",
+        "systemd": has("systemctl") and os.name != "nt" and _systemd_reachable(),
         "docker": has("docker") and _docker_daemon_up(),
         "cloudflared": has("cloudflared"),
         "cloudflare_api": bool(os.environ.get("CF_API_TOKEN", "").strip()),
@@ -139,11 +201,11 @@ def unit_name(slug: str) -> str:
 
 
 def systemctl_command(action: str, slug: str) -> list[str]:
-    return ["systemctl", action, unit_name(slug)]
+    return systemctl(action, unit_name(slug))
 
 
 def service_start(slug: str, available: bool) -> Result:
-    return run(["systemctl", "enable", "--now", unit_name(slug)],
+    return run(systemctl("enable", "--now", unit_name(slug)),
                f"start {slug}'s backend", available)
 
 
@@ -156,12 +218,12 @@ def service_restart(slug: str, available: bool) -> Result:
 
 
 def service_disable(slug: str, available: bool) -> Result:
-    return run(["systemctl", "disable", "--now", unit_name(slug)],
+    return run(systemctl("disable", "--now", unit_name(slug)),
                f"remove {slug}'s backend service", available)
 
 
 def demo() -> None:
-    """Self-check:  backend/.venv/python.exe -m control.runtime
+    """Self-check:  backend/.venv/bin/python -m control.runtime
 
     Command construction only. Nothing is executed, which is the point —
     these have to be right on a host this was never run on.
@@ -184,11 +246,33 @@ def demo() -> None:
     assert compose_command("bob", env, "ps")[3] == "facet-bob"
 
     assert unit_name("alice") == "facet-api@alice.service"
-    assert systemctl_command("stop", "bob") == ["systemctl", "stop", "facet-api@bob.service"]
+
+    # Scope is a prefix on every systemctl call, so asserting it once here
+    # covers stop/start/restart/disable alike.
+    scope = ["--user"] if systemd_scope() == "user" else []
+    assert systemctl_command("stop", "bob") == \
+        ["systemctl", *scope, "stop", "facet-api@bob.service"]
     # enable --now, so an instance survives a host reboot rather than needing
     # someone to remember to start it.
     assert service_start("alice", available=False).command == \
-        ["systemctl", "enable", "--now", "facet-api@alice.service"]
+        ["systemctl", *scope, "enable", "--now", "facet-api@alice.service"]
+
+    # An explicit override must win over the euid-derived default, since that
+    # is how a root-run deployment opts back into system units.
+    before = os.environ.get("FACET_SYSTEMD_SCOPE")
+    try:
+        os.environ["FACET_SYSTEMD_SCOPE"] = "user"
+        assert systemctl("stop", "x") == ["systemctl", "--user", "stop", "x"]
+        os.environ["FACET_SYSTEMD_SCOPE"] = "system"
+        assert systemctl("stop", "x") == ["systemctl", "stop", "x"]
+        # Junk falls back to the default rather than producing a bad argv.
+        os.environ["FACET_SYSTEMD_SCOPE"] = "banana"
+        assert systemctl("stop", "x")[:2] in (["systemctl", "--user"], ["systemctl", "stop"])
+    finally:
+        if before is None:
+            os.environ.pop("FACET_SYSTEMD_SCOPE", None)
+        else:
+            os.environ["FACET_SYSTEMD_SCOPE"] = before
 
     # An unavailable tool yields a manual step that still succeeds and still
     # tells you the command — a missing daemon must not fail provisioning.

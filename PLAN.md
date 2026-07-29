@@ -447,8 +447,8 @@ byte-identical to now — that is what makes this refactor safe to do first.
 | `extension/content_script.js:12` | `const BACKEND = "http://localhost:8000"` | **deferred to Phase 3.** A config knob without the matching `optional_host_permissions` grant flow cannot actually work, and the hostname isn't known until deployment. Changing it now would half-break something that works today. |
 | `extension/manifest.json:8` | `http://localhost:8000/*` | deferred with the above |
 | `backend/main.py:59-65` | CORS default `localhost:3000` | keep the default; document that behind the proxy it is never consulted |
-| `AUTONOMY.md:8` | `C:\Users\Pravs\Downloads\Facet2.0`, "Next.js 14" | drop the absolute path, correct the stale version |
-| `CONTEXT.md`, `README.md` | `backend/.venv/python.exe` throughout | note the POSIX form alongside it |
+| `AUTONOMY.md:8` | `C:\Users\Pravs\Downloads\Facet2.0` (the old name), "Next.js 14" | drop the absolute path, correct the stale version |
+| `CONTEXT.md`, `README.md` | `backend/.venv/python.exe` throughout | **done** — POSIX `backend/.venv/bin/python` throughout, both layouts noted in CONTEXT.md §2 |
 
 ### 6.3 No dev processes on the host
 
@@ -873,18 +873,61 @@ here is lost; each line says where it lands.
 - [x] ~~**A restore drill.**~~ Shipped in Phase 5 as a self-check — `python -m control.backup` destroys and restores an account for real.
 - [x] ~~**Runbook**~~ Shipped in Phase 5: `docs/runbook.md`.
 
-### Needs verification on the target machine, not here
+### Verified on the target machine — Phase 6
 
-- [ ] **The POSIX `fcntl` lock path.** `filelock.py` is exercised on Windows
-  by its self-check; the Linux branch has not been run.
-- [ ] **`docker compose` provisioning and `cloudflared` ingress.** No Docker
-  daemon on the development machine, so Phase 3 verifies command construction
-  and generated config, not live execution.
-- [ ] **arm64 image builds.** Oracle's Ampere A1 is arm64.
-  `python:3.11-slim` and `node:24-alpine` both have arm64 variants and the
-  backend already uses Debian (Alpine + WeasyPrint is the fight to avoid).
+Run on the Oracle Ampere A1 (aarch64, Ubuntu 24.04, Python 3.12, Node 22.23,
+Docker 29.1). Everything in this block was executed, not reasoned about.
+
+- [x] ~~**The POSIX `fcntl` lock path.**~~ Passes, including cross-process
+  exclusion against a real second process.
+- [x] ~~**`docker compose` provisioning and `cloudflared` ingress.**~~ Live:
+  image built, container started per-user via compose, healthy, bound to
+  `127.0.0.1:3101` only; ingress generated with `^/api/` ahead of the
+  catch-all.
+- [x] ~~**arm64 image builds.**~~ `node:24-alpine` builds on aarch64 in
+  ~2m50s, 308 MB.
+- [x] **Serialization across instances — the architectural claim.** Two
+  independent instances with separate data directories and one shared lock,
+  both submitting at the same instant: 25.4 s and 49.8 s, the second starting
+  only as the first finished. The lock does what the whole design rests on.
+- [x] **Full user lifecycle through the portal.** create → delete (refuses
+  without email confirmation) → undelete → resume. Unit stopped and disabled,
+  port released, data recoverable, other users untouched.
+- [x] **A real agy run end to end.** Resume import → profile extraction
+  (~35 s) → tailoring (~25 s) → PDF, DOCX and cover letter, faithful to the
+  source resume.
 - [ ] **Oracle idle-instance reclamation.** Know the policy before relying on
-  the box.
+  the box. Still unanswered — it is a billing policy, not a testable one.
+
+### Found only by running it on the host
+
+Four bugs that no amount of Windows testing would have surfaced. Recorded
+because each one was invisible until the real environment made it visible.
+
+- [x] **The agy lock was never shared.** `FACET_AGY_LOCK` was set nowhere, so
+  every instance defaulted to a lock inside its *own* data directory. Ten
+  users would have run ten concurrent agy processes against one authenticated
+  CLI — the exact failure the entire architecture exists to prevent. Fixed in
+  `_step_env_file`, asserted in the self-check.
+- [x] **agy invisible to systemd.** Units get a minimal PATH without
+  `~/.local/bin`. Services started, looked healthy, and had no agy.
+- [x] **Provisioning could not use systemd at all.** The control plane is not
+  root, so `systemctl enable` failed with *Interactive authentication
+  required*. On Windows systemd was simply absent, so every step took its
+  manual branch and the problem never appeared. Now user-scoped.
+- [x] **`verify()` raised instead of reporting.** A database too corrupt for
+  SQLite to open threw `DatabaseError` out of the one function whose job is
+  detecting corruption. Also: two backups in the same second collided on one
+  filename and the second silently replaced the first — a backup destroying a
+  backup. Both fixed and both now asserted.
+- [x] **`/status` agy check was dead.** Referenced `_agy_lock`, removed in
+  Phase 1. Replaced with `FileLock.is_held()`, which reports across
+  instances rather than within one process.
+- [x] **`run.py` leaked processes and bound publicly.** `npm` is a launcher,
+  so terminating it left `next` holding port 3000; and `next start` binds
+  0.0.0.0 by default, which on a public-IP VM publishes the app with no
+  authentication in front of it. Now loopback by default with process-group
+  teardown.
 
 ### Still to decide
 
@@ -896,7 +939,8 @@ here is lost; each line says where it lands.
 
 ### Health of the existing app, unrelated to this plan
 
-- [ ] **Python 3.10 reaches EOL in October 2026.**
+- [x] ~~**Python 3.10 reaches EOL in October 2026.**~~ Moot on the
+  deployment host, which runs 3.12.
 - [ ] **`react-hooks/set-state-in-effect`** — 6 warnings, deliberately not
   errors. Worth its own pass with the React Compiler.
 - [ ] **Materialise `dedup_key`** into an indexed column — documented in
