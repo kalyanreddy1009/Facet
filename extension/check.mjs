@@ -109,6 +109,18 @@ for (const platform of platforms) {
     `${platform}.json mentions submit — the extension must never submit`);
 }
 
+// The README's support table has to agree with the selector maps. It drifted
+// once already — claiming Workday autofilled when its map was empty, which is
+// the kind of wrong that only shows up mid-application.
+const readme = read("README.md");
+for (const platform of platforms) {
+  const supported = JSON.parse(read(`selectors/${platform}.json`)).supported;
+  const row = readme.match(new RegExp(`^\\| ${platform} \\| (.+?) \\|$`, "im"));
+  assert.ok(row, `README has no support-table row for ${platform}`);
+  assert.equal(/autofills/i.test(row[1]), supported,
+    `README says "${row[1].trim()}" for ${platform} but supported=${supported}`);
+}
+
 // ------------------------------------------------------------ the code gate
 
 // Strip comments before searching, so the paragraphs explaining the

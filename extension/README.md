@@ -75,14 +75,14 @@ something to leave lying around.
 |---|---|
 | Greenhouse | Autofills |
 | Lever | Autofills |
-| Workday | Autofills |
+| Workday | Shows a notice, fills nothing |
 | LinkedIn | Shows a notice, fills nothing |
 
-LinkedIn's EasyApply is a multi-step, obfuscated-class React modal. Guessing
-at its fields would put wrong data in a real application, so it says so
-instead. Add support by setting `supported: true` in
-`selectors/linkedin.json` once the selectors are verified against a live
-modal.
+Workday's forms are tenant-specific and LinkedIn's EasyApply is a multi-step,
+obfuscated-class React modal. Guessing at either would put wrong data in a
+real application, so they say so instead. Add support by filling in `fields`
+and setting `supported: true` in that platform's `selectors/*.json`, once the
+selectors are verified against a live form.
 
 Selector maps are plain JSON — `selectors/*.json`. Each field lists CSS
 selectors tried in order, plus an optional `labelFallback` matched against
