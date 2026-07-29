@@ -6,6 +6,7 @@ import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Activity, Menu, X } from "lucide-react";
 import { ENTER, REDUCED } from "@/lib/motion";
+import AccountMenu from "@/components/ui/AccountMenu";
 
 const LINKS = [
   { href: "/rough", label: "Find jobs" },
@@ -90,6 +91,8 @@ export default function NavBar() {
             <Activity className="w-3.5 h-3.5" aria-hidden />
             {STATUS_LINK.label}
           </Link>
+
+          <AccountMenu />
 
           <button
             onClick={() => setOpen((o) => !o)}

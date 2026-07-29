@@ -15,7 +15,9 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.middleware.gzip import GZipMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
-from routers import auth, calendar, feeds, queue, resume, status, tailor, tracker  # noqa: E402
+from routers import (  # noqa: E402
+    admin, auth, calendar, feeds, queue, resume, status, tailor, tracker,
+)
 from services import auth as auth_service  # noqa: E402
 from services import identity, jobs, paths  # noqa: E402
 from services.agy_runner import (  # noqa: E402
@@ -65,6 +67,18 @@ async def lifespan(app: FastAPI):
     # Before anything is served: refuse to run multi-user on a port the world
     # can reach. The identity header is only trustworthy behind loopback.
     identity.assert_trustworthy_binding()
+
+    if identity.multiuser_enabled():
+        from control import store
+
+        granted = store.bootstrap_admin()
+        if granted:
+            logger.info("[Facet] administrator: %s", granted)
+        elif not store.admin_emails():
+            logger.warning(
+                "[Facet] no administrator yet. Set FACET_ADMIN_EMAIL to an "
+                "existing user's address and restart, or nobody can add users."
+            )
 
     for slug in active_user_slugs():
         with paths.user_scope(slug):
@@ -200,6 +214,7 @@ async def identify_user(request: Request, call_next):
         paths.reset_user(token)
 
 app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(status.router)
 app.include_router(queue.router)
 app.include_router(tracker.router)

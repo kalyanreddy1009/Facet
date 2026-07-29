@@ -79,9 +79,16 @@ def _step_seed_rules(user: dict) -> str:
     target = store.user_paths(user["slug"])["workspace"] / "RULES.md"
     if target.exists():
         return "already present"
-    if not app_paths.RULES_PATH.exists():
-        raise ProvisionError("seed_rules", f"no source RULES.md at {app_paths.RULES_PATH}")
-    shutil.copy2(app_paths.RULES_PATH, target)
+    # The host's template, explicitly -- NOT app_paths.RULES_PATH, which
+    # follows the *current* user. Provisioning used to run only from the
+    # control plane, where nobody is current, so the derived path happened to
+    # resolve to the host copy. It runs inside an authenticated admin request
+    # now, and the derived path would seed every new account from whichever
+    # administrator clicked the button.
+    source = app_paths.WORKSPACE_DIR / "RULES.md"
+    if not source.exists():
+        raise ProvisionError("seed_rules", f"no source RULES.md at {source}")
+    shutil.copy2(source, target)
     return str(target)
 
 

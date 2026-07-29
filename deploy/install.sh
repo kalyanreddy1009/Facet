@@ -21,6 +21,7 @@ UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 # never touch a user's data.
 FACET_HOST_ROOT="${FACET_HOST_ROOT:-$HOME/facet-hosts}"
 FACET_BASE_DOMAIN="${FACET_BASE_DOMAIN:-facet.example}"
+FACET_ADMIN_EMAIL="${FACET_ADMIN_EMAIL:-}"
 FACET_TUNNEL_CONFIG="${FACET_TUNNEL_CONFIG:-$HOME/.cloudflared/config.yml}"
 
 say() { printf '\n\033[1;36m>> %s\033[0m\n' "$1"; }
@@ -55,6 +56,7 @@ render() {  # src dst
   sed -e "s|\${FACET_ROOT}|$REPO|g" \
       -e "s|\${FACET_HOST_ROOT}|$FACET_HOST_ROOT|g" \
       -e "s|\${FACET_BASE_DOMAIN}|$FACET_BASE_DOMAIN|g" \
+      -e "s|\${FACET_ADMIN_EMAIL}|$FACET_ADMIN_EMAIL|g" \
       -e "s|\${FACET_TUNNEL_CONFIG}|$FACET_TUNNEL_CONFIG|g" \
       "$1" > "$2"
   echo "  wrote $2"

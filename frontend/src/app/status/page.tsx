@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AlertTriangle, RefreshCw, ServerCrash } from "lucide-react";
+import AgyQueue from "@/components/status/AgyQueue";
 import GroupSection from "@/components/status/GroupSection";
 import LogList from "@/components/status/LogList";
 import TrafficTable from "@/components/status/TrafficTable";
@@ -191,6 +192,11 @@ export default function StatusPage() {
               }
             />
           </section>
+
+          {/* Above the subsystem groups on purpose: "what is happening to my
+              work right now" is the question someone opens this page with.
+              Whether every dependency is healthy is the follow-up. */}
+          <AgyQueue />
 
           <div className="grid lg:grid-cols-2 gap-3 items-start">
             {report.groups.map((group) => (

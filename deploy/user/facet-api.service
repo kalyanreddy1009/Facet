@@ -39,6 +39,11 @@ Environment=FACET_AGY_LOCK=${FACET_HOST_ROOT}/agy.lock
 # Multi-user: identity required on every request, per-user data directories.
 # Unset, Facet runs as the original single-user app.
 Environment=FACET_MULTIUSER=1
+
+# Who may add and remove accounts. Granted at startup to this address if a
+# user with it exists; never revoked from here, so a typo cannot silently
+# leave the deployment with no administrator.
+Environment=FACET_ADMIN_EMAIL=${FACET_ADMIN_EMAIL}
 Environment=FACET_BIND_HOST=127.0.0.1
 
 # systemd does not inherit your login shell's PATH, and agy installs to

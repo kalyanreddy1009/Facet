@@ -139,6 +139,10 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         "password_set_at": "REAL",
         "invite_hash": "TEXT",
         "invite_expires": "REAL",
+        # Administrators can create and remove accounts. Off for everyone
+        # until explicitly granted, so a fresh install has no admin rather
+        # than an accidental one.
+        "is_admin": "INTEGER NOT NULL DEFAULT 0",
     }.items():
         if column not in existing:
             conn.execute(f"ALTER TABLE users ADD COLUMN {column} {decl}")
@@ -420,3 +424,41 @@ def clear_failures(email: str) -> None:
     conn = connect()
     conn.execute("DELETE FROM login_attempts WHERE email = ?", (email.lower(),))
     conn.commit()
+
+
+# ------------------------------------------------------------------- admins
+
+def set_admin(user_id: int, admin: bool) -> None:
+    conn = connect()
+    conn.execute("UPDATE users SET is_admin = ? WHERE id = ?", (1 if admin else 0, user_id))
+    conn.commit()
+
+
+def admin_emails() -> list[str]:
+    conn = connect()
+    return [r["email"] for r in conn.execute(
+        "SELECT email FROM users WHERE is_admin = 1 ORDER BY email"
+    )]
+
+
+def bootstrap_admin() -> str | None:
+    """Grant admin to FACET_ADMIN_EMAIL, if that user exists.
+
+    Called at startup. An administrator has to come from outside the app --
+    there is no "first user becomes admin" rule here, because that turns a
+    race on a fresh install into a privilege escalation.
+
+    Idempotent, and it only ever *grants*. Removing admin is a deliberate act
+    through the admin page, not a side effect of changing an env var: an
+    operator who mistypes it should not silently lock themselves out.
+    """
+    email = os.environ.get("FACET_ADMIN_EMAIL", "").strip().lower()
+    if not email:
+        return None
+    user = get_user_by_email(email)
+    if user is None:
+        return None
+    if not user["is_admin"]:
+        set_admin(user["id"], True)
+        record("system", "user.admin_granted", email, "from FACET_ADMIN_EMAIL")
+    return email

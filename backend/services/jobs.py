@@ -289,6 +289,16 @@ def _get(job_id: int) -> dict | None:
     if job is None:
         return None
 
+    # Job ids are sequential across everybody, so without this check any user
+    # can read -- or cancel -- another user's job by counting upwards. The
+    # payload of a tailor job is the company and the full job description.
+    #
+    # `None` rather than an exception: every caller already treats it as "no
+    # such job", which is also the right thing to tell somebody probing.
+    user = paths.get_user()
+    if user is not None and job.get("user_slug") != user:
+        return None
+
     # Position is only meaningful while waiting, and it is 1-based because it
     # is shown to a person: "2nd in queue", not "1 ahead of you".
     if job["status"] == QUEUED:
@@ -323,9 +333,20 @@ async def latest(kind: str) -> dict | None:
 
 def _recent(limit: int) -> list[dict]:
     conn = _connect()
-    rows = conn.execute(
-        "SELECT * FROM jobs ORDER BY queued_at DESC LIMIT ?", (limit,)
-    ).fetchall()
+    # Scoped to the current user. The queue table is host-wide -- one worker
+    # drains everyone's jobs -- so an unscoped SELECT here hands one person
+    # every other person's job payloads, which contain the company and the
+    # full job description they are applying to.
+    user = paths.get_user()
+    if user is None:
+        rows = conn.execute(
+            "SELECT * FROM jobs ORDER BY queued_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM jobs WHERE user_slug = ? ORDER BY queued_at DESC LIMIT ?",
+            (user, limit),
+        ).fetchall()
     return [_row_to_job(r) for r in rows]
 
 
@@ -335,10 +356,15 @@ async def recent(limit: int = 50) -> list[dict]:
 
 def _stats() -> dict:
     conn = _connect()
-    counts = {
-        row["status"]: row["n"]
-        for row in conn.execute("SELECT status, COUNT(*) AS n FROM jobs GROUP BY status")
-    }
+    user = paths.get_user()
+    if user is None:
+        rows = conn.execute("SELECT status, COUNT(*) AS n FROM jobs GROUP BY status")
+    else:
+        rows = conn.execute(
+            "SELECT status, COUNT(*) AS n FROM jobs WHERE user_slug = ? GROUP BY status",
+            (user,),
+        )
+    counts = {row["status"]: row["n"] for row in rows}
     return {
         "queued": counts.get(QUEUED, 0),
         "running": counts.get(RUNNING, 0),
@@ -634,3 +660,58 @@ def demo() -> None:
 
 if __name__ == "__main__":
     demo()
+
+
+def _agy_queue() -> dict:
+    """What agy is doing, from this user's point of view.
+
+    There is one authenticated agy CLI on this host, so a run belonging to
+    somebody else genuinely delays yours -- and saying so is the difference
+    between "Facet is slow" and "you are third in line".
+
+    Only counts and positions cross this boundary. Never a payload, never an
+    email, never a slug: whose job is running is not this user's business,
+    but *that* one is running very much is.
+    """
+    conn = _connect()
+    user = paths.get_user()
+
+    queued = conn.execute(
+        f"SELECT id, user_slug, kind, queued_at FROM jobs "
+        f"WHERE status = '{QUEUED}' ORDER BY id"
+    ).fetchall()
+    running = conn.execute(
+        f"SELECT id, user_slug, kind, started_at FROM jobs WHERE status = '{RUNNING}'"
+    ).fetchall()
+
+    mine = []
+    for position, row in enumerate(queued):
+        if row["user_slug"] == user:
+            mine.append({
+                "id": row["id"],
+                "kind": row["kind"],
+                "queued_at": row["queued_at"],
+                # 1-based, and counted across everyone: agy is shared, so a
+                # position that ignored other people's jobs would be a lie.
+                "position": position + 1,
+                "ahead": position,
+            })
+
+    mine_running = [
+        {"id": r["id"], "kind": r["kind"], "started_at": r["started_at"]}
+        for r in running if r["user_slug"] == user
+    ]
+
+    return {
+        "mine": {"queued": mine, "running": mine_running},
+        "system": {
+            # Numbers only.
+            "queued": len(queued),
+            "running": len(running),
+            "busy_with_someone_else": any(r["user_slug"] != user for r in running),
+        },
+    }
+
+
+async def agy_queue() -> dict:
+    return await _run(_agy_queue)

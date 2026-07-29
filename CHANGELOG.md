@@ -2,6 +2,54 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — Administrators, profiles, and a queue you can see
+
+Three additions and two leaks closed.
+
+**An admin flag, enforced at the endpoint.** `is_admin` on the user row,
+granted at startup from `FACET_ADMIN_EMAIL` — never revoked from there, so a
+typo in an env var cannot leave a deployment with no administrator. The
+in-app admin page adds users, issues sign-in links, suspends and signs people
+out; deleting an account and restoring a backup stay in the control plane on
+:9000, because a button that destroys a career record should take more than
+one click from a tab left open.
+
+The Admin link is hidden from everyone else, and that is presentation, not
+protection. `scripts/test_admin.py` signs in as an ordinary user and calls all
+eight admin routes directly: every one answers 404. It also checks that
+promotion and demotion apply to a session already in progress, and that an
+administrator cannot suspend or demote themselves — the failure with no
+recovery short of editing control.db by hand.
+
+**A profile page**, reached from a standard account menu. Who you are on this
+deployment, whether your Stone is imported, what is in your Cabinet, the disk
+it occupies, where you are signed in, and a password change that requires the
+old password.
+
+**The agy queue on the status page.** One authenticated CLI serves the whole
+host, so a colleague's run genuinely delays yours — and without saying so the
+app merely feels slow. It shows your position counted across everybody, and
+"someone else is using the AI" when that is the truth. Counts and positions
+only: never another person's payload.
+
+Two leaks found while building it, both pre-existing:
+
+- **`/api/queue` returned every user's jobs**, payloads included — which for
+  a tailor job is the company and the full job description. Now scoped to the
+  caller.
+- **`/api/queue/{job_id}` had no ownership check.** Job ids are sequential
+  across everybody, so counting upwards read, and cancelled, anyone's work.
+
+And one bug the admin test caught immediately: provisioning now runs inside
+an authenticated request, so `paths.RULES_PATH` followed the *administrator's*
+workspace. Every new account would have been seeded from whichever admin
+clicked the button. It reads the host template explicitly now.
+
+A route-ordering trap on the way: `/api/queue/agy` registered after
+`/api/queue/{job_id}` answers 422, because FastAPI takes the first match and
+tries to parse "agy" as an integer. The same first-match-wins rule as the
+tunnel's ingress list, two layers apart.
+
 ## 2026-07-29 — Facet's own login
 
 Cloudflare Access is no longer what authenticates anybody. Facet has a login

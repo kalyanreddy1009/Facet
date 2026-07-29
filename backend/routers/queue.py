@@ -35,6 +35,20 @@ async def retention_preview():
     return retention.sweep_all(dry_run=True)
 
 
+# Registered BEFORE /api/queue/{job_id}. FastAPI matches routes in order, so
+# with the parameterised one first this literal path is parsed as an int and
+# answers 422. Same first-match-wins rule as the tunnel's ingress list.
+@router.get("/api/queue/agy")
+async def agy_queue():
+    """This user's place in the agy queue.
+
+    agy is one authenticated CLI for the whole host, so somebody else's run
+    genuinely delays yours. This says so — with counts and a position, never
+    with another person's job payload.
+    """
+    return await jobs.agy_queue()
+
+
 @router.get("/api/queue/{job_id}")
 async def job_status(job_id: int):
     job = await jobs.get(job_id)

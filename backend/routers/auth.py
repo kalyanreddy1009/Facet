@@ -66,6 +66,9 @@ def _public_user(user: dict) -> dict:
         "display_name": user["display_name"] or user["email"].split("@")[0],
         "status": user["status"],
         "must_set_password": not user["password_hash"],
+        # The UI hides the Admin link when this is false. That is presentation,
+        # not protection -- every admin route checks the same flag server-side.
+        "is_admin": bool(user["is_admin"]),
     }
 
 
@@ -255,3 +258,85 @@ async def revoke_others(request: Request, response: Response):
     store.record(user["email"], "auth.sessions_revoked", user["email"],
                  f"{max(0, removed - 1)} other session(s)")
     return {"ok": True, "revoked": max(0, removed - 1)}
+
+
+@router.get("/profile")
+async def profile(request: Request, response: Response):
+    """Everything this account is, in one call.
+
+    The profile page asks once rather than fanning out to five endpoints —
+    it is a summary screen, and five round trips to render one card is how a
+    page ends up with five loading states.
+    """
+    token = request.cookies.get(auth.SESSION_COOKIE)
+    user = store.session_user(auth.token_digest(token)) if token else None
+    if user is None:
+        response.status_code = 401
+        return {"error": "Not signed in.", "hint": ""}
+
+    from services import jobs, paths, retention
+
+    current = auth.token_digest(token)
+
+    def _size(path) -> int:
+        if not path.exists():
+            return 0
+        return sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+
+    # The Stone: is there a profile, and whose name is on it.
+    stone = {"imported": paths.PROFILE_PATH.exists()}
+    if stone["imported"]:
+        import json as _json
+
+        try:
+            stone["name"] = _json.loads(
+                paths.PROFILE_PATH.read_text(encoding="utf-8")
+            ).get("name")
+        except (ValueError, OSError):
+            # A corrupt profile is a real state, and the profile page is
+            # exactly where somebody should find out about it.
+            stone["error"] = "profile.json could not be read"
+
+    return {
+        "user": _public_user(user),
+        "member_since": user["created_at"],
+        "password_set_at": user["password_set_at"],
+        "stone": stone,
+        "cabinet": {
+            "applications": await _count("SELECT COUNT(*) AS n FROM applications"),
+            "contacts": await _count("SELECT COUNT(*) AS n FROM contacts"),
+            "interviews": await _count("SELECT COUNT(*) AS n FROM interviews"),
+            "postings_seen": await _count("SELECT COUNT(*) AS n FROM seen_postings"),
+        },
+        "storage": {
+            "data": _size(paths.DATA_ROOT),
+            "workspace": _size(paths.WORKSPACE_ROOT),
+            "exports": _size(paths.EXPORTS_DIR),
+        },
+        "queue": await jobs.stats(),
+        "sessions": [
+            {
+                "created_at": s["created_at"],
+                "last_seen_at": s["last_seen_at"],
+                "user_agent": s["user_agent"],
+                "current": s["token_hash"] == current,
+            }
+            for s in store.list_sessions(user["id"])
+        ],
+    }
+
+
+async def _count(sql: str) -> int:
+    """A count against this user's own tracker.db.
+
+    Wrapped because a brand-new account's database may not have been touched
+    yet, and a profile page that 500s on a fresh sign-up is a bad first
+    impression of an app that is working correctly.
+    """
+    from services import db
+
+    try:
+        row = await db.fetch_one(sql)
+        return row["n"] if row else 0
+    except Exception:  # noqa: BLE001 — any DB state should still render a page
+        return 0
