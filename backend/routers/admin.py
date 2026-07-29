@@ -73,12 +73,32 @@ def _summary(user: dict) -> dict:
         "last_seen_at": user["last_seen_at"],
         "has_password": bool(user["password_hash"]),
         "sessions": len(store.list_sessions(user["id"])),
+        # Whether a link is outstanding and when it lapses. Without this the
+        # admin list showed "no password set yet" for both "invited an hour
+        # ago" and "invited last month and the link is dead", which are
+        # opposite situations needing opposite actions.
+        "invite": _invite_summary(user["id"]),
     }
+
+
+def _invite_summary(user_id: int) -> dict | None:
+    """The live link for a user, if there is one. Never the token or digest —
+    the same reason `_summary` refuses to hand back a password hash."""
+    invite = store.outstanding_invite(user_id)
+    if invite is None:
+        return None
+    return {"created_at": invite["created_at"], "expires_at": invite["expires_at"]}
 
 
 @router.get("/users")
 async def list_users(_admin: dict = Depends(require_admin)):
-    return {"users": [_summary(u) for u in store.list_users()]}
+    return {
+        "users": [_summary(u) for u in store.list_users()],
+        # People who pressed "my link doesn't work" on the sign-in page. With
+        # no SMTP here the loop closes through a human, so this is the queue
+        # that makes that honest rather than a black hole.
+        "link_requests": store.pending_link_requests(),
+    }
 
 
 @router.post("/users", status_code=201)

@@ -740,8 +740,12 @@ def issue_invite(user_id: int, actor: str) -> str:
         raise ProvisionError("invite", f"no user {user_id}")
 
     token, digest = auth.new_token()
-    store.create_invite(user_id, digest, time.time() + auth.INVITE_TTL_SECONDS)
+    store.create_invite(user_id, digest, time.time() + auth.INVITE_TTL_SECONDS, actor)
+    # Issuing a link IS the answer to "mine doesn't work", so the queue drains
+    # by doing the thing rather than through a separate dismiss button nobody
+    # would remember to press.
+    store.resolve_link_requests(user["email"])
     store.record(actor, "user.invited", user["email"],
-                 f"expires in {auth.INVITE_TTL_SECONDS // 86400}d")
+                 f"expires in {auth.INVITE_TTL_SECONDS // 86400}d; earlier links stay valid")
 
     return f"https://{cloudflare.facet_hostname()}/set-password?token={token}"

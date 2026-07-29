@@ -69,6 +69,15 @@ TOKEN_BYTES = 32
 SESSION_TTL_SECONDS = 14 * 24 * 3600      # two weeks
 INVITE_TTL_SECONDS = 7 * 24 * 3600        # a week to set a first password
 
+# How long after an invite is redeemed a resubmission of the *same* token
+# with the *same* password is still honoured. Covers the case where the
+# password was written but the response never made it back — a dropped
+# mobile connection, a closed laptop — which otherwise strands somebody with
+# a burnt link and no way to know their password worked. Short, because the
+# window is the only thing bounding it, and re-use requires already knowing
+# the password that was just set.
+INVITE_RETRY_GRACE_SECONDS = 15 * 60
+
 # Lockout. Counted per account, because that is what an attacker targets;
 # counting per IP alone is defeated by anything with a proxy list.
 MAX_FAILED_ATTEMPTS = 8

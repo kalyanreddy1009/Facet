@@ -167,6 +167,14 @@ have actually applied.
 
 ## 9. Frontend conventions
 
+**Sign-in links.** One row per link in `invites`; issuing a new one does NOT
+invalidate an outstanding one, and setting a password kills all of them.
+`invite_state()` distinguishes ok / used / expired / unknown, and every caller
+must report which — collapsing them into one message is what locked two users
+out on 2026-07-29. `accept_invite` validates link → account status → password
+quality, in that order, and writes nothing until all three pass. Covered by
+`scripts/test_invites.py`.
+
 Pages: `/` (landing, public), `/login` + `/set-password` (auth), `/tailor`
 (cut), `/rough` (job search), `/cabinet` (tracker + charts), `/stone`
 (profile/master resume), `/profile` (account), `/admin` (administrators only),

@@ -79,9 +79,10 @@ const config: Config = {
         "2xl": ["24px", { lineHeight: "1.3", letterSpacing: "-0.016em" }],
         "3xl": ["30px", { lineHeight: "1.22", letterSpacing: "-0.02em" }],
         "4xl": ["38px", { lineHeight: "1.15", letterSpacing: "-0.024em" }],
-        // `/welcome` only — the one page where expressiveness is earned.
-        // Leading under 1 is the whole point; it only reads at this size.
-        hero: ["clamp(2.75rem,7vw,5rem)", { lineHeight: "0.95", letterSpacing: "-0.032em" }],
+        // The landing page only — the one page where expressiveness is
+        // earned. Leading under 1 is the whole point; it only reads at this
+        // size, and the size is the reason the page has any presence at all.
+        hero: ["clamp(3.25rem,8.5vw,6.5rem)", { lineHeight: "0.92", letterSpacing: "-0.036em" }],
       },
       borderRadius: {
         sm: "var(--radius-sm)",

@@ -127,6 +127,50 @@ def _init_schema(conn: sqlite3.Connection) -> None:
           remote   TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_attempts_email ON login_attempts(email, at DESC);
+
+        -- Invitations, one row per link ever issued.
+        --
+        -- This used to be two columns on `users`, which meant a user had
+        -- exactly one invite slot and issuing a second link silently
+        -- destroyed the first. An administrator who clicked "Sign-in link"
+        -- twice — to re-copy it, say — broke the link already in somebody's
+        -- hands, and the endpoint then told them "invitations expire after a
+        -- week", which was simply false. That is the bug that locked two real
+        -- users out on 2026-07-29.
+        --
+        -- A row per link fixes it: issuing another leaves the earlier ones
+        -- working, and every one of them dies the moment a password is
+        -- actually set. `used_at` is kept rather than deleted so a second
+        -- submission can be answered with "you already used this" instead of
+        -- the indistinguishable "no such link".
+        CREATE TABLE IF NOT EXISTS invites (
+          id          INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id     INTEGER NOT NULL REFERENCES users(id),
+          token_hash  TEXT UNIQUE NOT NULL,
+          created_at  REAL NOT NULL,
+          expires_at  REAL NOT NULL,
+          used_at     REAL,
+          -- Set only on the link that was actually submitted. Redeeming one
+          -- link marks every *other* outstanding link used too, and those
+          -- siblings must not qualify for the lost-response grace window --
+          -- otherwise issuing three links and using one leaves the other two
+          -- as working keys for fifteen minutes.
+          redeemed    INTEGER NOT NULL DEFAULT 0,
+          issued_by   TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_invites_user ON invites(user_id, created_at DESC);
+
+        -- "I never got a link" / "my link stopped working", raised from the
+        -- sign-in page. There is no SMTP here, so the loop has to close
+        -- through a human: this is the queue the administrator sees.
+        CREATE TABLE IF NOT EXISTS link_requests (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          email        TEXT NOT NULL,
+          at           REAL NOT NULL,
+          remote       TEXT,
+          resolved_at  REAL
+        );
+        CREATE INDEX IF NOT EXISTS idx_link_requests_at ON link_requests(at DESC);
         """
     )
 
@@ -146,6 +190,31 @@ def _init_schema(conn: sqlite3.Connection) -> None:
     }.items():
         if column not in existing:
             conn.execute(f"ALTER TABLE users ADD COLUMN {column} {decl}")
+
+    conn.commit()
+
+    # Carry any invite still living in the old columns across, so a link
+    # already in somebody's inbox keeps working through this upgrade. After
+    # the ALTERs above, necessarily: on a fresh database those columns do not
+    # exist until this point, and reading them earlier is an OperationalError
+    # on every startup.
+    #
+    # Runs once — the INSERT is ignored on later passes because `token_hash`
+    # is unique. The old columns stay: additive migrations only, and dropping
+    # one means rebuilding a table of live user records.
+    conn.execute(
+        "INSERT OR IGNORE INTO invites (user_id, token_hash, created_at, expires_at, issued_by)"
+        # `users.created_at` stands in for the invite's own issue time, which
+        # the old two-column form never recorded. It sorts a migrated link as
+        # the oldest one, which is the safe assumption when a newer link
+        # exists.
+        " SELECT id, invite_hash, created_at, invite_expires, 'migrated'"
+        "   FROM users WHERE invite_hash IS NOT NULL AND invite_expires IS NOT NULL"
+    )
+
+    invite_columns = {row["name"] for row in conn.execute("PRAGMA table_info(invites)")}
+    if "redeemed" not in invite_columns:
+        conn.execute("ALTER TABLE invites ADD COLUMN redeemed INTEGER NOT NULL DEFAULT 0")
 
     conn.commit()
     for directory in (USERS_DIR, EXPORTS_DIR, DELETED_DIR):
@@ -301,24 +370,56 @@ def forget(user_id: int) -> None:
 # services/auth.py so that module stays pure -- it decides *policy* (how to
 # hash, when to lock out) and this decides *storage*.
 
-def set_password(user_id: int, password_hash: str) -> None:
-    """Set the password and consume any outstanding invite.
+def mark_invite_redeemed(token_hash: str) -> None:
+    """Flag the one link that was actually submitted.
 
-    Clearing the invite matters: a link that still works after the password
-    is set is a second, permanent way into the account.
+    Separate from `set_password`, which marks every outstanding link used.
+    Only this one earns the brief re-submission grace; the siblings it
+    invalidated are simply dead.
     """
+    conn = connect()
+    conn.execute("UPDATE invites SET redeemed = 1 WHERE token_hash = ?", (token_hash,))
+    conn.commit()
+
+
+def set_password(user_id: int, password_hash: str) -> None:
+    """Set the password and burn every outstanding invite.
+
+    All of them, not just the one that was used: a link that still works
+    after the password is set is a second, permanent way into the account,
+    and now that several can be outstanding at once that has to be explicit.
+    """
+    now = time.time()
     conn = connect()
     conn.execute(
         "UPDATE users SET password_hash = ?, password_set_at = ?, "
         "invite_hash = NULL, invite_expires = NULL WHERE id = ?",
-        (password_hash, time.time(), user_id),
+        (password_hash, now, user_id),
+    )
+    conn.execute(
+        "UPDATE invites SET used_at = ? WHERE user_id = ? AND used_at IS NULL",
+        (now, user_id),
     )
     conn.commit()
 
 
-def create_invite(user_id: int, invite_hash: str, expires_at: float) -> None:
-    """Store the digest of a one-time link. Replaces any previous one."""
+def create_invite(user_id: int, invite_hash: str, expires_at: float,
+                  issued_by: str | None = None) -> None:
+    """Record the digest of a one-time link.
+
+    Adds to whatever is outstanding rather than replacing it. Issuing a
+    second link must not break the first — see the note on the `invites`
+    table.
+    """
     conn = connect()
+    conn.execute(
+        "INSERT INTO invites (user_id, token_hash, created_at, expires_at, issued_by)"
+        " VALUES (?, ?, ?, ?, ?)",
+        (user_id, invite_hash, time.time(), expires_at, issued_by),
+    )
+    # Mirrored onto `users` so the admin list can show "a link is outstanding"
+    # with no join, and so anything still reading the old columns sees the
+    # newest link rather than a stale one.
     conn.execute(
         "UPDATE users SET invite_hash = ?, invite_expires = ? WHERE id = ?",
         (invite_hash, expires_at, user_id),
@@ -326,14 +427,109 @@ def create_invite(user_id: int, invite_hash: str, expires_at: float) -> None:
     conn.commit()
 
 
-def user_by_invite(invite_hash: str) -> dict | None:
-    """The user holding this unexpired invite, if any."""
+# What `invite_state` can conclude. The whole point of naming these is that
+# the sign-in page can say which one happened — "expired", "already used" and
+# "never existed" are three different problems with three different fixes,
+# and answering all of them with "that link is not valid any more" is what
+# made this unfixable from the outside.
+INVITE_OK = "ok"
+INVITE_UNKNOWN = "unknown"      # no link ever had this token
+INVITE_USED = "used"            # this exact link was already redeemed
+INVITE_EXPIRED = "expired"      # past its expiry
+INVITE_SUPERSEDED = "superseded"  # valid once, but a newer link was issued after it
+
+
+def invite_state(token_hash: str) -> dict:
+    """Everything known about a token, without deciding what to do about it.
+
+    Returns `{verdict, user, invite, newer}`. `user` is None only when the
+    token has never existed; every other verdict can still name the account,
+    which is what lets the UI say something useful.
+    """
+    conn = connect()
+    row = conn.execute("SELECT * FROM invites WHERE token_hash = ?", (token_hash,)).fetchone()
+    if row is None:
+        return {"verdict": INVITE_UNKNOWN, "user": None, "invite": None, "newer": None}
+
+    invite = dict(row)
+    user = get_user(invite["user_id"])
+
+    if invite["used_at"] is not None:
+        verdict = INVITE_USED
+    elif invite["expires_at"] <= time.time():
+        verdict = INVITE_EXPIRED
+    else:
+        verdict = INVITE_OK
+
+    # A newer unused link means this one is stale rather than broken, and the
+    # person almost certainly has the newer one sitting further down the same
+    # chat thread. Worth saying so.
+    newer = conn.execute(
+        "SELECT created_at FROM invites WHERE user_id = ? AND used_at IS NULL"
+        "   AND expires_at > ? AND created_at > ? ORDER BY created_at DESC LIMIT 1",
+        (invite["user_id"], time.time(), invite["created_at"]),
+    ).fetchone()
+
+    if verdict == INVITE_OK and newer is not None:
+        # Still perfectly usable — an older link is not wrong, just older.
+        # `newer` is reported so the UI can mention it, not to reject this.
+        pass
+
+    return {
+        "verdict": verdict,
+        "user": user,
+        "invite": invite,
+        "newer": newer["created_at"] if newer else None,
+    }
+
+
+def outstanding_invite(user_id: int) -> dict | None:
+    """The newest live link for a user, for the admin list."""
     conn = connect()
     row = conn.execute(
-        "SELECT * FROM users WHERE invite_hash = ? AND invite_expires > ?",
-        (invite_hash, time.time()),
+        "SELECT * FROM invites WHERE user_id = ? AND used_at IS NULL AND expires_at > ?"
+        " ORDER BY created_at DESC LIMIT 1",
+        (user_id, time.time()),
     ).fetchone()
-    return _hydrate(row)
+    return dict(row) if row else None
+
+
+# ---------------------------------------------------------- link requests
+
+def record_link_request(email: str, remote: str | None) -> None:
+    """Somebody on the sign-in page said their link doesn't work.
+
+    Stored for every address typed, including ones with no account: deciding
+    here would make this endpoint an oracle for which addresses are
+    registered, which is the one thing the sign-in flow is careful about.
+    """
+    conn = connect()
+    conn.execute(
+        "INSERT INTO link_requests (email, at, remote) VALUES (?, ?, ?)",
+        (email, time.time(), remote),
+    )
+    conn.commit()
+
+
+def pending_link_requests() -> list[dict]:
+    """Unresolved requests, newest first, collapsed to one per address."""
+    conn = connect()
+    rows = conn.execute(
+        "SELECT email, MAX(at) AS at, COUNT(*) AS times FROM link_requests"
+        " WHERE resolved_at IS NULL GROUP BY email ORDER BY at DESC"
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def resolve_link_requests(email: str) -> None:
+    """Called when a link is issued to that address, so the queue drains by
+    doing the thing rather than by a separate dismiss button."""
+    conn = connect()
+    conn.execute(
+        "UPDATE link_requests SET resolved_at = ? WHERE email = ? AND resolved_at IS NULL",
+        (time.time(), email),
+    )
+    conn.commit()
 
 
 def create_session(user_id: int, token_hash: str, ttl_seconds: float,

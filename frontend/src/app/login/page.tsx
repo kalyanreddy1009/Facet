@@ -17,6 +17,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Loader2 } from "lucide-react";
 
+import RequestLink from "@/components/auth/RequestLink";
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -173,10 +175,14 @@ function LoginForm() {
         </button>
       </form>
 
-      <p className="mt-6 text-sm text-text-muted">
-        No account, or forgotten your password? Whoever administers this Facet
-        can send you a new sign-in link.
-      </p>
+      {/* Always here, for everyone. An invited user who never set a password
+          lands on this page and fails, and until this existed there was no way
+          onward from that — which is exactly how two people got stuck. It is
+          unconditional on purpose: a control that appeared only for known
+          addresses would confirm which addresses are known. */}
+      <div className="mt-7 border-t border-border pt-6">
+        <RequestLink defaultEmail={email} />
+      </div>
     </div>
   );
 }

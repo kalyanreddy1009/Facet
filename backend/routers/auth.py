@@ -47,6 +47,33 @@ class ChangePasswordBody(BaseModel):
     new_password: str
 
 
+class RequestLinkBody(BaseModel):
+    email: str
+
+
+# Characters a chat client, a mail client or a human commonly welds onto the
+# end of a pasted URL. A token is `[A-Za-z0-9_-]` and nothing else, so
+# anything outside that at either end is not part of it.
+_TOKEN_JUNK = " \t\r\n\"'<>()[]{}.,;:!?«»“”‘’"
+
+
+def _clean_token(token: str | None) -> str:
+    """Recover the token from however it survived being pasted.
+
+    Links get sent through WhatsApp and mail clients, which wrap them in
+    angle brackets, glue a full stop on the end of the sentence, or leave a
+    trailing newline from a copy. Every one of those produced "that link
+    isn't valid" from an otherwise perfect link, and the person on the other
+    end has no way to tell that from a genuinely dead one.
+    """
+    cleaned = (token or "").strip().strip(_TOKEN_JUNK)
+    # Someone pasting the whole URL into the token field rather than the
+    # address bar is a real thing, and there is no reason to punish it.
+    if "token=" in cleaned:
+        cleaned = cleaned.split("token=", 1)[1].split("&", 1)[0]
+    return cleaned.strip(_TOKEN_JUNK)
+
+
 def _client(request: Request) -> str:
     return request.client.host if request.client else ""
 
@@ -101,9 +128,16 @@ async def login(body: LoginBody, request: Request, response: Response):
         store.record_failure(email or "(blank)", remote)
         logger.warning("[Facet] failed login for %r from %s", email, remote or "?")
         response.status_code = 401
+        # Still one message for "wrong password" and "no such account" — this
+        # must not become an oracle for who has an account. The way out for
+        # somebody who never set a password is the "request a link" control
+        # that the sign-in page shows to everyone unconditionally, which
+        # reveals nothing because it is always there.
         return {
             "error": "That email and password do not match.",
-            "hint": "If you have not set a password yet, use the link you were sent.",
+            "hint": "If you were sent a sign-in link and never set a password, "
+                    "use the link. Lost it? Ask for a new one below.",
+            "reason": "bad_credentials",
         }
 
     if user["status"] != store.ACTIVE:
@@ -160,34 +194,167 @@ async def me(request: Request):
     return {"authenticated": True, "single_user": False, "user": _public_user(user)}
 
 
+def _invite_problem(state: dict) -> dict | None:
+    """Turn a verdict into what to show, or None if the link is good.
+
+    Every branch names the actual problem. The single "that link is not valid
+    any more / invitations expire after a week" this replaced was wrong in
+    three of the four cases, and the one time it was right it still didn't say
+    what to do next. Two real users were locked out by it.
+    """
+    verdict = state["verdict"]
+    if verdict == store.INVITE_OK:
+        return None
+
+    if verdict == store.INVITE_USED:
+        return {
+            "reason": verdict,
+            "error": "That link has already been used.",
+            "hint": "Your password is set — sign in with it. If you don't know it, "
+                    "ask for a new link from the sign-in page.",
+        }
+
+    if verdict == store.INVITE_EXPIRED:
+        when = time.strftime("%-d %B", time.localtime(state["invite"]["expires_at"]))
+        return {
+            "reason": verdict,
+            "error": f"That link expired on {when}.",
+            "hint": "Ask for a new one from the sign-in page — it takes a moment.",
+        }
+
+    return {
+        "reason": store.INVITE_UNKNOWN,
+        "error": "That link isn't one we recognise.",
+        "hint": "Links are long and easy to truncate — check you copied the whole "
+                "thing, including everything after `token=`.",
+    }
+
+
+@router.get("/invite-status")
+async def invite_status(token: str = "", response: Response = None):  # noqa: B008
+    """Is this link usable? Asked when the page loads, before anyone types.
+
+    Making somebody choose a password, type it twice, and submit — only then
+    to be told the link was dead before they started — is the difference
+    between a minor annoyance and giving up. This is deliberately readable
+    without any credential: the token *is* the credential, and answering
+    "unknown" to a wrong guess reveals nothing a submission wouldn't.
+    """
+    state = store.invite_state(auth.token_digest(_clean_token(token)))
+    problem = _invite_problem(state)
+    if problem is None:
+        return {
+            "usable": True,
+            "email": state["user"]["email"],
+            "display_name": state["user"]["display_name"] or "",
+            # An account still being set up, or one an administrator has
+            # paused, cannot be signed into even with a perfect link. Say so
+            # now rather than after the password is chosen.
+            "account_ready": state["user"]["status"] == store.ACTIVE,
+            "status": state["user"]["status"],
+            "expires_at": state["invite"]["expires_at"],
+        }
+    return {"usable": False, **problem}
+
+
 @router.post("/accept-invite")
 async def accept_invite(body: AcceptInviteBody, request: Request, response: Response):
     """Set a first password from a one-time link, and sign in.
 
-    The link is the only credential here, so it is single-use by
-    construction: `store.set_password` clears the invite as it writes the
-    hash. A link that still worked afterwards would be a permanent second key
-    to the account.
+    Single-use: `store.set_password` marks every outstanding invite for the
+    account used, in the same call that writes the hash. A link that still
+    worked afterwards would be a permanent second key.
+
+    The order here is load-bearing. Validate the link, then the account, then
+    the password, and only then write anything. The previous version checked
+    the password first (so a dead link reported a password problem) and wrote
+    the hash before checking the account status (so a suspended user's link
+    was consumed, no session was issued, and the response still said
+    `{"ok": true}` — leaving them with a burnt link, a password they had no
+    way to confirm, and no way in).
     """
+    token = _clean_token(body.token)
+    state = store.invite_state(auth.token_digest(token))
+
+    # A lost response on a flaky connection is a real thing: the password was
+    # set, the reply never arrived, and the retry hits a used token. If the
+    # password they are submitting matches the one just written, that is proof
+    # enough that this is the same person finishing the same action, so let it
+    # through instead of stranding them. Bounded tightly in time.
+    if (state["verdict"] == store.INVITE_USED and state["user"] is not None
+            and state["invite"]["redeemed"]):
+        since_used = time.time() - (state["invite"]["used_at"] or 0)
+        if since_used <= auth.INVITE_RETRY_GRACE_SECONDS and auth.verify_password(
+            body.password or "", state["user"]["password_hash"]
+        ):
+            user = state["user"]
+            if user["status"] != store.ACTIVE:
+                response.status_code = 403
+                return _not_active(user)
+            _issue_session(response, user, request)
+            logger.info("[Facet] %s re-submitted a just-used invite; same password, "
+                        "signing them in", user["email"])
+            return {"ok": True, "user": _public_user(user)}
+
+    problem = _invite_problem(state)
+    if problem is not None:
+        logger.warning("[Facet] invite rejected (%s) from %s", problem["reason"], _client(request))
+        response.status_code = 400
+        return {"error": problem["error"], "hint": problem["hint"], "reason": problem["reason"]}
+
+    user = state["user"]
+
+    # Before writing anything. An account that cannot be signed into must not
+    # have its link consumed on the way to finding that out.
+    if user["status"] != store.ACTIVE:
+        response.status_code = 403
+        return _not_active(user)
+
+    # Last, so a dead link never reports itself as a password problem.
     auth.check_password_quality(body.password)
 
-    user = store.user_by_invite(auth.token_digest(body.token or ""))
-    if user is None:
-        response.status_code = 400
-        return {
-            "error": "That link is not valid any more.",
-            "hint": "Invitations expire after a week. Ask for a new one.",
-        }
-
     store.set_password(user["id"], auth.hash_password(body.password))
+    store.mark_invite_redeemed(auth.token_digest(token))
     # Any session predating a password being set is not this person's doing.
     store.revoke_user_sessions(user["id"])
+    store.resolve_link_requests(user["email"])
 
     user = store.get_user(user["id"])
-    if user["status"] == store.ACTIVE:
-        _issue_session(response, user, request)
+    _issue_session(response, user, request)
     store.record(user["email"], "auth.password_set", user["email"], "via invite")
     return {"ok": True, "user": _public_user(user)}
+
+
+def _not_active(user: dict) -> dict:
+    return {
+        "error": f"This account is {user['status']}, so it can't be signed into yet.",
+        "hint": "Your link is still good — ask whoever administers this Facet to "
+                "activate the account, then use it again.",
+        "reason": "account_" + user["status"],
+    }
+
+
+@router.post("/request-link")
+async def request_link(body: RequestLinkBody, request: Request):
+    """"I never got a link" / "mine doesn't work", from the sign-in page.
+
+    Answers identically whether or not the address has an account. Anything
+    else turns this into a free tool for discovering who is registered here,
+    which is the property the rest of this module works to keep.
+
+    There is no SMTP on this deployment, so the loop closes through a person:
+    the request lands in a queue on the admin page. That is honest about how
+    it actually works rather than pretending a mail went out.
+    """
+    email = (body.email or "").strip().lower()
+    if email:
+        store.record_link_request(email, _client(request))
+        logger.info("[Facet] sign-in link requested for %r", email)
+    return {
+        "ok": True,
+        "message": "Asked. Whoever administers this Facet will see the request and "
+                   "can send you a fresh link.",
+    }
 
 
 @router.post("/change-password")

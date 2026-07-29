@@ -135,7 +135,7 @@ export default function LandingContent() {
   return (
     <main>
       {/* ---------------------------------------------------------- hero */}
-      <section className="max-w-shell mx-auto px-5 sm:px-8 min-h-[calc(100vh-var(--nav-h))] grid lg:grid-cols-[1.15fr_0.85fr] items-center gap-12 py-20">
+      <section className="max-w-shell mx-auto px-5 sm:px-8 min-h-[calc(100vh-var(--nav-h))] grid lg:grid-cols-[1.05fr_0.95fr] items-center gap-12 py-20">
         <div className="flex flex-col items-start gap-6">
           <p className="badge badge-accent">
             <Lock className="w-3 h-3" aria-hidden />
@@ -173,7 +173,7 @@ export default function LandingContent() {
         </div>
 
         <div className="hidden lg:grid place-items-center">
-          <StoneGraphic size={320} />
+          <StoneGraphic />
         </div>
       </section>
 

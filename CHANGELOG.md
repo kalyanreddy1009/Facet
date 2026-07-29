@@ -2,6 +2,57 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — The sign-in link, made survivable
+
+Two real people were locked out by the invitation flow. Neither hit an exotic
+case. The audit log named all three causes, and every one of them reported
+itself as *"That link is not valid any more. Invitations expire after a week."*
+— false in all three, and actionable in none.
+
+**1. A second link destroyed the first.** Invites lived in two columns on the
+user row, so there was exactly one slot: re-issuing a link — to re-copy it, or
+because you weren't sure the first arrived — silently broke the link already in
+somebody's hands. The audit log shows one user invited twice, four minutes
+apart. Invites are now a table with a row per link. Issuing another leaves the
+earlier ones working; all of them die the moment a password is actually set.
+
+**2. Suspending someone burned their link.** `accept_invite` wrote the password
+hash *before* checking account status, so clicking during a brief suspension
+consumed the invite, issued no session, and still answered `{"ok": true}`. The
+user was left with a burnt link, a password they had no way to confirm, and no
+way in. The order is now: validate the link, then the account, then the
+password, and only then write anything.
+
+**3. The login form was a dead end.** An invited account has no password, so
+the ordinary form answers "email and password do not match" — correct, and
+terminal, because nothing offered a way to ask for another link. There is now a
+"no link, or yours has stopped working?" control on both the sign-in page and
+every failure state of the invite page. It is shown unconditionally and the
+server answers identically for known and unknown addresses, so it stays clear
+of the no-enumeration rule the rest of the module keeps.
+
+Beyond the three: every failure now names itself (`used` / `expired` /
+`unknown` are three different problems needing three different actions);
+`/api/auth/invite-status` is asked on page load so nobody chooses a passphrase
+for a link that was dead before they started; tokens survive being punctuated
+by a chat client, wrapped in angle brackets, or pasted as a whole URL; and a
+lost response is recoverable — resubmitting the same token with the same
+password inside 15 minutes is honoured rather than stranding someone, scoped to
+the link actually redeemed rather than its siblings.
+
+`scripts/test_invites.py` covers all eleven paths. It was verified to fail:
+removing the sibling-scoping guard produces `every link must die once a
+password is set`. Existing links were migrated into the new table, so an
+invitation already sitting in somebody's inbox survived the upgrade — tested,
+because that failure would have been this bug a second time.
+
+Admin side: the account list now distinguishes "invited, link valid 5d" from
+"invited, no link outstanding", which the old "no password set yet" collapsed
+into one; and requests for a new link appear as a queue, since with no SMTP the
+loop closes through a person.
+
+Also, unrelated: the landing hero and the stone graphic are larger.
+
 ## 2026-07-29 — Facet 3.0: lit graphite, and a landing page a stranger can read
 
 A UI/UX sprint. No backend file changed; `git diff --stat backend` is empty and

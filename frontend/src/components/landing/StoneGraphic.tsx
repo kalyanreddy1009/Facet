@@ -36,11 +36,19 @@ const SWEEP = [
   { opacity: 0, from: "-0.2", to: "1.3" },
 ];
 
-export default function StoneGraphic({ size = 320 }: { size?: number }) {
+/** Fluid rather than a fixed pixel size: on a wide screen the stone is the
+ *  counterweight to the hero type, and a 320px graphic beside 6rem headline
+ *  text reads as an afterthought. Capped so it stays a companion to the copy
+ *  and never the subject of the page. */
+export default function StoneGraphic({
+  size = "clamp(18rem, 30vw, 30rem)",
+}: {
+  size?: number | string;
+}) {
   return (
     <div
-      className="relative grid place-items-center"
-      style={{ width: size, height: size }}
+      className="relative grid place-items-center w-full"
+      style={{ width: size, height: size, maxWidth: "100%" }}
       aria-hidden
     >
       {/* The halo. Behind the stone, and the only place the decorative second
@@ -54,8 +62,8 @@ export default function StoneGraphic({ size = 320 }: { size?: number }) {
       />
 
       <svg
-        width={size}
-        height={size}
+        width="100%"
+        height="100%"
         viewBox="0 0 220 220"
         fill="none"
         className="relative text-text-dim"

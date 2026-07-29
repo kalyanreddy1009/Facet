@@ -21,7 +21,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Copy, Loader2, Plus, Shield, UserPlus } from "lucide-react";
+import { Check, Copy, Loader2, MailQuestion, Plus, Shield, UserPlus } from "lucide-react";
 
 import { useSession } from "@/lib/useSession";
 
@@ -36,6 +36,25 @@ interface AdminUser {
   last_seen_at: number | null;
   has_password: boolean;
   sessions: number;
+  /** The newest live sign-in link, if one is outstanding. Never the token. */
+  invite: { created_at: number; expires_at: number } | null;
+}
+
+interface LinkRequest {
+  email: string;
+  at: number;
+  times: number;
+}
+
+/** "invited 2 days ago, 5 days left" is a different situation from "invited
+ *  last month, link is dead" — and the old list showed both as the same
+ *  "no password set yet". */
+function inviteLabel(user: AdminUser): { text: string; tone: string } {
+  if (user.has_password) return { text: "", tone: "" };
+  if (!user.invite) return { text: "no link outstanding", tone: "badge-warn" };
+  const days = Math.floor((user.invite.expires_at - Date.now() / 1000) / 86400);
+  if (days < 1) return { text: "link expires today", tone: "badge-warn" };
+  return { text: `link valid ${days}d`, tone: "badge" };
 }
 
 /** The column template, written once. Header and rows drifting apart is the
@@ -60,6 +79,7 @@ export default function AdminPage() {
   const { session, loading } = useSession();
 
   const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [requests, setRequests] = useState<LinkRequest[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [invite, setInvite] = useState<{ email: string; url: string } | null>(null);
   const [email, setEmail] = useState("");
@@ -71,7 +91,9 @@ export default function AdminPage() {
 
   const refresh = useCallback(async () => {
     try {
-      setUsers((await call("/api/admin/users")).users);
+      const body = await call("/api/admin/users");
+      setUsers(body.users);
+      setRequests(body.link_requests || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load users");
     }
@@ -162,6 +184,54 @@ export default function AdminPage() {
         >
           {error}
         </div>
+      )}
+
+      {requests.length > 0 && (
+        <section className="card p-6 sm:p-7 border-warn-border">
+          <h2 className="flex items-center gap-2 text-sm font-medium">
+            <MailQuestion className="w-4 h-4 text-warn" aria-hidden />
+            Waiting on a sign-in link
+          </h2>
+          <p className="mt-1 text-xs text-text-faint text-pretty">
+            Asked from the sign-in page. Facet sends no mail, so these reach you and
+            nobody else — issuing a link clears the entry.
+          </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            {requests.map((request) => {
+              const match = users?.find((u) => u.email === request.email);
+              return (
+                <li
+                  key={request.email}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded border border-border bg-surface-2 px-3 py-2"
+                >
+                  <span className="text-sm">
+                    {request.email}
+                    {!match && (
+                      <span className="ml-2 text-xs text-text-faint">no account here</span>
+                    )}
+                    {request.times > 1 && (
+                      <span className="ml-2 text-xs text-text-faint tnum">
+                        asked {request.times}×
+                      </span>
+                    )}
+                  </span>
+                  {match && (
+                    <button
+                      className="btn btn-default btn-sm"
+                      disabled={pending === match.id}
+                      onClick={async () => {
+                        const result = await act(match.id, `/api/admin/users/${match.id}/invite`);
+                        if (result) setInvite({ email: match.email, url: result.invite_url });
+                      }}
+                    >
+                      Send a link
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
       {/* ------------------------------------------------------- add someone */}
@@ -266,9 +336,15 @@ export default function AdminPage() {
                 <span className="text-sm text-text-dim capitalize">{user.status}</span>
                 {!user.has_password && (
                   /* The state that looks like a bug to whoever sent the
-                     invite: the account exists but nobody has claimed it. */
-                  <span className="badge shrink-0" title="The invite link has not been used yet">
-                    unclaimed
+                     invite: the account exists but nobody has claimed it.
+                     Says whether a usable link is still out there, because
+                     "waiting for them" and "their link is dead" need
+                     opposite actions from you. */
+                  <span
+                    className={`${inviteLabel(user).tone} shrink-0`}
+                    title="No password set yet"
+                  >
+                    {inviteLabel(user).text}
                   </span>
                 )}
               </div>
@@ -286,7 +362,7 @@ export default function AdminPage() {
                     const result = await act(user.id, `/api/admin/users/${user.id}/invite`);
                     if (result) setInvite({ email: user.email, url: result.invite_url });
                   }}
-                  title="A fresh one-time link. This is the password reset."
+                  title="A fresh one-time link. Any link already sent keeps working, so re-issuing is safe."
                 >
                   Sign-in link
                 </button>

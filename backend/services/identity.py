@@ -45,6 +45,8 @@ PUBLIC_PATHS = frozenset({
     "/api/status/health", "/api/status/ready", "/health", "/api/health",
     "/api/auth/login",           # obviously
     "/api/auth/accept-invite",   # setting a first password, from a one-time link
+    "/api/auth/invite-status",   # "is this link usable?", asked before anyone types
+    "/api/auth/request-link",    # "mine doesn't work" — answers the same either way
     "/api/auth/me",              # answers "nobody" rather than 401, so the UI can ask
     "/api/auth/logout",          # clearing a dead cookie must not require a live one
 })
