@@ -19,6 +19,13 @@ const nextConfig = {
   // node_modules nor the source tree.
   output: process.env.NEXT_OUTPUT_STANDALONE === "1" ? "standalone" : undefined,
 
+  // Where the build output goes. Overridable because `next build` clears this
+  // directory before it writes — on the live host that is the running
+  // server's own files being deleted out from under it, and every request for
+  // the next half-minute is a 502. `deploy/publish.sh` builds into a
+  // different directory and swaps it in, so the only downtime is one restart.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+
   experimental: {
     // Keep already-rendered routes in the client router cache far longer than
     // the 30s default. Navigating Rough → Cabinet → Rough then replays from

@@ -2,6 +2,24 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — Deploying stopped taking the site down
+
+Reported: 502s from the host. The tunnel was healthy — its last error was at
+10:50, hours earlier — and the site answered 200 throughout. The 502s were
+mine.
+
+Deploying meant `rm -rf .next && npm run build` on the live box. That deletes
+the running server's own files: for the thirty-odd seconds of the build,
+every request is a 502, and anyone already on a page gets broken chunks
+rather than a clean error. There were four such windows this afternoon.
+
+`deploy/publish.sh` now runs the checks, builds into `.next.incoming`, and
+only swaps and restarts once that succeeded — so a failed build changes
+nothing, and a successful one costs one restart. Measured at 2 seconds
+instead of 40. It waits for the frontend to answer before reporting success,
+and rolls back to the previous build if it does not. `distDir` is
+configurable through `NEXT_DIST_DIR` to make the out-of-place build possible.
+
 ## 2026-07-29 — The health banner was signing people out
 
 Reported from the live site: setting a password said *"your session has
