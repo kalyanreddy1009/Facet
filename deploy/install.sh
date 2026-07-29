@@ -60,10 +60,16 @@ render() {  # src dst
   echo "  wrote $2"
 }
 
-# BACKEND_PORT is intentionally NOT substituted: it comes from each user's
-# generated .env at runtime, which is what makes one template serve everyone.
-render "$REPO/deploy/user/facet-api@.service"    "$UNIT_DIR/facet-api@.service"
+render "$REPO/deploy/user/facet-api.service"     "$UNIT_DIR/facet-api.service"
+render "$REPO/deploy/user/facet-web.service"     "$UNIT_DIR/facet-web.service"
 render "$REPO/deploy/user/facet-control.service" "$UNIT_DIR/facet-control.service"
+
+# A stale per-user template from before one instance served everyone. Left
+# behind it is a unit that starts a second backend on a port nobody routes to.
+if [ -f "$UNIT_DIR/facet-api@.service" ]; then
+  rm -f "$UNIT_DIR/facet-api@.service"
+  echo "  removed the obsolete per-user facet-api@.service"
+fi
 
 systemctl --user daemon-reload
 echo "  daemon-reload done"
@@ -90,7 +96,7 @@ else
   if command -v agy >/dev/null 2>&1; then
     warn "It IS on your shell PATH at $(command -v agy)."
     warn "Symlink it into ~/.local/bin, or edit Environment=PATH in"
-    warn "  $UNIT_DIR/facet-api@.service"
+    warn "  $UNIT_DIR/facet-api.service"
   else
     warn "Facet still runs; tailoring will report agy as unavailable."
   fi
@@ -117,14 +123,16 @@ cat <<EOF
   host root:  $FACET_HOST_ROOT
   domain:     $FACET_BASE_DOMAIN
 
-  Start the control plane (the admin portal):
+  Build the frontend once, then start all three:
 
-      systemctl --user enable --now facet-control
-      systemctl --user status facet-control
+      (cd $REPO/frontend && npm run build)
+      systemctl --user enable --now facet-api facet-web facet-control
+      systemctl --user status facet-api facet-web facet-control
 
-  Then open http://127.0.0.1:9000 — over an SSH tunnel, or behind Cloudflare
-  Access. It binds loopback on purpose and must not be published directly.
+  The portal is on http://127.0.0.1:9000 — over an SSH tunnel, or behind
+  Cloudflare Access. It binds loopback on purpose and must not be published.
 
-  Per-user backends are started by the portal when you add a user; you do not
-  enable facet-api@ by hand.
+  Adding a user in the portal creates their directories and returns a
+  one-time sign-in link. It starts nothing: one instance serves everyone, and
+  a new user's database is created on their first request.
 EOF

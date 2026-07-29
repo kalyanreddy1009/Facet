@@ -1,0 +1,70 @@
+# The Facet backend. One instance, serving everyone.
+#
+#   systemctl --user enable --now facet-api
+#
+# Was `facet-api@.service`, one per user. That is gone: a single process now
+# serves everybody and tells them apart from their session cookie, so there
+# is nothing to template over.
+#
+# A *user* unit rather than a system one, because it must run as the account
+# that ran the agy sign-in — agy reads its credentials out of that account's
+# home directory. A system unit configures its user separately, so the two
+# can disagree silently: agy looks authenticated in your shell and
+# unauthenticated to the service.
+#
+# User units stop at logout unless lingering is on:
+#
+#   loginctl enable-linger $USER
+
+[Unit]
+Description=Facet backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+
+WorkingDirectory=${FACET_ROOT}/backend
+
+Environment=FACET_HOST_ROOT=${FACET_HOST_ROOT}
+Environment=FACET_USERS_ROOT=${FACET_HOST_ROOT}/users
+Environment=FACET_BASE_DOMAIN=${FACET_BASE_DOMAIN}
+Environment=FACET_QUEUE_DB=${FACET_HOST_ROOT}/queue.db
+
+# The one lock every agy run contends on. Outside any user's directory on
+# purpose: there is a single authenticated CLI on this host, and a lock each
+# user owned privately would serialize nobody.
+Environment=FACET_AGY_LOCK=${FACET_HOST_ROOT}/agy.lock
+
+# Multi-user: identity required on every request, per-user data directories.
+# Unset, Facet runs as the original single-user app.
+Environment=FACET_MULTIUSER=1
+Environment=FACET_BIND_HOST=127.0.0.1
+
+# systemd does not inherit your login shell's PATH, and agy installs to
+# ~/.local/bin. Without this the service starts, looks healthy, serves every
+# page — and reports "agy CLI not found on PATH" the moment anyone tries to
+# tailor. %h is this user's home, so the path stays correct wherever the
+# account lives.
+Environment=PATH=%h/.local/bin:%h/bin:/usr/local/bin:/usr/bin:/bin
+
+# Loopback only, and the app refuses to start multi-user on anything else.
+# The login endpoint is meant to be reached through the tunnel; binding a
+# public interface puts it on the open internet with nothing in front of it.
+ExecStart=${FACET_ROOT}/backend/.venv/bin/python -m uvicorn main:app \
+          --host 127.0.0.1 --port 8000
+
+Restart=on-failure
+RestartSec=5s
+
+# A restart mid-cut abandons an agy run. The queue's startup reconciliation
+# turns that into a failed job with a real message rather than a browser
+# polling a spinner forever, but a generous stop timeout means a run usually
+# finishes rather than needing to.
+TimeoutStopSec=330
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=default.target

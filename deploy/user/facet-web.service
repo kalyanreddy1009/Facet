@@ -1,0 +1,40 @@
+# The Facet frontend.
+#
+#   systemctl --user enable --now facet-web
+#
+# Next.js in production mode, serving the built output. It holds no user
+# data: every page calls /api, and the tunnel routes ^/api/ to the backend
+# before it reaches here.
+#
+# Requires a build first — `npm run build` in frontend/. `next start` on an
+# unbuilt tree exits immediately with a message about running build, which
+# systemd then retries forever.
+
+[Unit]
+Description=Facet frontend
+After=network-online.target facet-api.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+
+WorkingDirectory=${FACET_ROOT}/frontend
+
+# Where the frontend's own /api rewrite points. Same host, loopback.
+Environment=BACKEND_ORIGIN=http://127.0.0.1:8000
+Environment=NODE_ENV=production
+# No telemetry. Next phones home by default; the product boundary says
+# nothing about this deployment leaves it.
+Environment=NEXT_TELEMETRY_DISABLED=1
+Environment=PATH=%h/.local/bin:%h/bin:/usr/local/bin:/usr/bin:/bin
+
+ExecStart=/usr/bin/npx next start -H 127.0.0.1 -p 3000
+
+Restart=on-failure
+RestartSec=5s
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=default.target
