@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X } from "lucide-react";
-import { ENTER, EXIT, REDUCED } from "@/lib/motion";
+import { ENTER, ENTER_EMPH, EXIT, REDUCED } from "@/lib/motion";
 import { useModal } from "@/lib/useModal";
 
 interface SheetProps {
@@ -47,8 +47,14 @@ export default function Sheet({ open, onClose, title, description, children }: S
               ...(reduced ? { opacity: 0 } : { x: "100%" }),
               transition: reduced ? REDUCED : EXIT,
             }}
-            transition={reduced ? REDUCED : ENTER}
-            className="relative w-[min(30rem,100vw)] h-full bg-surface-1 border-l border-border flex flex-col outline-none"
+            // Emphasised, not the standard entrance: this travels 30rem, and
+            // the curve that feels crisp on a 4px nav indicator reads as a
+            // snap at that distance.
+            transition={reduced ? REDUCED : ENTER_EMPH}
+            // Opaque on purpose while everything else is glass — a sheet sits
+            // directly over the content it is about, and that is the one place
+            // translucency costs you the ability to read either layer.
+            className="relative w-[min(30rem,100vw)] h-full bg-surface-1 border-l border-border shadow-float flex flex-col outline-none"
           >
             <div className="px-5 py-4 divider flex items-start justify-between gap-4 shrink-0">
               <div>

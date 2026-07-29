@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/ui/NavBar";
 import AgyHealthBanner from "@/components/ui/AgyHealthBanner";
+import AmbientField from "@/components/ui/AmbientField";
 
 // One UI typeface, one for numbers and code. A display serif reads as
 // "designed" rather than "built" — real tools don't use one.
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0d11",
+  themeColor: "#080a10",
   colorScheme: "dark",
 };
 
@@ -30,6 +31,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         >
           Skip to content
         </a>
+        {/* Behind everything, and the reason every surface is translucent. */}
+        <AmbientField />
         <NavBar />
         <AgyHealthBanner />
         <div id="main">{children}</div>

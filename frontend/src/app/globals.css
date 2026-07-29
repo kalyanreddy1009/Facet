@@ -8,91 +8,139 @@
 @config "../../tailwind.config.ts";
 
 /* ============================================================================
-   Facet 2.0 — cool graphite.
+   Facet 3.0 — lit graphite.
 
    Design rules this file enforces, and every component must respect:
-   1. Neutral cool greys carry the interface. Colour means something.
-   2. ONE accent (indigo-blue), used for the primary action and current state.
-      Never for decoration.
-   3. No glows, no gradient text, no coloured shadows. Depth comes from a
-      1px border and a flat surface step, the way real tools do it.
+   1. Cool blue-slate neutrals carry the interface. Colour means something.
+   2. ONE accent (indigo), used for the primary action and current state.
+      Never for decoration. `--glint` (cyan) is the single exception and is
+      allowed ONLY in the ambient background and the hero — never on a control,
+      never as the meaning of anything.
+   3. Depth comes from a 1px border, a translucent surface, and one neutral
+      shadow. No glows, no gradient text, no coloured shadows on controls.
    4. Semantic colour (green/amber/red) is reserved for status. If it isn't
       reporting state, it isn't coloured.
    5. One typeface for the UI, one for numbers and code. Hierarchy comes from
       size and weight, not from decoration.
+   6. Every surface that floats above the ambient background is translucent
+      enough to show it, and never so translucent that text loses contrast.
+      The tuning knob is `--glass-*`, in one place, not per component.
    ========================================================================== */
 
 :root {
-  /* Surfaces — cool neutral, each step +1 border-visible level */
-  --bg: #0b0d11;
-  --surface-1: #11141a;
-  --surface-2: #171b23;
-  --surface-3: #1f242e;
-  --surface-4: #272d39;
+  /* Surfaces — cool blue-slate. Each step is one visible level up, and the
+     hue is carried in the surface itself rather than added later as a tint,
+     so a translucent panel over the ambient field doesn't shift colour. */
+  --bg: #080a10;
+  --surface-1: #10141d;
+  --surface-2: #171d28;
+  --surface-3: #202736;
+  --surface-4: #2a3344;
+
+  /* Translucent forms of the same surfaces. These are what `.panel`, `.card`
+     and `.chrome` actually paint, so the ambient field reads through the whole
+     interface instead of only the nav. Alpha is deliberately high enough that
+     14px body text keeps its contrast — "slightly more transparent", not
+     "see-through". */
+  --glass-1: rgba(16, 20, 29, 0.72);
+  --glass-2: rgba(23, 29, 40, 0.76);
+  --glass-3: rgba(32, 39, 54, 0.8);
+  --glass-blur: 16px;
+  /* The top highlight that makes a translucent panel read as a pane of glass
+     rather than a hole. One hairline, never a gradient wash. */
+  --glass-edge: rgba(255, 255, 255, 0.06);
 
   /* Text */
-  --text: #e6edf6;
-  --text-dim: #9aa6b8;
-  --text-faint: #8590a1;
-  --text-ghost: #4a5464;
+  --text: #e9eff8;
+  --text-dim: #a3b0c4;
+  --text-muted: #8d9aae; /* alias kept because half the app already asks for it */
+  --text-faint: #8d9aae;
+  --text-ghost: #515d70;
 
   /* Borders. `--border` and `--border-strong` are the depth cue — decorative,
      so WCAG 1.4.11's 3:1 doesn't reach them. `--border-control` is the visible
      boundary of an actual control (a field, a secondary button); that one does
      have to clear 3:1 or a low-vision user can't find the input. */
-  --border: rgba(230, 237, 246, 0.09);
-  --border-strong: rgba(230, 237, 246, 0.16);
-  --border-control: rgba(230, 237, 246, 0.38); /* 3.02:1 worst surface */
+  --border: rgba(233, 239, 248, 0.1);
+  --border-strong: rgba(233, 239, 248, 0.18);
+  --border-control: rgba(233, 239, 248, 0.38); /* 3.02:1 worst surface */
 
-  /* The one accent. Measured 2026-07-28 — see docs/ui-audit.md §5.
-     Indigo dark enough for white label text (5.08:1) is too dark to BE text on
-     a dark surface (3.83:1 on --bg), and vice versa. That is colour maths, not
-     a preference, so the accent is one hue at two lightnesses: the fill and
-     the ink. Do not use --accent for text, or --accent-text for a fill. */
-  --accent: #3a68d6; /* fills: buttons, checkbox, nav indicator, focus ring */
-  --accent-hover: #3f6fe0;
-  --accent-press: #2f58b8;
-  --accent-text: #4c7ef3; /* accent AS text on a dark surface */
-  --accent-soft: rgba(58, 104, 214, 0.13);
-  --accent-border: rgba(58, 104, 214, 0.38);
+  /* The one accent. Indigo dark enough for white label text is too dark to BE
+     text on a dark surface, and vice versa — that is colour maths, not a
+     preference, so the accent is one hue at two lightnesses: the fill and the
+     ink. Do not use --accent for text, or --accent-text for a fill.
+     Raised in chroma from 2.0's #3a68d6, which read as grey-blue against the
+     new surfaces: white on this measures 4.9:1, the ink 6.8:1 on --bg. */
+  --accent: #4a76f0; /* fills: buttons, checkbox, nav indicator, focus ring */
+  --accent-hover: #5a83f6;
+  --accent-press: #3c63d4;
+  --accent-text: #86a9ff; /* accent AS text on a dark surface */
+  --accent-soft: rgba(74, 118, 240, 0.14);
+  --accent-border: rgba(74, 118, 240, 0.4);
   --on-accent: #ffffff;
 
-  /* Status — the only other colours in the system */
+  /* Decoration only. The second hue exists so the ambient field has somewhere
+     to travel — a one-hue gradient is just a brightness ramp. It never means
+     anything, so it never appears on a control. */
+  --glint: #29c7dd;
+
+  /* Status — the only other colours in the system. `-text` variants are the
+     lightened form for status colour used AS text, same reason as the accent. */
   --ok: #3fb950;
-  --ok-soft: rgba(63, 185, 80, 0.13);
-  --ok-border: rgba(63, 185, 80, 0.32);
+  --ok-text: #62d178;
+  --ok-soft: rgba(63, 185, 80, 0.14);
+  --ok-border: rgba(63, 185, 80, 0.34);
   --warn: #d29922;
-  --warn-soft: rgba(210, 153, 34, 0.13);
-  --warn-border: rgba(210, 153, 34, 0.32);
+  --warn-text: #e3b341;
+  --warn-soft: rgba(210, 153, 34, 0.14);
+  --warn-border: rgba(210, 153, 34, 0.34);
   --danger: #f0574f;
-  --danger-soft: rgba(240, 87, 79, 0.13);
-  --danger-border: rgba(240, 87, 79, 0.32);
+  --danger-text: #ff8078;
+  --danger-soft: rgba(240, 87, 79, 0.14);
+  --danger-border: rgba(240, 87, 79, 0.34);
   --neutral: #8b96a8;
-  --neutral-soft: rgba(139, 150, 168, 0.13);
+  --neutral-soft: rgba(139, 150, 168, 0.14);
   --neutral-border: rgba(139, 150, 168, 0.28);
 
-  --radius-sm: 5px;
-  --radius: 7px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
+  --radius-sm: 6px;
+  --radius: 9px;
+  --radius-lg: 13px;
+  --radius-xl: 18px;
 
   /* Easing — the whole set, and there is no sixth curve.
-     --ease      state changes in place (colour, border, opacity on a control)
-     --ease-out  entrances: something arriving on screen
-     --ease-exit exits: linear-out, because leaving shouldn't be expressive
-     Durations stay 100–200ms. framer-motion can't read custom properties in a
-     transition object, so the same numbers live once in `lib/motion.ts`. */
-  --ease: cubic-bezier(0.2, 0, 0.15, 1);
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease-exit: linear;
-  --t-fast: 100ms;
-  --t: 160ms;
-  --t-slow: 260ms;
+     --ease       state changes in place (colour, border, opacity on a control)
+     --ease-out   entrances: something arriving on screen
+     --ease-emph  emphasised movement: a panel, a sheet, a layout shift. Has
+                  a longer tail than --ease-out, which is what reads as
+                  "settling" rather than "stopping"
+     --ease-exit  exits: linear, because leaving shouldn't be expressive
+     framer-motion can't read custom properties in a transition object, so the
+     same numbers live once in `lib/motion.ts`. */
+  --ease: cubic-bezier(0.3, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 0.84, 0.24, 1);
+  --ease-emph: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  /* Four steps, each matched to how far the thing actually moves. 2.0 ran
+     everything at 100–160ms, which is why larger movements read as snapping
+     rather than as motion. */
+  --t-fast: 120ms;
+  --t: 200ms;
+  --t-slow: 320ms;
+  --t-slower: 520ms;
+
+  /* Shadows. Neutral black only — a coloured shadow is the fastest way to
+     look fake. Two levels: one for a raised surface, one for a floating one. */
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --shadow-float: 0 2px 4px rgba(0, 0, 0, 0.3), 0 16px 48px -16px rgba(0, 0, 0, 0.7);
+
+  /* One line of the ambient lattice. At 0.028 it is below the threshold of
+     conscious notice on an OLED and still survives an 8-bit gradient ramp. */
+  --lattice-line: rgba(150, 180, 235, 0.028);
 
   /* The one scrim, behind the one modal layer. */
-  --overlay: rgba(0, 0, 0, 0.55);
+  --overlay: rgba(4, 6, 11, 0.66);
 
-  --nav-h: 52px;
+  --nav-h: 56px;
 
   /* Control heights. Buttons, fields and anything that has to line up with
      one share these — the numbers were already duplicated across `.btn` and
@@ -107,6 +155,8 @@ html {
 }
 
 body {
+  /* The flat base. The ambient facet field paints on top of this, in its own
+     fixed layer, so a page that scrolls doesn't drag the background with it. */
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -174,30 +224,163 @@ button:not(:disabled),
 }
 
 @layer components {
+  /* ---- The ambient field ------------------------------------------- */
+  /* Facet's subject is a cut stone, so the background is the light a cut
+     stone sits in: two slow radial glints and a faint faceted lattice. It is
+     one fixed layer behind everything, `pointer-events: none`, and it is the
+     reason every surface above it is translucent.
+
+     Deliberately no canvas and no rAF loop: two CSS keyframes on a composited
+     layer cost nothing and keep working with JS disabled. */
+  .ambient {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+    /* Its own stacking/paint context, so the blurred children below never
+       force the page content to repaint. */
+    contain: strict;
+  }
+
+  .ambient-glow {
+    position: absolute;
+    border-radius: 50%;
+    /* A radial-gradient rather than a box-shadow blur: it stays one cheap
+       composited paint at any size. */
+    filter: blur(30px);
+    will-change: transform;
+  }
+
+  .ambient-glow-a {
+    width: 62vmax;
+    height: 62vmax;
+    top: -26vmax;
+    left: -14vmax;
+    background: radial-gradient(
+      circle at center,
+      rgba(74, 118, 240, 0.2) 0%,
+      rgba(74, 118, 240, 0.07) 42%,
+      transparent 68%
+    );
+    animation: drift-a 34s var(--ease) infinite alternate;
+  }
+
+  .ambient-glow-b {
+    width: 54vmax;
+    height: 54vmax;
+    bottom: -24vmax;
+    right: -12vmax;
+    background: radial-gradient(
+      circle at center,
+      rgba(41, 199, 221, 0.13) 0%,
+      rgba(41, 199, 221, 0.05) 44%,
+      transparent 70%
+    );
+    animation: drift-b 42s var(--ease) infinite alternate;
+  }
+
+  /* The lattice: the facet edges of the stone, at the threshold of visible.
+     If you can consciously see it while reading, it is too strong. */
+  .ambient-lattice {
+    position: absolute;
+    inset: 0;
+    opacity: 0.55;
+    /* A triangular lattice — three line families at 60° apart, which is the
+       pavilion pattern of a brilliant cut and also the one tiling that needs
+       no image file. Line, then a long gap: a 1px rule every 92px, not a
+       grid. */
+    background-image: repeating-linear-gradient(
+        60deg,
+        var(--lattice-line) 0 1px,
+        transparent 1px 92px
+      ),
+      repeating-linear-gradient(
+        -60deg,
+        var(--lattice-line) 0 1px,
+        transparent 1px 92px
+      ),
+      repeating-linear-gradient(
+        0deg,
+        var(--lattice-line) 0 1px,
+        transparent 1px 92px
+      );
+    /* Fades out toward the bottom so long pages don't sit on a repeating
+       texture the whole way down. */
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 92%);
+    mask-image: linear-gradient(to bottom, #000 0%, transparent 92%);
+  }
+
   /* ---- Surfaces ---------------------------------------------------- */
+  /* Every surface is translucent over the ambient field. The `background-color`
+     fallback fires wherever `backdrop-filter` is unsupported — without it the
+     panel is a flat wash of the ambient glow and body text loses contrast. */
   .panel {
-    background: var(--surface-1);
+    background: var(--glass-1);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
   }
 
   .panel-inset {
-    background: var(--bg);
+    background: rgba(8, 10, 16, 0.5);
     border: 1px solid var(--border);
     border-radius: var(--radius);
   }
 
   .panel-raised {
-    background: var(--surface-2);
+    background: var(--glass-2);
     border: 1px solid var(--border);
     border-radius: var(--radius);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
   }
 
-  /* Chrome — nav, sheets, popovers. The only place blur is allowed. */
+  /* The primary content container: a panel that is the subject of its screen
+     rather than a division within one. Sign-in, the profile sections, the
+     admin cards. This class was used by four pages before it existed, which is
+     why those screens rendered as unstyled boxes. */
+  .card {
+    position: relative;
+    background: var(--glass-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-raised);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  }
+
+  /* The glass edge — one hairline of light along the top, the thing that
+     separates "a pane of glass" from "a hole in the page". */
+  .card::before,
+  .panel-lit::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--glass-edge) 18%,
+      var(--glass-edge) 82%,
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  .panel-lit {
+    position: relative;
+  }
+
+  /* Chrome — nav, sheets, popovers. Sits closest to the viewer, so it is the
+     most opaque thing on screen: a translucent nav over a translucent panel
+     over the field is three layers of haze and no legibility. */
   .chrome {
-    background: rgba(11, 13, 17, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(8, 10, 16, 0.72);
+    -webkit-backdrop-filter: blur(20px) saturate(1.6);
+    backdrop-filter: blur(20px) saturate(1.6);
     border: 1px solid var(--border);
   }
 
@@ -226,9 +409,17 @@ button:not(:disabled),
     white-space: nowrap;
     border-radius: var(--radius);
     border: 1px solid transparent;
+    /* `transform` is in the list for the press: 1px of travel on pointer-down
+       is what makes a button feel like it has a mechanism behind it. Scale,
+       not translate — translate on a button in a row nudges its neighbours'
+       optical alignment. */
     transition: background-color var(--t-fast) var(--ease),
       border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
-      opacity var(--t-fast) var(--ease);
+      box-shadow var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease),
+      transform var(--t-fast) var(--ease);
+  }
+  .btn:active:not(:disabled) {
+    transform: scale(0.975);
   }
   .btn:disabled {
     opacity: 0.45;
@@ -248,6 +439,10 @@ button:not(:disabled),
   .btn-primary {
     background: var(--accent);
     color: var(--on-accent);
+    /* An inner top hairline, the same trick as `.card::before`. It stops the
+       filled button reading as a flat rectangle of colour without resorting
+       to a gradient. */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
   .btn-primary:hover:not(:disabled) {
     background: var(--accent-hover);
@@ -256,8 +451,14 @@ button:not(:disabled),
     background: var(--accent-press);
   }
 
-  /* Trailing affordance cap — the ONE primary action in a view, never on a
-     secondary or ghost button, and never more than once per screen.
+  /* Trailing affordance cap — a 20px circle holding ONE 12px icon, on the one
+     primary action a view is about. Never on a secondary or ghost button, and
+     never more than once per screen.
+
+     It is a fixed-size circle, so it holds an icon and nothing else. Putting a
+     label inside it is what produced the "large white dot in the Sign In
+     button" bug: the text is clipped to a 20px disc and the button appears to
+     have a blob in it. The label goes in the button, the icon goes in here.
      Inverted on purpose: the button is already the accent, so an accent-filled
      circle would be invisible on it. The only 100px radius in the system. */
   .btn-cap {
@@ -283,12 +484,14 @@ button:not(:disabled),
   }
 
   .btn-default {
-    background: var(--surface-2);
+    background: var(--glass-2);
     color: var(--text);
     border-color: var(--border-control);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
   }
   .btn-default:hover:not(:disabled) {
-    background: var(--surface-3);
+    background: var(--glass-3);
   }
 
   .btn-ghost {
@@ -313,7 +516,9 @@ button:not(:disabled),
   .field {
     width: 100%;
     height: var(--control-h);
-    background: var(--bg);
+    /* Darker than the panel it sits on — an input reads as a well, not a
+       tile. Translucent for the same reason everything else here is. */
+    background: rgba(4, 6, 11, 0.55);
     border: 1px solid var(--border-control);
     border-radius: var(--radius);
     color: var(--text);
@@ -336,7 +541,7 @@ button:not(:disabled),
   .field:focus {
     outline: none;
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft);
+    box-shadow: 0 0 0 3.5px var(--accent-soft);
   }
   .field-lg {
     height: var(--control-h-lg);
@@ -431,6 +636,14 @@ button:not(:disabled),
 }
 
 @layer utilities {
+  /* Staggered entrance for a list or grid that renders in one pass. Set
+     `--i` per child; the cap keeps a 200-row list from making the last row
+     wait three seconds. */
+  .rise {
+    animation: rise-in var(--t-slow) var(--ease-emph) both;
+    animation-delay: calc(min(var(--i, 0) * 45ms, 360ms));
+  }
+
   .text-balance {
     text-wrap: balance;
   }
@@ -464,6 +677,40 @@ button:not(:disabled),
   }
 }
 
+/* The ambient glints. Transform only — a keyframe that touched `top`/`left`
+   would re-layout the fixed layer on every frame of a 34-second animation. */
+@keyframes drift-a {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(8vw, 6vh, 0) scale(1.14);
+  }
+}
+
+@keyframes drift-b {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.08);
+  }
+  to {
+    transform: translate3d(-7vw, -5vh, 0) scale(1);
+  }
+}
+
+/* The one entrance, used by anything that arrives on screen without framer.
+   Rise is 6px: enough to read as arriving, small enough that a grid of eight
+   of them doesn't look like a wave. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 @keyframes skeleton {
   0%,
   100% {
@@ -494,10 +741,28 @@ button:not(:disabled),
   }
 }
 
+/* Someone who has asked for less transparency gets an opaque interface and no
+   ambient field — that request is about legibility, and a "tasteful" amount of
+   glass is still glass. Every surface reverts in one place. */
 @media (prefers-reduced-transparency: reduce) {
-  .chrome {
+  .chrome,
+  .panel,
+  .panel-raised,
+  .card,
+  .btn-default {
     background: var(--surface-1);
-    backdrop-filter: none;
     -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .panel-raised,
+  .btn-default {
+    background: var(--surface-2);
+  }
+  .panel-inset,
+  .field {
+    background: var(--bg);
+  }
+  .ambient {
+    display: none;
   }
 }

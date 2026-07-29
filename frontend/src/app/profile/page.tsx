@@ -84,7 +84,7 @@ export default function ProfilePage() {
 
   if (error) {
     return (
-      <main className="mx-auto max-w-3xl px-6 py-12">
+      <main className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-10">
         <div className="card p-6" role="alert">
           {error}
         </div>
@@ -94,7 +94,7 @@ export default function ProfilePage() {
 
   if (!data) {
     return (
-      <main className="mx-auto max-w-3xl px-6 py-12">
+      <main className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-10">
         <p className="flex items-center gap-2 text-sm text-text-faint">
           <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
           Loading your profile…
@@ -107,9 +107,9 @@ export default function ProfilePage() {
     data.storage.data + data.storage.workspace + data.storage.exports;
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-12 space-y-6">
+    <main className="max-w-3xl mx-auto px-5 sm:px-8 py-8 sm:py-10 space-y-5">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="text-2xl font-semibold text-text">
           {data.user.display_name}
         </h1>
         <p className="mt-1 text-sm text-text-faint">
@@ -126,11 +126,11 @@ export default function ProfilePage() {
         </p>
       </header>
 
-      <section className="card p-6">
+      <section className="card p-6 sm:p-7">
         <h2 className="text-sm font-medium">Your stone</h2>
         <p className="mt-2 text-sm text-text-dim">
           {data.stone.error ? (
-            <span className="text-[var(--danger-text)]">{data.stone.error}</span>
+            <span className="text-danger-text">{data.stone.error}</span>
           ) : data.stone.imported ? (
             <>
               Imported{data.stone.name ? ` — ${data.stone.name}` : ""}. Every
@@ -145,7 +145,7 @@ export default function ProfilePage() {
         </p>
       </section>
 
-      <section className="card p-6">
+      <section className="card p-6 sm:p-7">
         <h2 className="text-sm font-medium">Your cabinet</h2>
         <dl className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
@@ -170,7 +170,7 @@ export default function ProfilePage() {
 
       <ChangePassword passwordSetAt={data.password_set_at} onChanged={load} />
 
-      <section className="card p-6">
+      <section className="card p-6 sm:p-7">
         <h2 className="flex items-center gap-2 text-sm font-medium">
           <MonitorSmartphone className="w-4 h-4" aria-hidden />
           Where you are signed in
@@ -184,7 +184,7 @@ export default function ProfilePage() {
               <span className="truncate text-text-dim">
                 {session.user_agent || "Unknown browser"}
                 {session.current && (
-                  <span className="ml-2 text-xs text-[var(--accent-text)]">
+                  <span className="ml-2 text-xs text-accent-text">
                     this one
                   </span>
                 )}
@@ -249,7 +249,7 @@ function ChangePassword({
   }
 
   return (
-    <section className="card p-6">
+    <section className="card p-6 sm:p-7">
       <h2 className="flex items-center gap-2 text-sm font-medium">
         <KeyRound className="w-4 h-4" aria-hidden />
         Password
@@ -304,7 +304,7 @@ function ChangePassword({
             disabled={busy}
           />
           {mismatch && (
-            <p className="mt-1.5 text-xs text-[var(--danger-text)]">
+            <p className="mt-1.5 text-xs text-danger-text">
               These do not match.
             </p>
           )}
@@ -314,7 +314,7 @@ function ChangePassword({
           <p
             role="status"
             className={`text-sm ${
-              message.ok ? "text-text-dim" : "text-[var(--danger-text)]"
+              message.ok ? "text-text-dim" : "text-danger-text"
             }`}
           >
             {message.text}

@@ -2,6 +2,75 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — Facet 3.0: lit graphite, and a landing page a stranger can read
+
+A UI/UX sprint. No backend file changed; `git diff --stat backend` is empty and
+`test_multiuser`, `test_auth` and `test_admin` all still pass.
+
+**The reported bug, and its root cause.** The Sign In button had "a large
+circular element inside it". `.btn-cap` is a fixed 20px disc that holds one
+icon — and four screens had wrapped their *label* in it, so the text was
+clipped to a circle. Fixed at all five call sites, with the constraint written
+into the class's own comment so the next person doesn't rediscover it.
+
+**Why the admin portal looked broken.** It, the profile page, login and
+set-password were all written against `.card`, `--text-muted` and
+`--danger-text`. None of the three had ever existed. A CSS class that doesn't
+exist isn't an error — it's just no styling — and `var(--nope)` silently
+inherits, so TypeScript, eslint and `next build` were all perfectly happy while
+four screens rendered as unstyled boxes. `.card` is now a real class, the two
+properties are real properties, and `scripts/check-design-system.mjs` fails the
+build on any class or custom property that resolves to nothing. Verified it
+fails: reintroducing each bug shape produces a named error, and the fixed tree
+passes.
+
+**A `backdrop-filter` bug that predates this sprint.** Every glass surface
+declared the standard property first and `-webkit-` second; the minifier
+collapses the pair and keeps the last, so the shipped CSS had *only* the
+prefixed form and the blur did nothing in Firefox. Order swapped everywhere —
+both properties now survive minification, checked against the built stylesheet.
+
+**The palette.** Cool blue-slate surfaces replacing neutral graphite, and an
+accent with real chroma (`#4a76f0`, white on it 4.9:1; the ink form 6.8:1 on
+the background). Semantic colours gained `-text` variants for the same reason
+the accent has one: a fill dark enough for white text is too dark to be text.
+
+**Glass, slightly more transparent.** `--glass-1/2/3` and `--glass-blur` in one
+place; `.panel`, `.card` and `.btn-default` are translucent over the new
+background, `.chrome` stays the most opaque thing on screen because a
+translucent nav over a translucent panel is three layers of haze.
+`prefers-reduced-transparency` reverts all of it and removes the background.
+
+**The background.** `AmbientField` — two slowly drifting radial glints and a
+faint triangular lattice, which is the pavilion pattern of a brilliant cut and
+also the one tiling that needs no image file. A server component with no
+JavaScript: two CSS keyframes on composited layers, no canvas, no rAF, no
+network request. It is what every translucent surface is translucent *to* —
+without it the glass has nothing to show and reads as muddy grey.
+
+**Motion.** Four durations instead of two, and a fourth curve (`--ease-emph`)
+for things that travel far — the curve that feels crisp on a 4px nav indicator
+reads as a snap on a 30rem sheet. `--ease-exit` stopped being `linear`, which
+at these durations read as a dropped frame. `lib/motion.ts` re-synced, plus
+`ENTER_EMPH` and a spring for direct manipulation.
+
+**The landing page flow.** `/` used to ask the backend whether a profile
+existed and bounce you to `/rough` — which, once Facet grew a login, meant a
+stranger's first request was a 401 and their first screen was a password box
+for a product nobody had described to them. `/` is now a static, public product
+page that never redirects; only the primary button resolves against the
+session. `/welcome` is deleted and About is folded in, per the brief. The nav
+follows: app links only when you are actually in the app, brand-only on the
+auth screens, and a Sign in button on the landing page.
+
+Also: the admin account list is a row grid that becomes cards below `md` (four
+action buttons and an email address do not fit in 40em, and `overflow-x-auto`
+only hid that by scrolling the actions out of sight); per-row pending state, so
+Suspend on a slow link no longer looks like nothing happened; the account menu
+became glass with a proper origin-anchored entrance; the recharts theme was
+still wearing the 2.0 greys; and admin/profile/status now use the same page
+shell as every other page, which they didn't.
+
 ## 2026-07-29 — Administrators, profiles, and a queue you can see
 
 Three additions and two leaks closed.

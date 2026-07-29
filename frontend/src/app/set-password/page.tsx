@@ -15,6 +15,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, Loader2 } from "lucide-react";
 
 const MIN_LENGTH = 12;
 
@@ -65,7 +66,7 @@ function SetPasswordForm() {
     return (
       <div className="card p-8">
         <h1 className="text-2xl font-semibold tracking-tight">This link is incomplete</h1>
-        <p className="mt-3 text-sm text-[var(--text-muted)]">
+        <p className="mt-3 text-sm text-text-muted">
           Open the full link you were sent — it ends in a long code. If it has
           expired, ask for a new one.
         </p>
@@ -74,14 +75,14 @@ function SetPasswordForm() {
   }
 
   return (
-    <div className="card p-8">
+    <div className="card p-8 sm:p-10">
       <h1 className="text-2xl font-semibold tracking-tight">Choose a password</h1>
-      <p className="mt-2 text-sm text-[var(--text-muted)]">
+      <p className="mt-2 text-sm text-text-muted">
         At least {MIN_LENGTH} characters. A short phrase you can remember beats
         a short password you cannot.
       </p>
 
-      <form onSubmit={submit} className="mt-6 space-y-4">
+      <form onSubmit={submit} className="mt-7 space-y-4">
         <div>
           <label htmlFor="password" className="mb-1.5 block text-sm font-medium">
             New password
@@ -101,7 +102,7 @@ function SetPasswordForm() {
           <p
             id="length-hint"
             className={`mt-1.5 text-xs ${
-              tooShort ? "text-[var(--danger-text)]" : "text-[var(--text-muted)]"
+              tooShort ? "text-danger-text" : "text-text-muted"
             }`}
           >
             {tooShort
@@ -128,7 +129,7 @@ function SetPasswordForm() {
             disabled={busy}
           />
           {mismatch && (
-            <p id="match-hint" className="mt-1.5 text-xs text-[var(--danger-text)]">
+            <p id="match-hint" className="mt-1.5 text-xs text-danger-text">
               These do not match.
             </p>
           )}
@@ -138,15 +139,33 @@ function SetPasswordForm() {
           <div
             role="alert"
             aria-live="polite"
-            className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-sm"
+            className="rounded-md border border-danger-border bg-danger-soft px-3 py-2 text-sm"
           >
             <p className="font-medium">{error.error}</p>
-            {error.hint && <p className="mt-1 text-[var(--text-muted)]">{error.hint}</p>}
+            {error.hint && <p className="mt-1 text-text-muted">{error.hint}</p>}
           </div>
         )}
 
-        <button type="submit" className="btn btn-primary btn-lg w-full" disabled={!ready}>
-          <span className="btn-cap">{busy ? "Saving…" : "Set password and sign in"}</span>
+        {/* Label in the button, icon in the cap — see the note in login. */}
+        <button
+          type="submit"
+          className="btn btn-primary btn-lg w-full"
+          disabled={!ready}
+          aria-busy={busy || undefined}
+        >
+          {busy ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+              Saving…
+            </>
+          ) : (
+            <>
+              Set password and sign in
+              <span className="btn-cap" aria-hidden>
+                <ArrowRight className="w-3 h-3" />
+              </span>
+            </>
+          )}
         </button>
       </form>
     </div>

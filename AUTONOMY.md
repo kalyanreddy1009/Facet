@@ -12,7 +12,8 @@ Read `README.md` and `workspace/RULES.md` before your first change.
 
 **Goal:** the best local job-search app a single person can run — the frontend
 should feel like a product someone chose, not a dashboard someone generated.
-Pages today: `/welcome`, `/tailor`, `/rough`, `/cabinet`, `/stone`, `/status`.
+Pages today: `/` (landing), `/login`, `/set-password`, `/tailor`, `/rough`,
+`/cabinet`, `/stone`, `/profile`, `/admin`, `/status`.
 
 **Loop, one pass per iteration:**
 

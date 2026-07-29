@@ -10,11 +10,18 @@
  *
  * So this page redirects a non-admin rather than hiding controls: showing
  * someone a screen where every action fails is worse than not showing it.
+ *
+ * Layout note — the account list is a row grid on a wide screen and a stack of
+ * cards below `md`. It used to be a real table at every width with four action
+ * buttons in the last cell, which is what produced the overlapping,
+ * horizontally-scrolling mess on a laptop: four buttons plus an email address
+ * do not fit in 40em, and `overflow-x-auto` only hides that by scrolling the
+ * actions out of sight.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Copy, Loader2, Shield } from "lucide-react";
+import { Check, Copy, Loader2, Plus, Shield, UserPlus } from "lucide-react";
 
 import { useSession } from "@/lib/useSession";
 
@@ -30,6 +37,10 @@ interface AdminUser {
   has_password: boolean;
   sessions: number;
 }
+
+/** The column template, written once. Header and rows drifting apart is the
+ *  classic way a "table" made of grids ends up misaligned. */
+const COLUMNS = "md:grid-cols-[minmax(0,1fr)_10rem_5rem_auto]";
 
 async function call(path: string, options: RequestInit = {}) {
   const response = await fetch(path, {
@@ -54,6 +65,9 @@ export default function AdminPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  /** Which row is mid-request. Without it, Suspend on a slow connection looks
+   *  like nothing happened, which invites a second click. */
+  const [pending, setPending] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -74,7 +88,7 @@ export default function AdminPage() {
 
   if (loading || !session?.user?.is_admin) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-12">
+      <main className="max-w-5xl mx-auto px-5 sm:px-8 py-8 sm:py-10">
         <p className="flex items-center gap-2 text-sm text-text-faint">
           <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
           Checking…
@@ -83,18 +97,18 @@ export default function AdminPage() {
     );
   }
 
-  async function act(path: string, body?: object) {
+  async function act(id: number, path: string, body?: object) {
     setError(null);
+    setPending(id);
     try {
-      const result = await call(path, {
-        method: "POST",
-        body: JSON.stringify(body || {}),
-      });
+      const result = await call(path, { method: "POST", body: JSON.stringify(body || {}) });
       await refresh();
       return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       return null;
+    } finally {
+      setPending(null);
     }
   }
 
@@ -118,153 +132,206 @@ export default function AdminPage() {
     }
   }
 
+  const currentEmail = session.user.email;
+
   return (
-    <main className="mx-auto max-w-4xl px-6 py-12 space-y-6">
-      <header>
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Shield className="w-5 h-5" aria-hidden />
-          Manage users
-        </h1>
-        <p className="mt-1 text-sm text-text-faint">
-          Everyone here shares one Facet, and each has their own stone, cabinet
-          and exports. Nobody can see anyone else&rsquo;s.
-        </p>
+    <main className="max-w-5xl mx-auto px-5 sm:px-8 py-8 sm:py-10 space-y-7">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="flex items-center gap-2.5 text-2xl font-semibold text-text">
+            <Shield className="w-5 h-5 text-accent-text" aria-hidden />
+            People
+          </h1>
+          <p className="mt-2 text-sm text-text-dim max-w-prose text-pretty">
+            Everyone here shares one Facet, and each has their own stone, cabinet and exports.
+            Nobody can see anyone else&rsquo;s — including you.
+          </p>
+        </div>
+        {users && (
+          <p className="text-sm text-text-faint tnum">
+            {users.length} account{users.length === 1 ? "" : "s"}
+          </p>
+        )}
       </header>
 
       {error && (
         <div
           role="alert"
-          className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-sm"
+          aria-live="polite"
+          className="rounded border border-danger-border bg-danger-soft px-3.5 py-2.5 text-sm"
         >
           {error}
         </div>
       )}
 
-      <section className="card p-6">
-        <h2 className="text-sm font-medium">Add someone</h2>
-        <form onSubmit={addUser} className="mt-3 flex flex-wrap gap-2">
-          <input
-            type="email"
-            className="field flex-1 min-w-[16rem]"
-            placeholder="name@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
+      {/* ------------------------------------------------------- add someone */}
+      <section className="card p-6 sm:p-7">
+        <h2 className="flex items-center gap-2 text-sm font-medium">
+          <UserPlus className="w-4 h-4 text-text-faint" aria-hidden />
+          Add someone
+        </h2>
+        {/* Grid, not flex-wrap: at a middle width flex-wrap dropped the button
+            onto its own full-width line, which read as a second and more
+            important action than the one it completes. */}
+        <form onSubmit={addUser} className="mt-4 grid gap-2.5 sm:grid-cols-[1.4fr_1fr_auto]">
+          <div>
+            <label htmlFor="new-email" className="sr-only">
+              Email address
+            </label>
+            <input
+              id="new-email"
+              type="email"
+              className="field field-lg"
+              placeholder="name@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={busy}
+            />
+          </div>
+          <div>
+            <label htmlFor="new-name" className="sr-only">
+              Display name (optional)
+            </label>
+            <input
+              id="new-name"
+              type="text"
+              className="field field-lg"
+              placeholder="Display name (optional)"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <button
+            type="submit"
+            className="btn btn-lg btn-primary"
             disabled={busy}
-          />
-          <input
-            type="text"
-            className="field flex-1 min-w-[12rem]"
-            placeholder="Display name (optional)"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={busy}
-          />
-          <button type="submit" className="btn btn-primary" disabled={busy}>
-            <span className="btn-cap">{busy ? "Adding…" : "Add user"}</span>
+            aria-busy={busy || undefined}
+          >
+            {busy ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+                Adding…
+              </>
+            ) : (
+              <>
+                Add user
+                <span className="btn-cap" aria-hidden>
+                  <Plus className="w-3 h-3" />
+                </span>
+              </>
+            )}
           </button>
         </form>
 
         {invite && <InviteLink email={invite.email} url={invite.url} />}
       </section>
 
-      <section className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-xs text-text-faint">
-                <th className="px-4 py-2 font-medium">Person</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Sessions</th>
-                <th className="px-4 py-2 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(users || []).map((user) => (
-                <tr key={user.id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="font-medium">
-                      {user.display_name || user.slug}
-                      {user.is_admin && (
-                        <span className="ml-2 text-xs text-text-faint">admin</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-text-faint">{user.email}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="text-text-dim">{user.status}</span>
-                    {!user.has_password && (
-                      /* The state that looks like a bug to whoever sent the
-                         invite: the account exists but nobody has claimed it. */
-                      <div className="text-xs text-text-faint">
-                        no password set yet
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 tabular-nums text-text-dim">
-                    {user.sessions}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap justify-end gap-1.5">
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={async () => {
-                          const result = await act(`/api/admin/users/${user.id}/invite`);
-                          if (result) {
-                            setInvite({ email: user.email, url: result.invite_url });
-                          }
-                        }}
-                        title="A fresh one-time link. This is the password reset."
-                      >
-                        <span className="btn-cap">Sign-in link</span>
-                      </button>
+      {/* --------------------------------------------------- the account list */}
+      {users === null ? (
+        <p className="flex items-center gap-2 text-sm text-text-faint">
+          <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+          Loading accounts…
+        </p>
+      ) : (
+        <section aria-label="Accounts" className="space-y-2.5">
+          {/* Headings for the wide form only. The stacked form repeats its own
+              labels inline, so a second set here would be announced twice. */}
+          <div className={`hidden md:grid ${COLUMNS} gap-4 px-5 pb-1 label`}>
+            <span>Person</span>
+            <span>Status</span>
+            <span>Sessions</span>
+            <span className="text-right">Actions</span>
+          </div>
 
-                      <button
-                        className="btn btn-ghost btn-sm"
-                        onClick={() =>
-                          act(`/api/admin/users/${user.id}/revoke-sessions`)
-                        }
-                        disabled={user.sessions === 0}
-                        title="Sign them out of every browser. For a lost laptop."
-                      >
-                        <span className="btn-cap">Sign out</span>
-                      </button>
+          {users.map((user) => (
+            <article
+              key={user.id}
+              className={`panel panel-lit row-hover p-5 md:py-3.5 grid gap-3 md:items-center md:gap-4 ${COLUMNS}`}
+            >
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 font-medium">
+                  <span className="truncate">{user.display_name || user.slug}</span>
+                  {user.is_admin && <span className="badge badge-accent shrink-0">admin</span>}
+                </p>
+                <p className="text-xs text-text-faint truncate">{user.email}</p>
+              </div>
 
-                      {user.status === "suspended" ? (
-                        <button
-                          className="btn btn-default btn-sm"
-                          onClick={() => act(`/api/admin/users/${user.id}/resume`)}
-                        >
-                          <span className="btn-cap">Resume</span>
-                        </button>
-                      ) : (
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => act(`/api/admin/users/${user.id}/suspend`)}
-                          disabled={user.email === session.user?.email}
-                          title={
-                            user.email === session.user?.email
-                              ? "You cannot suspend your own account"
-                              : "Stops their access. Their data is untouched."
-                          }
-                        >
-                          <span className="btn-cap">Suspend</span>
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className={`dot ${user.status === "suspended" ? "dot-warn" : "dot-ok"}`}
+                  aria-hidden
+                />
+                <span className="text-sm text-text-dim capitalize">{user.status}</span>
+                {!user.has_password && (
+                  /* The state that looks like a bug to whoever sent the
+                     invite: the account exists but nobody has claimed it. */
+                  <span className="badge shrink-0" title="The invite link has not been used yet">
+                    unclaimed
+                  </span>
+                )}
+              </div>
 
-      <p className="text-xs text-text-faint">
-        Deleting an account and restoring a backup are deliberately not here —
-        they live in the control plane on port 9000, reachable over SSH. A
-        button that destroys somebody&rsquo;s career record should take more
-        than one click from a browser tab left open.
+              <p className="text-sm text-text-dim tnum">
+                <span className="md:hidden text-text-faint">Sessions: </span>
+                {user.sessions}
+              </p>
+
+              <div className="flex flex-wrap md:justify-end gap-1.5">
+                <button
+                  className="btn btn-ghost btn-sm"
+                  disabled={pending === user.id}
+                  onClick={async () => {
+                    const result = await act(user.id, `/api/admin/users/${user.id}/invite`);
+                    if (result) setInvite({ email: user.email, url: result.invite_url });
+                  }}
+                  title="A fresh one-time link. This is the password reset."
+                >
+                  Sign-in link
+                </button>
+
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => act(user.id, `/api/admin/users/${user.id}/revoke-sessions`)}
+                  disabled={user.sessions === 0 || pending === user.id}
+                  title="Sign them out of every browser. For a lost laptop."
+                >
+                  Sign out
+                </button>
+
+                {user.status === "suspended" ? (
+                  <button
+                    className="btn btn-default btn-sm"
+                    disabled={pending === user.id}
+                    onClick={() => act(user.id, `/api/admin/users/${user.id}/resume`)}
+                  >
+                    Resume
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => act(user.id, `/api/admin/users/${user.id}/suspend`)}
+                    disabled={user.email === currentEmail || pending === user.id}
+                    title={
+                      user.email === currentEmail
+                        ? "You cannot suspend your own account"
+                        : "Stops their access. Their data is untouched."
+                    }
+                  >
+                    Suspend
+                  </button>
+                )}
+              </div>
+            </article>
+          ))}
+        </section>
+      )}
+
+      <p className="text-xs text-text-faint max-w-prose text-pretty">
+        Deleting an account and restoring a backup are deliberately not here — they live in the
+        control plane on port 9000, reachable over SSH. A button that destroys somebody&rsquo;s
+        career record should take more than one click from a browser tab left open.
       </p>
     </main>
   );
@@ -274,19 +341,19 @@ function InviteLink({ email, url }: { email: string; url: string }) {
   const [copied, setCopied] = useState(false);
 
   return (
-    <div className="mt-4 rounded-md border border-[var(--accent-border)] bg-[var(--accent-soft)] p-3">
+    <div className="mt-5 rounded-lg border border-accent-border bg-accent-soft p-4">
       <p className="text-sm font-medium">Sign-in link for {email}</p>
-      <p className="mt-0.5 text-xs text-text-faint">
-        Copy it now — only its digest is stored, so it cannot be shown again.
-        Works once, expires in a week. Facet sends no email; pass it on
-        yourself.
+      <p className="mt-1 text-xs text-text-dim text-pretty">
+        Copy it now — only its digest is stored, so it cannot be shown again. Works once, expires in
+        a week. Facet sends no email; pass it on yourself.
       </p>
-      <div className="mt-2 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <input
           readOnly
           value={url}
+          aria-label={`Sign-in link for ${email}`}
           onFocus={(e) => e.currentTarget.select()}
-          className="field flex-1 font-mono text-xs"
+          className="field flex-1 min-w-[14rem] mono text-xs"
         />
         <button
           className="btn btn-default"
@@ -296,10 +363,17 @@ function InviteLink({ email, url }: { email: string; url: string }) {
             setTimeout(() => setCopied(false), 2000);
           }}
         >
-          <span className="btn-cap flex items-center gap-1.5">
-            <Copy className="w-3.5 h-3.5" aria-hidden />
-            {copied ? "Copied" : "Copy"}
-          </span>
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5" aria-hidden />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" aria-hidden />
+              Copy
+            </>
+          )}
         </button>
       </div>
     </div>

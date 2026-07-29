@@ -18,6 +18,7 @@ const config: Config = {
         text: {
           DEFAULT: "var(--text)",
           dim: "var(--text-dim)",
+          muted: "var(--text-muted)",
           faint: "var(--text-faint)",
           ghost: "var(--text-ghost)",
         },
@@ -37,19 +38,24 @@ const config: Config = {
         },
         ok: {
           DEFAULT: "var(--ok)",
+          text: "var(--ok-text)",
           soft: "var(--ok-soft)",
           border: "var(--ok-border)",
         },
         warn: {
           DEFAULT: "var(--warn)",
+          text: "var(--warn-text)",
           soft: "var(--warn-soft)",
           border: "var(--warn-border)",
         },
         danger: {
           DEFAULT: "var(--danger)",
+          text: "var(--danger-text)",
           soft: "var(--danger-soft)",
           border: "var(--danger-border)",
         },
+        // Decoration only — the ambient field and the hero. Never a control.
+        glint: "var(--glint)",
         neutral: {
           DEFAULT: "var(--neutral)",
           soft: "var(--neutral-soft)",
@@ -86,16 +92,20 @@ const config: Config = {
       transitionTimingFunction: {
         DEFAULT: "var(--ease)",
         out: "var(--ease-out)",
+        emph: "var(--ease-emph)",
         exit: "var(--ease-exit)",
       },
       transitionDuration: {
-        fast: "100ms",
-        DEFAULT: "160ms",
-        slow: "260ms",
+        fast: "120ms",
+        DEFAULT: "200ms",
+        slow: "320ms",
+        slower: "520ms",
       },
       boxShadow: {
         // Neutral black only. A coloured shadow is the fastest way to look fake.
         popover: "0 8px 24px rgba(0,0,0,0.5)",
+        raised: "var(--shadow-raised)",
+        float: "var(--shadow-float)",
       },
       maxWidth: {
         shell: "1320px",

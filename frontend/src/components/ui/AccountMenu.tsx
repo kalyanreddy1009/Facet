@@ -16,12 +16,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { LogOut, Shield, User as UserIcon } from "lucide-react";
 
+import { ENTER, EXIT, REDUCED } from "@/lib/motion";
 import { refreshSession, useSession } from "@/lib/useSession";
 
 export default function AccountMenu() {
   const router = useRouter();
+  const reduced = useReducedMotion();
   const { session } = useSession();
   const [open, setOpen] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
@@ -80,50 +83,58 @@ export default function AccountMenu() {
         </span>
       </button>
 
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 mt-1.5 w-60 rounded-md border border-border bg-surface-2 shadow-lg py-1 z-50"
-        >
-          <div className="px-3 py-2 border-b border-border">
-            <p className="text-sm font-medium truncate">{user.display_name}</p>
-            {/* The address, because on a shared deployment "which account am
-                I in" is a real question and the display name may not answer it. */}
-            <p className="text-xs text-text-faint truncate">{user.email}</p>
-          </div>
-
-          <Link
-            href="/profile"
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 px-3 py-2 text-sm text-text-dim hover:text-text hover:bg-surface-3"
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={reduced ? false : { opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98, transition: reduced ? REDUCED : EXIT }}
+            transition={reduced ? REDUCED : ENTER}
+            // Scales from the button it belongs to, not from its own middle.
+            style={{ transformOrigin: "top right" }}
+            className="absolute right-0 mt-2 w-60 rounded-lg chrome shadow-popover py-1 z-50 overflow-hidden"
           >
-            <UserIcon className="w-4 h-4" aria-hidden />
-            Your profile
-          </Link>
+            <div className="px-3 py-2.5 border-b border-border">
+              <p className="text-sm font-medium truncate">{user.display_name}</p>
+              {/* The address, because on a shared deployment "which account am
+                  I in" is a real question the display name may not answer. */}
+              <p className="text-xs text-text-faint truncate">{user.email}</p>
+            </div>
 
-          {user.is_admin && (
             <Link
-              href="/admin"
+              href="/profile"
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-text-dim hover:text-text hover:bg-surface-3"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-text-dim hover:text-text hover:bg-surface-3 transition-colors duration-fast"
             >
-              <Shield className="w-4 h-4" aria-hidden />
-              Manage users
+              <UserIcon className="w-4 h-4" aria-hidden />
+              Your profile
             </Link>
-          )}
 
-          <button
-            role="menuitem"
-            onClick={signOut}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-dim hover:text-text hover:bg-surface-3 border-t border-border mt-1"
-          >
-            <LogOut className="w-4 h-4" aria-hidden />
-            Sign out
-          </button>
-        </div>
-      )}
+            {user.is_admin && (
+              <Link
+                href="/admin"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-text-dim hover:text-text hover:bg-surface-3 transition-colors duration-fast"
+              >
+                <Shield className="w-4 h-4" aria-hidden />
+                Manage users
+              </Link>
+            )}
+
+            <button
+              role="menuitem"
+              onClick={signOut}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-dim hover:text-text hover:bg-surface-3 transition-colors duration-fast border-t border-border mt-1"
+            >
+              <LogOut className="w-4 h-4" aria-hidden />
+              Sign out
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "check": "node src/lib/format.check.ts"
+    "check": "node src/lib/format.check.ts && node scripts/check-design-system.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

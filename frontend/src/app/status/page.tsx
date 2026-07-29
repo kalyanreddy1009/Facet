@@ -56,7 +56,7 @@ export default function StatusPage() {
   const stillStarting = unreachable && failures <= STARTUP_GRACE_ATTEMPTS;
 
   return (
-    <main className="max-w-shell mx-auto px-5 sm:px-8 py-7">
+    <main className="max-w-shell mx-auto px-5 sm:px-8 py-8 sm:py-10">
       <header className="flex flex-wrap items-start justify-between gap-4 mb-5">
         <div>
           <h1 className="text-2xl font-semibold text-text">Service status</h1>

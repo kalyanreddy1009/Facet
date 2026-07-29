@@ -15,6 +15,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowRight, Loader2 } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -84,79 +85,98 @@ function LoginForm() {
   }
 
   return (
-    <div className="card p-8">
-        <h1 className="text-2xl font-semibold tracking-tight">Sign in to Facet</h1>
-        <p className="mt-2 text-sm text-[var(--text-muted)]">
-          Your applications, your resume, your record.
-        </p>
+    <div className="card p-8 sm:p-10">
+      <h1 className="text-2xl font-semibold tracking-tight text-balance">Sign in to Facet</h1>
+      <p className="mt-2 text-sm text-text-muted text-pretty">
+        Your applications, your resume, your record.
+      </p>
 
-        {reason === "expired" && !error && (
-          <p
-            role="status"
-            className="mt-6 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm"
+      {reason === "expired" && !error && (
+        <p
+          role="status"
+          className="mt-6 rounded border border-border bg-surface-2 px-3 py-2.5 text-sm text-text-dim"
+        >
+          Your session ended. Sign in to pick up where you were.
+        </p>
+      )}
+
+      <form onSubmit={submit} className="mt-7 space-y-4">
+        <div>
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            className="field w-full"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            autoFocus
+            required
+            disabled={busy}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="mb-1.5 block text-sm font-medium">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            className="field w-full"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+            disabled={busy}
+          />
+        </div>
+
+        {error && (
+          /* aria-live, so a screen reader hears the failure. Without it the
+             form silently clears the password and appears to do nothing. */
+          <div
+            role="alert"
+            aria-live="polite"
+            className="rounded-md border border-danger-border bg-danger-soft px-3 py-2 text-sm"
           >
-            Your session ended. Sign in to pick up where you were.
-          </p>
+            <p className="font-medium">{error.error}</p>
+            {error.hint && <p className="mt-1 text-text-muted">{error.hint}</p>}
+          </div>
         )}
 
-        <form onSubmit={submit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              className="field w-full"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="username"
-              autoFocus
-              required
-              disabled={busy}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="mb-1.5 block text-sm font-medium">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              className="field w-full"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-              disabled={busy}
-            />
-          </div>
-
-          {error && (
-            /* aria-live, so a screen reader hears the failure. Without it the
-               form silently clears the password and appears to do nothing. */
-            <div
-              role="alert"
-              aria-live="polite"
-              className="rounded-md border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-sm"
-            >
-              <p className="font-medium">{error.error}</p>
-              {error.hint && (
-                <p className="mt-1 text-[var(--text-muted)]">{error.hint}</p>
-              )}
-            </div>
+        {/* The label goes in the button. `.btn-cap` is a fixed 20px disc that
+            holds one icon — wrapping the label in it clipped the text to a
+            circle, which is the "big white dot in the Sign In button" this
+            sprint was called to fix. */}
+        <button
+          type="submit"
+          className="btn btn-primary btn-lg w-full"
+          disabled={busy}
+          aria-busy={busy || undefined}
+        >
+          {busy ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+              Signing in…
+            </>
+          ) : (
+            <>
+              Sign in
+              <span className="btn-cap" aria-hidden>
+                <ArrowRight className="w-3 h-3" />
+              </span>
+            </>
           )}
+        </button>
+      </form>
 
-          <button type="submit" className="btn btn-primary btn-lg w-full" disabled={busy}>
-            <span className="btn-cap">{busy ? "Signing in…" : "Sign in"}</span>
-          </button>
-        </form>
-
-        <p className="mt-6 text-sm text-[var(--text-muted)]">
-          No account, or forgotten your password? Whoever administers this Facet
-          can send you a new sign-in link.
-        </p>
+      <p className="mt-6 text-sm text-text-muted">
+        No account, or forgotten your password? Whoever administers this Facet
+        can send you a new sign-in link.
+      </p>
     </div>
   );
 }

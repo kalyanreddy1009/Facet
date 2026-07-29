@@ -138,8 +138,9 @@ silently breaks. Env: `FACET_AGY_BIN`, `FACET_AGY_MODEL`, `FACET_AGY_TIMEOUT`.
 
 **Import (once):** resume PDF/DOCX → mechanical parse to markdown → *user
 reviews and corrects it* → saved as `master_resume.md` → background agy pass
-extracts `profile.json`. Before `profile.json` exists, `/` shows `/welcome`;
-after, `/` redirects to `/tailor`.
+extracts `profile.json`. `/` is the landing page in every case and never
+redirects; its primary button resolves to `/login` or `/tailor` depending on
+the session.
 
 **Cut a Facet:** paste or promote a JD → validated and queued (202 + job id;
 the browser polls `/api/queue/{id}` and shows position) → local keyword
@@ -166,23 +167,44 @@ have actually applied.
 
 ## 9. Frontend conventions
 
-Pages: `/welcome` (landing), `/tailor` (cut), `/rough` (job search), `/cabinet`
-(tracker + charts), `/stone` (profile/master resume), `/status`.
+Pages: `/` (landing, public), `/login` + `/set-password` (auth), `/tailor`
+(cut), `/rough` (job search), `/cabinet` (tracker + charts), `/stone`
+(profile/master resume), `/profile` (account), `/admin` (administrators only),
+`/status`.
 Shared: `components/ui/` (Button, Panel, Sheet, Segmented, EmptyState,
-Skeleton, Toaster, NavBar, LoadingOverlay, AgyHealthBanner), `lib/api.ts`
-(typed client + `ApiError`/`isAborted`), `lib/useJobs.ts`, `lib/useStatus.ts`,
-`lib/format.ts`, `lib/useToasts.tsx`, `lib/handoff.ts` (sessionStorage
-Rough→Tailor handoff).
+Skeleton, Toaster, NavBar, AccountMenu, LoadingOverlay, AgyHealthBanner,
+AmbientField), `lib/api.ts` (typed client + `ApiError`/`isAborted`),
+`lib/useJobs.ts`, `lib/useStatus.ts`, `lib/useSession.ts`, `lib/format.ts`,
+`lib/useToasts.tsx`, `lib/motion.ts` (the CSS motion tokens as numbers, for
+framer), `lib/handoff.ts` (sessionStorage Rough→Tailor handoff).
 
-**Design system — "cool graphite", enforced by tokens in `app/globals.css`:**
-four neutral surface steps; **one** accent (indigo `#4c7ef3`) for the primary
-action and current state only; green/amber/red reserved strictly for status.
-If it isn't reporting state, it isn't coloured. Depth = 1px border + surface
-step — no glows, no coloured shadows, no gradient text, no hover-scale. Inter
-for UI, JetBrains Mono for numbers. Metadata is middot-separated plain text,
-not a wall of pills; badges are rare and mean something. 32px controls, 8px
-grid, 13–14px body. Motion 100–200ms, functional only, all collapsing under
-`prefers-reduced-motion`.
+`AmbientField` is the fixed background layer — two drifting radial glints and
+a faint facet lattice, pure CSS, no JS. Every surface (`.panel`, `.card`,
+`.chrome`) is translucent over it; that is what the `--glass-*` tokens tune.
+`npm run check` runs `scripts/check-design-system.mjs`, which fails the build
+if a component uses a class or `--custom-property` that globals.css never
+defines — the failure mode that shipped four unstyled screens in July 2026.
+
+**Design system — "lit graphite", enforced by tokens in `app/globals.css`:**
+four cool blue-slate surface steps, each with a translucent `--glass-*` form;
+**one** accent (indigo `--accent` `#4a76f0` as a fill, `--accent-text`
+`#86a9ff` as ink — the same hue at two lightnesses, because neither value
+clears AA in both roles) for the primary action and current state only;
+green/amber/red reserved strictly for status. If it isn't reporting state, it
+isn't coloured. The single exception is `--glint` (cyan), allowed only in the
+ambient background and the hero, never on a control. Depth = 1px border +
+translucent surface + one neutral shadow — no glows, no coloured shadows, no
+gradient text. Inter for UI, JetBrains Mono for numbers. Metadata is
+middot-separated plain text, not a wall of pills; badges are rare and mean
+something. 32px controls, 8px grid, 13–14px body. Four motion durations
+(120/200/320/520ms) and four curves, matched to how far the thing actually
+moves; everything collapses under `prefers-reduced-motion`, and all
+translucency reverts under `prefers-reduced-transparency`.
+
+Two rules that exist because breaking them shipped bugs: `.btn-cap` is a fixed
+20px disc for **one icon**, never a label; and any `backdrop-filter` writes
+`-webkit-` **first**, standard second, or the minifier keeps only the prefixed
+form and the blur silently does nothing in Firefox.
 
 **Performance is treated as a design constraint:** filter/sort/paginate in
 SQLite so the browser holds one page; `content-visibility` on long lists;

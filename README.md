@@ -55,9 +55,11 @@ On first visit, `http://localhost:3000` shows the landing page — there's no
 (PDF or DOCX) to get started: it's mechanically parsed into markdown, you
 review/correct that markdown, save it as `master_resume.md`, and a
 background `agy` pass extracts it into `profile.json` — the structured,
-fixed scaffold every tailored resume is built from afterward. Once
-`profile.json` exists, visiting `/` redirects straight to `/tailor`; the
-landing page stays reachable at `/welcome`.
+fixed scaffold every tailored resume is built from afterward.
+
+`/` is always the landing page — it explains the product to a stranger and
+sends a returning user on to `/tailor` in one click. It never redirects, so a
+visitor is never asked for a password before being told what this is.
 
 ## Daily usage
 
