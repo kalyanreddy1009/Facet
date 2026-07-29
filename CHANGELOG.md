@@ -2,6 +2,32 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — The health banner was signing people out
+
+Reported from the live site: setting a password said *"your session has
+ended"* and reloaded instantly.
+
+`AgyHealthBanner` lives in the root layout, so it mounts on every page —
+including the two where nobody is signed in yet. It calls `/api/agy/health`,
+which requires a session, so on `/set-password` it got a 401. `api.ts` treats
+any 401 as an expired session and navigates to
+`/login?reason=expired&next=…`. The invite token was in the URL that got
+replaced, so there was nothing left on screen to click.
+
+Two fixes, because there are two mistakes:
+
+- The banner does not ask until somebody is signed in. Nobody who cannot sign
+  in yet needs to be told the AI engine is unreachable.
+- A 401 no longer redirects from `/`, `/login` or `/set-password`. On those
+  pages having no session is the normal state of the world, not an expired
+  one, and bouncing someone off a page they were invited to is unrecoverable
+  by construction. It still redirects everywhere else — an expired session in
+  the Cabinet must reach the sign-in page — and `src/lib/api.check.ts` now
+  asserts both halves.
+
+This is very likely what the two locked-out invitations hit as well: the link
+itself was fine, and the page threw them off it before they could type.
+
 ## 2026-07-29 — A QA pass, and the name in the corner
 
 A validation sprint rather than a feature one. Everything below was found by

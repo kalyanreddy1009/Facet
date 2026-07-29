@@ -28,9 +28,18 @@ const DEFAULT_TIMEOUT = 20_000;
  */
 let redirecting = false;
 
+/** The pages where a 401 is the normal state of the world, not an expired
+ *  session. Someone setting a first password *has* no session — that is the
+ *  entire point of the page they are on. Bouncing them to
+ *  `/login?reason=expired` throws away the token in their URL and tells them
+ *  their session ended, which is both untrue and unrecoverable: the link is
+ *  no longer on screen to click again. */
+const ANONYMOUS_PAGES = ["/login", "/set-password", "/"];
+
 function redirectToLogin(): void {
   if (typeof window === "undefined" || redirecting) return;
-  if (window.location.pathname.startsWith("/login")) return;
+  const here = window.location.pathname;
+  if (ANONYMOUS_PAGES.some((page) => here === page || here.startsWith(page + "/"))) return;
   redirecting = true;
   clearApiCache();
   const next = encodeURIComponent(window.location.pathname + window.location.search);

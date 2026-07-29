@@ -11,12 +11,13 @@
 import { api, clearApiCache } from "./api.ts";
 
 let calls: string[] = [];
+let unauthorized = false;
 
 globalThis.fetch = (async (url: string) => {
   calls.push(String(url));
   return {
-    ok: true,
-    status: 200,
+    ok: !unauthorized,
+    status: unauthorized ? 401 : 200,
     headers: new Map(),
     json: async () => [],
   };
@@ -56,9 +57,52 @@ async function demo() {
   await Promise.all([api.listApplications(), api.listApplications(), api.listApplications()]);
   console.assert(calls.length === 1, `three parallel reads made ${calls.length} requests`);
 
+  // 5. A 401 on a page that is *meant* to be anonymous must not navigate.
+  //
+  //    This is the bug that broke setting a password: the health banner in
+  //    the root layout calls an authenticated endpoint on every page, and the
+  //    401 sent the browser to "your session has ended" — taking the invite
+  //    token in the URL with it, so there was nothing left to click.
+  for (const page of ["/set-password", "/login", "/"]) {
+    reset();
+    unauthorized = true;
+    const location = { pathname: page, search: "?token=abc", href: page };
+    (globalThis as { window?: unknown }).window = { location };
+    try {
+      await api.listApplications();
+    } catch {
+      // A 401 still throws — callers must be able to handle it. What must not
+      // happen is the navigation.
+    }
+    console.assert(location.href === page, `a 401 on ${page} navigated to ${location.href}`);
+    delete (globalThis as { window?: unknown }).window;
+    unauthorized = false;
+  }
+
+  // ...and on a real app page it must still bounce, or an expired session
+  // leaves someone staring at errors with no way to sign in again.
+  reset();
+  unauthorized = true;
+  const cabinet = { pathname: "/cabinet", search: "", href: "/cabinet" };
+  (globalThis as { window?: unknown }).window = { location: cabinet };
+  try {
+    await api.listApplications();
+  } catch {
+    /* expected */
+  }
+  console.assert(
+    cabinet.href.startsWith("/login?reason=expired"),
+    `an expired session on /cabinet did not reach the sign-in page (${cabinet.href})`
+  );
+  delete (globalThis as { window?: unknown }).window;
+  unauthorized = false;
+
   // Any console.assert above prints but does not exit, so fail loudly here.
   if (process.exitCode) throw new Error("api cache: a check failed");
-  console.log("api cache: reuse, invalidation, poll bypass, and dedupe all hold");
+  console.log(
+    "api cache: reuse, invalidation, poll bypass, dedupe — and a 401 only " +
+      "redirects from pages that need a session"
+  );
 }
 
 const original = console.assert;

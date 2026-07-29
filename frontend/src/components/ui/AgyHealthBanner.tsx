@@ -3,18 +3,30 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import { api } from "@/lib/api";
+import { useSession } from "@/lib/useSession";
 
 /** agy missing / unauthenticated / out of quota surfaces here, once, instead
  *  of as a confusing failure later when someone tries to cut a facet. */
 export default function AgyHealthBanner() {
+  const { session } = useSession();
   const [detail, setDetail] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
+  // Signed in, or a local single-user checkout. This lives in the root
+  // layout, so it mounts on the landing and sign-in pages too — where
+  // /api/agy/health is a 401, and a 401 used to navigate the browser to
+  // "your session has ended". Someone halfway through setting a first
+  // password was thrown off the page, with the token that got them there
+  // gone from the URL. It is also just a pointless request: nobody who
+  // cannot sign in yet needs to be told the AI engine is unreachable.
+  const signedIn = session?.authenticated === true || session?.single_user === true;
+
   useEffect(() => {
+    if (!signedIn) return;
     // The backend being down is the AgyHealthBanner's business to stay quiet
     // about — pages surface that themselves when their own calls fail.
     api.agyHealth().then((res) => !res.available && setDetail(res.detail)).catch(() => {});
-  }, []);
+  }, [signedIn]);
 
   if (!detail || dismissed) return null;
 
