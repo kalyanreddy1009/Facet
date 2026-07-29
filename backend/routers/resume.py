@@ -13,7 +13,7 @@ from services.agy_runner import (
     run_agy,
 )
 from services.parser import parse_resume
-from services.paths import MASTER_RESUME_PATH, PROFILE_PATH, WORKSPACE_DIR as WORKSPACE
+from services import paths
 
 router = APIRouter()
 
@@ -43,12 +43,12 @@ Rules:
 
 @router.get("/api/profile")
 async def get_profile():
-    if not PROFILE_PATH.exists():
+    if not paths.PROFILE_PATH.exists():
         raise HTTPException(
             status_code=404,
             detail="No profile yet — import a resume first.",
         )
-    return json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    return json.loads(paths.PROFILE_PATH.read_text(encoding="utf-8"))
 
 
 @router.post("/api/resume/import")
@@ -70,9 +70,9 @@ async def import_resume(file: UploadFile):
 
 @router.get("/api/resume/master")
 async def get_master_resume():
-    if not MASTER_RESUME_PATH.exists():
+    if not paths.MASTER_RESUME_PATH.exists():
         raise HTTPException(status_code=404, detail="No master resume saved yet")
-    return {"markdown": MASTER_RESUME_PATH.read_text(encoding="utf-8")}
+    return {"markdown": paths.MASTER_RESUME_PATH.read_text(encoding="utf-8")}
 
 
 class MasterResumeBody(BaseModel):
@@ -97,7 +97,7 @@ async def run_extract_profile_job(job: dict) -> dict:
         cleanup_job_dir(job["id"])
 
     profile = parse_json_output(output)
-    PROFILE_PATH.write_text(json.dumps(profile, indent=2), encoding="utf-8")
+    paths.PROFILE_PATH.write_text(json.dumps(profile, indent=2), encoding="utf-8")
     return {"saved": True}
 
 
@@ -133,7 +133,7 @@ async def get_extraction_status():
 async def save_master_resume(body: MasterResumeBody):
     """Saves master_resume.md, then queues the profile.json extraction
     (Section 3) — the save itself doesn't wait on agy."""
-    WORKSPACE.mkdir(parents=True, exist_ok=True)
-    MASTER_RESUME_PATH.write_text(body.markdown, encoding="utf-8")
+    paths.WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
+    paths.MASTER_RESUME_PATH.write_text(body.markdown, encoding="utf-8")
     job_id = await jobs.enqueue("extract_profile", {})
     return {"saved": True, "extraction": "started", "job_id": job_id}

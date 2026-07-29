@@ -19,7 +19,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from services.paths import DATA_DIR, EXPORTS_DIR, WORKSPACE_DIR
+from services import paths
 
 logger = logging.getLogger("facet.retention")
 
@@ -84,7 +84,7 @@ def sweep_exports(dry_run: bool = True, ttl_days: int | None = None,
                   db_path: Path | None = None,
                   exports_dir: Path | None = None) -> dict:
     """Remove unreferenced exports older than the TTL."""
-    exports = exports_dir or EXPORTS_DIR
+    exports = exports_dir or paths.EXPORTS_DIR
     ttl = (ttl_days if ttl_days is not None else EXPORT_TTL_DAYS) * 86400
     result: dict = {"removed": [], "kept_referenced": 0, "kept_recent": 0,
                     "bytes": 0, "dry_run": dry_run}
@@ -92,7 +92,7 @@ def sweep_exports(dry_run: bool = True, ttl_days: int | None = None,
         return result
 
     try:
-        keep = referenced_exports(db_path or (DATA_DIR / "tracker.db"))
+        keep = referenced_exports(db_path or (paths.DATA_ROOT / "tracker.db"))
     except (sqlite3.Error, OSError) as exc:
         # Missing or unreadable: keep everything. A sweep may only delete on
         # the strength of a query that actually answered.
@@ -149,8 +149,8 @@ def sweep_jobs(dry_run: bool = True, ttl_days: int | None = None,
 
 def usage(data_dir: Path | None = None, workspace_dir: Path | None = None) -> dict:
     """Disk used by this instance, and whether it is over the soft quota."""
-    data = data_dir or DATA_DIR
-    workspace = workspace_dir or WORKSPACE_DIR
+    data = data_dir or paths.DATA_ROOT
+    workspace = workspace_dir or paths.WORKSPACE_ROOT
 
     def size(path: Path) -> int:
         if not path.exists():

@@ -34,7 +34,8 @@ import time
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from services.paths import DATA_DIR
+from services import paths
+from services.paths import DATA_DIR  # host-wide: the queue is shared by design
 
 logger = logging.getLogger("facet.jobs")
 
@@ -90,14 +91,26 @@ def init_queue() -> None:
         CREATE INDEX IF NOT EXISTS idx_jobs_recent ON jobs(queued_at DESC);
         """
     )
+    # Additive, like tracker.db's: a queue written by the single-user build
+    # has no user_slug, and those rows are the local user's by definition.
+    # `user_id` above is the old integer column and stays untouched.
+    existing = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+    if "user_slug" not in existing:
+        conn.execute("ALTER TABLE jobs ADD COLUMN user_slug TEXT")
     conn.commit()
 
 
 async def _run(fn, *args):
-    """Every queue statement goes through one lock and the threadpool, for
-    the same reason tracker.db does: keep sqlite off the event loop."""
+    """Every queue statement goes through one lock and a thread, for the same
+    reason tracker.db does: keep sqlite off the event loop.
+
+    `asyncio.to_thread`, not `run_in_executor` — it copies the caller's
+    context, which is what carries the current user into the thread. The queue
+    database itself is host-wide, but handlers dispatched from here read the
+    user's own files.
+    """
     async with _lock:
-        return await asyncio.get_running_loop().run_in_executor(None, fn, *args)
+        return await asyncio.to_thread(fn, *args)
 
 
 def _row_to_job(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -113,10 +126,14 @@ def _row_to_job(row: sqlite3.Row | None) -> dict[str, Any] | None:
 
 def _enqueue(kind: str, payload: dict, user_id: int | None) -> int:
     conn = _connect()
+    # Stamped from the ambient identity rather than passed in by each caller.
+    # A job that forgot to record its owner would be run by the worker as
+    # whoever happened to be current — which is nobody, so it would read the
+    # shared directory instead of the person's own.
     cur = conn.execute(
-        "INSERT INTO jobs (user_id, kind, status, payload, queued_at) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (user_id, kind, QUEUED, json.dumps(payload), time.time()),
+        "INSERT INTO jobs (user_id, user_slug, kind, status, payload, queued_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (user_id, paths.get_user(), kind, QUEUED, json.dumps(payload), time.time()),
     )
     conn.commit()
     return cur.lastrowid
@@ -428,6 +445,18 @@ async def worker_loop(handlers: dict[str, Handler]) -> None:
 
 
 async def _execute(job: dict, handlers: dict[str, Handler]) -> None:
+    """Run one job as the user who queued it.
+
+    The whole body is inside `user_scope`, so the handler — and everything it
+    touches, including tracker.db and the workspace — resolves to that user's
+    files. Without it the worker serves every job as nobody and writes each
+    person's tailored resume into the shared directory.
+    """
+    with paths.user_scope(job.get("user_slug")):
+        await _execute_scoped(job, handlers)
+
+
+async def _execute_scoped(job: dict, handlers: dict[str, Handler]) -> None:
     job_id, kind = job["id"], job["kind"]
     started = time.monotonic()
     handler = handlers.get(kind)

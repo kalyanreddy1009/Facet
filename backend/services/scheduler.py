@@ -6,12 +6,47 @@ from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from services import paths
 from services.calendar_sync import run_calendar_sync
 from services.feed_ingest import run_feed_ingest
 
 logger = logging.getLogger("facet.scheduler")
 
 _scheduler = BackgroundScheduler()
+
+
+def for_each_user(fn):
+    """Run a scheduled job once per active user, as that user.
+
+    Scheduled work has no request to inherit an identity from, so without
+    this every poll would run as nobody: one shared feed pull writing into
+    the shared directory while ten people's databases stay empty.
+
+    One user's failure must not skip the rest — a bad calendar URL in one
+    account would otherwise silently stop everyone's sync.
+    """
+
+    def run_for_all():
+        from services import identity
+
+        if not identity.multiuser_enabled():
+            fn()
+            return
+
+        from control import store
+
+        for user in store.list_users():
+            if user["status"] != "active":
+                continue
+            try:
+                with paths.user_scope(user["slug"]):
+                    fn()
+            except Exception:
+                logger.exception("[Facet] scheduled %s failed for %s",
+                                 fn.__name__, user["slug"])
+
+    run_for_all.__name__ = f"{fn.__name__}_for_each_user"
+    return run_for_all
 
 
 def run_retention_sweep() -> None:
@@ -43,7 +78,7 @@ def start_scheduler():
         # an empty list for 24 hours. coalesce+max_instances keep a slow pull
         # from stacking up behind itself.
         _scheduler.add_job(
-            run_feed_ingest,
+            for_each_user(run_feed_ingest),
             "interval",
             hours=6,
             id="feed_ingest",
@@ -54,7 +89,7 @@ def start_scheduler():
             next_run_time=datetime.now() + timedelta(seconds=10),
         )
         _scheduler.add_job(
-            run_calendar_sync,
+            for_each_user(run_calendar_sync),
             "interval",
             hours=24,
             id="calendar_sync_daily",
@@ -65,7 +100,7 @@ def start_scheduler():
         # aged-out job rows — anything attached to an application is part of
         # the user's record and is never touched. See services/retention.py.
         _scheduler.add_job(
-            run_retention_sweep,
+            for_each_user(run_retention_sweep),
             "interval",
             hours=24,
             id="retention_daily",

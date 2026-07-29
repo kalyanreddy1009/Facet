@@ -1,18 +1,33 @@
 """SQLite access for tracker.db — the Cabinet's applications/contacts/
 interviews tables (Section 10), plus seen_postings (Section 9's feed dedup).
 
-A single shared connection, serialized behind an asyncio.Lock and run in a
-thread executor, stands in for "a small connection pool" (Section 14) —
-SQLite itself only supports one writer at a time, so a real multi-connection
-pool buys nothing here; this just keeps every call off the event loop.
+One connection per user, each serialized behind a single asyncio.Lock and run
+in a thread, stands in for "a small connection pool" (Section 14) — SQLite
+itself only supports one writer at a time, so a real multi-connection pool
+buys nothing here; this just keeps every call off the event loop.
+
+Multi-user
+----------
+Each user has their own `tracker.db`, so isolation is a property of the
+filesystem rather than of every query carrying a `WHERE user_id = ?`. One
+forgotten clause in a shared-table design shows someone a colleague's job
+applications; here the equivalent mistake cannot be written.
+
+Connections are cached per user because opening one is cheap but not free,
+and because the `dedup_key` function has to be registered on each.
+
+**Queries dispatch with `asyncio.to_thread`, not `run_in_executor`.** That is
+load-bearing: `run_in_executor` does not carry ContextVars into the worker
+thread, so every query would resolve `paths.DB_PATH` with no user current and
+quietly read the wrong database. `to_thread` copies the calling context.
 """
 
 import asyncio
 import sqlite3
 
-from services.paths import DB_PATH  # noqa: F401  (re-exported; imported widely)
+from services import paths
 
-_connection: sqlite3.Connection | None = None
+_connections: dict[str | None, sqlite3.Connection] = {}
 _lock = asyncio.Lock()
 
 
@@ -29,24 +44,50 @@ def apply_pragmas(conn: sqlite3.Connection) -> None:
 
 
 def _get_connection() -> sqlite3.Connection:
-    global _connection
-    if _connection is None:
-        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _connection = sqlite3.connect(str(DB_PATH), check_same_thread=False)
-        _connection.row_factory = sqlite3.Row
-        apply_pragmas(_connection)
+    """The current user's connection, opened and schema-initialised on demand.
+
+    Keyed by user rather than by path: two users can never collide on a cache
+    entry even if a future layout gave them the same filename.
+    """
+    user = paths.get_user()
+    conn = _connections.get(user)
+    if conn is None:
+        db_path = paths.DB_PATH
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        apply_pragmas(conn)
         # SQLite has no REGEXP, and the repost-suffix rule needs one. Registering
         # the same Python function the ingest side uses keeps one definition of
         # "these two rows are the same posting" instead of a SQL re-implementation
         # that drifts. Imported here, not at module scope: job_sources imports db.
         from services.job_sources import dedup_key
 
-        _connection.create_function("dedup_key", 3, dedup_key, deterministic=True)
-    return _connection
+        conn.create_function("dedup_key", 3, dedup_key, deterministic=True)
+        _connections[user] = conn
+        # A new user's database is empty until this runs. Doing it here rather
+        # than at startup is what lets a user be added without a restart.
+        _create_schema(conn)
+    return conn
+
+
+def close_all() -> None:
+    """Close every cached connection. For tests and shutdown."""
+    for conn in _connections.values():
+        conn.close()
+    _connections.clear()
 
 
 def init_db():
-    conn = _get_connection()
+    """Open and initialise the current user's database.
+
+    The schema work now happens inside `_get_connection`, so this is only the
+    explicit entry point kept for startup and the scripts that call it.
+    """
+    _get_connection()
+
+
+def _create_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS applications (
@@ -201,10 +242,14 @@ def _execute_sync(query, params):
     return cur.lastrowid
 
 
+# `asyncio.to_thread`, never `loop.run_in_executor`. to_thread copies the
+# caller's context into the worker thread; run_in_executor does not. With
+# run_in_executor the ContextVar holding the current user arrives unset, every
+# query resolves to the no-user database, and nothing raises — the reads just
+# come back from the wrong file. See the module docstring.
 async def fetch_all(query: str, params: tuple = ()) -> list[dict]:
-    loop = asyncio.get_running_loop()
     async with _lock:
-        return await loop.run_in_executor(None, _fetch_all_sync, query, params)
+        return await asyncio.to_thread(_fetch_all_sync, query, params)
 
 
 async def fetch_one(query: str, params: tuple = ()) -> dict | None:
@@ -214,6 +259,5 @@ async def fetch_one(query: str, params: tuple = ()) -> dict | None:
 
 async def execute(query: str, params: tuple = ()) -> int:
     """Runs an INSERT/UPDATE/DELETE, returns lastrowid (for INSERTs)."""
-    loop = asyncio.get_running_loop()
     async with _lock:
-        return await loop.run_in_executor(None, _execute_sync, query, params)
+        return await asyncio.to_thread(_execute_sync, query, params)

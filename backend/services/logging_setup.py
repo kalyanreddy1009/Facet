@@ -18,7 +18,12 @@ from datetime import datetime, timezone
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from services.paths import LOG_DIR, LOG_PATH
+from services.paths import DATA_DIR
+
+# Host-wide, deliberately: one process, one log an operator can tail.
+# Not paths.LOG_PATH, which follows the current user.
+LOG_DIR = DATA_DIR / "logs"
+LOG_PATH = LOG_DIR / "facet.log"
 
 RING_SIZE = 200
 LATENCY_SAMPLES = 500

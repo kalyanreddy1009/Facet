@@ -58,11 +58,22 @@ def connect() -> sqlite3.Connection:
         _connection.execute("PRAGMA journal_mode = WAL")
         _connection.execute("PRAGMA foreign_keys = ON")
         _connection.execute("PRAGMA busy_timeout = 5000")
+        # The schema is created on first connect rather than only by an
+        # explicit init call. The app reads this database to resolve
+        # identities, and on a host where nobody has opened the admin portal
+        # yet the table does not exist — which surfaced as a 500 on every
+        # request instead of a clean "you are not registered". Every
+        # statement in init_control_db is CREATE ... IF NOT EXISTS, so this
+        # is idempotent and costs one no-op per process.
+        _init_schema(_connection)
     return _connection
 
 
 def init_control_db() -> None:
-    conn = connect()
+    _init_schema(connect())
+
+
+def _init_schema(conn: sqlite3.Connection) -> None:
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS users (

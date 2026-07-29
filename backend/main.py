@@ -16,7 +16,7 @@ from fastapi.middleware.gzip import GZipMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from routers import calendar, feeds, queue, resume, status, tailor, tracker  # noqa: E402
-from services import jobs  # noqa: E402
+from services import identity, jobs, paths  # noqa: E402
 from services.agy_runner import (  # noqa: E402
     AgyBusyError,
     AgyError,
@@ -36,6 +36,23 @@ JOB_HANDLERS = {
     "extract_profile": resume.run_extract_profile_job,
 }
 
+def active_user_slugs() -> list[str | None]:
+    """Every identity the process should warm up on startup.
+
+    `[None]` in single-user mode — that is the original single-user layout,
+    and it keeps a local checkout behaving exactly as it did.
+
+    A user added later does not need a restart: `db._get_connection` opens
+    and initialises a database the first time a request arrives for someone
+    it has not seen. This loop only front-loads that work.
+    """
+    if not identity.multiuser_enabled():
+        return [None]
+    from control import store
+
+    return [u["slug"] for u in store.list_users() if u["status"] == "active"]
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown in one place, with a defined order.
@@ -44,7 +61,13 @@ async def lifespan(app: FastAPI):
     way down: the scheduler is stopped before anything else so a poll can't
     start against a closing database.
     """
-    init_db()
+    # Before anything is served: refuse to run multi-user on a port the world
+    # can reach. The identity header is only trustworthy behind loopback.
+    identity.assert_trustworthy_binding()
+
+    for slug in active_user_slugs():
+        with paths.user_scope(slug):
+            init_db()
     jobs.init_queue()
 
     # Before the worker takes anything new: fail rows stranded `running` by a
@@ -130,6 +153,36 @@ app.add_middleware(
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(RequestLogMiddleware)
+
+
+@app.middleware("http")
+async def identify_user(request: Request, call_next):
+    """Bind the request to one user's data, or refuse it.
+
+    Added last, so it runs first — every router below it executes with the
+    identity already set. There is no code path that reaches a handler with
+    an unresolved identity while multi-user is on: `identity.resolve` either
+    returns a slug or raises.
+
+    The context is reset in `finally`. Starlette reuses the task for the
+    response, and a leaked identity would attach to whatever came next.
+    """
+    if request.url.path in identity.PUBLIC_PATHS:
+        return await call_next(request)
+
+    try:
+        slug = identity.resolve(request.headers.get(identity.ACCESS_EMAIL_HEADER))
+    except identity.IdentityError as exc:
+        return JSONResponse(
+            status_code=exc.status,
+            content={"error": exc.message, "hint": exc.hint},
+        )
+
+    token = paths.set_user(slug)
+    try:
+        return await call_next(request)
+    finally:
+        paths.reset_user(token)
 
 app.include_router(status.router)
 app.include_router(queue.router)

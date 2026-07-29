@@ -30,15 +30,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from services import agy_runner, feed_ingest, job_sources, scheduler, settings_store
-from services.db import DB_PATH, apply_pragmas
+from services.db import apply_pragmas
 from services.logging_setup import recent_errors, traffic_snapshot
-from services.paths import (
-    EXPORTS_DIR,
-    PROFILE_PATH,
-    ROOT,
-    TAILORED_FIELDS_PATH as TAILORED_PATH,
-    TEMPLATES_DIR,
-)
+from services import paths
+from services.paths import ROOT, TEMPLATES_DIR
 
 logger = logging.getLogger("facet.health")
 
@@ -72,7 +67,7 @@ def _mb(num_bytes: float) -> str:
 def _open_db() -> sqlite3.Connection:
     """A short-lived read connection of our own — the dashboard must never
     queue behind services.db's single shared writer."""
-    conn = sqlite3.connect(str(DB_PATH), timeout=2.0)
+    conn = sqlite3.connect(str(paths.DB_PATH), timeout=2.0)
     conn.row_factory = sqlite3.Row
     apply_pragmas(conn)
     return conn
@@ -91,8 +86,8 @@ def _check_process() -> dict:
 
 
 def _check_db_connectivity() -> dict:
-    if not DB_PATH.exists():
-        return {"status": "error", "detail": f"{DB_PATH} does not exist",
+    if not paths.DB_PATH.exists():
+        return {"status": "error", "detail": f"{paths.DB_PATH} does not exist",
                 "hint": "run scripts/init_db.py"}
     conn = _open_db()
     try:
@@ -103,7 +98,7 @@ def _check_db_connectivity() -> dict:
     return {
         "status": "ok",
         "detail": f"connected, {row['n']} tables, journal_mode={journal}",
-        "meta": {"path": str(DB_PATH), "tables": row["n"], "journal_mode": journal},
+        "meta": {"path": str(paths.DB_PATH), "tables": row["n"], "journal_mode": journal},
     }
 
 
@@ -153,7 +148,7 @@ def feed_ingest_columns() -> list[str]:
 
 
 def _check_wal() -> dict:
-    wal = DB_PATH.with_name(DB_PATH.name + "-wal")
+    wal = paths.DB_PATH.with_name(paths.DB_PATH.name + "-wal")
     if not wal.exists():
         return {"status": "ok", "detail": "no WAL file (checkpointed)", "meta": {"bytes": 0}}
     size = wal.stat().st_size
@@ -169,12 +164,12 @@ def _check_wal() -> dict:
 
 
 def _check_db_size() -> dict:
-    size = DB_PATH.stat().st_size if DB_PATH.exists() else 0
+    size = paths.DB_PATH.stat().st_size if paths.DB_PATH.exists() else 0
     return {"status": "ok", "detail": f"tracker.db {_mb(size)}", "meta": {"bytes": size}}
 
 
 def _check_disk() -> dict:
-    usage = shutil.disk_usage(str(DB_PATH.parent if DB_PATH.parent.exists() else ROOT))
+    usage = shutil.disk_usage(str(paths.DB_PATH.parent if paths.DB_PATH.parent.exists() else ROOT))
     free_gb = usage.free / 1024 ** 3
     status = "error" if free_gb < 0.2 else "degraded" if free_gb < 1 else "ok"
     return {
@@ -411,12 +406,12 @@ def _json_file_check(path: Path, what: str, hint: str) -> dict:
 
 
 def _check_profile() -> dict:
-    return _json_file_check(PROFILE_PATH, "profile.json",
+    return _json_file_check(paths.PROFILE_PATH, "profile.json",
                             "run the resume extraction in The Stone to build profile.json")
 
 
 def _check_last_extraction() -> dict:
-    return _json_file_check(TAILORED_PATH, "last tailoring output",
+    return _json_file_check(paths.TAILORED_FIELDS_PATH, "last tailoring output",
                             "run a tailoring pass in The Tailor")
 
 
@@ -463,17 +458,17 @@ def _check_templates() -> list[dict]:
 
 
 def _check_exports_writable() -> dict:
-    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    probe = EXPORTS_DIR / f".healthcheck-{os.getpid()}"
+    paths.EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    probe = paths.EXPORTS_DIR / f".healthcheck-{os.getpid()}"
     probe.write_bytes(b"ok")
     written = probe.read_bytes()
     probe.unlink()
     assert written == b"ok"
-    count = sum(1 for _ in EXPORTS_DIR.glob("*"))
+    count = sum(1 for _ in paths.EXPORTS_DIR.glob("*"))
     return {
         "status": "ok",
-        "detail": f"{EXPORTS_DIR} writable, {count} files",
-        "meta": {"path": str(EXPORTS_DIR), "files": count},
+        "detail": f"{paths.EXPORTS_DIR} writable, {count} files",
+        "meta": {"path": str(paths.EXPORTS_DIR), "files": count},
     }
 
 

@@ -13,8 +13,7 @@ from datetime import datetime, timezone
 
 from icalendar import Calendar
 
-from services.db import DB_PATH
-from services.paths import CALENDAR_CONFIG_PATH as CONFIG_PATH
+from services import paths
 
 INTERVIEW_KEYWORDS = ["interview", "screen", "technical round", "onsite"]
 
@@ -22,14 +21,14 @@ logger = logging.getLogger("facet.calendar_sync")
 
 
 def load_calendar_config() -> dict | None:
-    if not CONFIG_PATH.exists():
+    if not paths.CALENDAR_CONFIG_PATH.exists():
         return None
-    return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    return json.loads(paths.CALENDAR_CONFIG_PATH.read_text(encoding="utf-8"))
 
 
 def save_calendar_config(ics_url: str) -> None:
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_PATH.write_text(json.dumps({"ics_url": ics_url}), encoding="utf-8")
+    paths.CALENDAR_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    paths.CALENDAR_CONFIG_PATH.write_text(json.dumps({"ics_url": ics_url}), encoding="utf-8")
 
 
 def masked_config() -> dict:
@@ -100,7 +99,7 @@ def run_calendar_sync() -> dict:
     now = datetime.now(timezone.utc)
 
     new_suggestions = 0
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(paths.DB_PATH))
     try:
         for component in calendar.walk("VEVENT"):
             uid = str(component.get("uid", ""))

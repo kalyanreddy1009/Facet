@@ -8,7 +8,7 @@ and a missing key disables exactly one provider instead of erroring.
 import json
 import os
 
-from services.paths import SETTINGS_PATH
+from services import paths
 
 DEFAULTS = {
     "adzuna_app_id": "",
@@ -22,9 +22,9 @@ DEFAULTS = {
 
 def load_settings() -> dict:
     settings = dict(DEFAULTS)
-    if SETTINGS_PATH.exists():
+    if paths.SETTINGS_PATH.exists():
         try:
-            settings.update(json.loads(SETTINGS_PATH.read_text(encoding="utf-8")))
+            settings.update(json.loads(paths.SETTINGS_PATH.read_text(encoding="utf-8")))
         except (json.JSONDecodeError, OSError):
             pass  # corrupt file shouldn't take the app down — fall back to defaults
 
@@ -43,8 +43,8 @@ def load_settings() -> dict:
 def save_settings(patch: dict) -> dict:
     settings = load_settings()
     settings.update({k: v for k, v in patch.items() if k in DEFAULTS})
-    SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    SETTINGS_PATH.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+    paths.SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    paths.SETTINGS_PATH.write_text(json.dumps(settings, indent=2), encoding="utf-8")
     return settings
 
 

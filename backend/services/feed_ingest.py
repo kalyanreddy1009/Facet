@@ -13,9 +13,9 @@ import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 
-from services.db import DB_PATH, apply_pragmas
+from services.db import apply_pragmas
 from services.matching import posting_match_score, posting_match_terms
-from services.paths import FEEDS_PATH, PROFILE_PATH
+from services import paths
 
 # Anything older than this is noise on a job board — dropping it on the way in
 # is what keeps the table small enough to query instantly.
@@ -44,26 +44,26 @@ DEFAULT_FEEDS = [
 
 
 def load_feeds() -> list[dict]:
-    if not FEEDS_PATH.exists():
+    if not paths.FEEDS_PATH.exists():
         save_feeds(DEFAULT_FEEDS)
         return list(DEFAULT_FEEDS)
     try:
-        feeds = json.loads(FEEDS_PATH.read_text(encoding="utf-8"))
+        feeds = json.loads(paths.FEEDS_PATH.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return list(DEFAULT_FEEDS)
     return feeds if isinstance(feeds, list) else list(DEFAULT_FEEDS)
 
 
 def save_feeds(feeds: list[dict]) -> None:
-    FEEDS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    FEEDS_PATH.write_text(json.dumps(feeds, indent=2), encoding="utf-8")
+    paths.FEEDS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    paths.FEEDS_PATH.write_text(json.dumps(feeds, indent=2), encoding="utf-8")
 
 
 def load_candidate_keywords() -> list[str]:
-    if not PROFILE_PATH.exists():
+    if not paths.PROFILE_PATH.exists():
         return []
     try:
-        profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+        profile = json.loads(paths.PROFILE_PATH.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
         return []
     return list(profile.get("keywords", [])) + list(profile.get("skills", []))
@@ -93,7 +93,7 @@ def store_postings(postings: list[dict]) -> dict:
     seen_count = 0
     skipped_old = 0
 
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(paths.DB_PATH))
     try:
         apply_pragmas(conn)
         for posting in postings:

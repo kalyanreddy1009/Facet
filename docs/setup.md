@@ -1,8 +1,8 @@
 # Configuring Facet on your own domain
 
 End-to-end, from a bare Oracle VM to ten people using Facet at
-`alice.yourdomain.com`. Follow it in order; each part depends on the one
-before.
+`facet.yourdomain.com` — one address, one instance, each person seeing only
+their own data. Follow it in order; each part depends on the one before.
 
 `deploy/README.md` is the reference — why the architecture is shaped this
 way. **This** is the walkthrough. Where they overlap, this file is the one to
@@ -19,9 +19,10 @@ Gather these first. Everything else is derived.
 
 | Value | Example | Where it comes from |
 |---|---|---|
-| **Your domain** | `facet.example` | You already own it |
+| **Your domain** | `nivil.dpdns.org` | You already own it |
 | **Cloudflare account** | free tier | Domain's nameservers must point at Cloudflare |
 | **Tunnel ID** | `6ff42ae2-765a-…` | Created in Part 5, a UUID |
+| **The Facet hostname** | `facet.nivil.dpdns.org` | One name everyone shares |
 | **Your admin email** | `you@gmail.com` | Gates the admin portal |
 | **Each user's email** | `alice@gmail.com` | The only per-user input |
 | **VM** | 2 vCPU / 12 GB / 200 GB | Oracle Always Free ARM |
@@ -138,7 +139,7 @@ which is precisely why they are user units and not system units.
 ```bash
 cd ~/Facet
 FACET_HOST_ROOT=$HOME/facet-hosts \
-FACET_BASE_DOMAIN=facet.example \
+FACET_BASE_DOMAIN=facet.nivil.dpdns.org \
   ./deploy/install.sh
 ```
 
@@ -168,7 +169,9 @@ Now edit the control plane's environment. Open
 
 ```ini
 Environment=FACET_HOST_ROOT=/home/YOU/facet-hosts
-Environment=FACET_BASE_DOMAIN=facet.example
+Environment=FACET_BASE_DOMAIN=facet.nivil.dpdns.org
+Environment=FACET_MULTIUSER=1
+Environment=FACET_BIND_HOST=127.0.0.1
 Environment=FACET_TUNNEL_CONFIG=/etc/cloudflared/config.yml
 Environment=FACET_TUNNEL_ID=<the UUID from Part 5>
 Environment=FACET_SYSTEMD_SCOPE=user
@@ -200,44 +203,55 @@ The second command prints your **tunnel ID** — a UUID. Save it; it goes into
 sudo cloudflared service install
 ```
 
-### 5b. DNS — one record for everyone
+### 5b. DNS — one record, total
 
 In the Cloudflare dashboard → **DNS**:
 
 | Type | Name | Target | Proxy |
 |---|---|---|---|
-| CNAME | `*` | `<tunnel-id>.cfargotunnel.com` | **Proxied** (orange) |
-| CNAME | `admin` | `<tunnel-id>.cfargotunnel.com` | **Proxied** (orange) |
+| CNAME | `facet` | `<tunnel-id>.cfargotunnel.com` | **Proxied** (orange) |
 
-The wildcard covers `alice.`, `bob.`, everyone — you never touch DNS again
-when adding a user. The proxy must be **on**; grey-cloud bypasses Access
-entirely, which is your only authentication.
+That is the whole DNS story. Everyone shares one hostname —
+`facet.yourdomain.com` — and you never touch DNS again when adding a user.
 
-### 5c. The ingress file — do not hand-edit
+The proxy must be **on**. Grey-cloud bypasses Access entirely, and Access is
+your only authentication.
 
-`/etc/cloudflared/config.yml` is **generated** by the control plane from the
-user table and rebuilt whenever a user changes. It looks like this:
+> **Why not a subdomain each?** Two reasons, one fatal. Cloudflare's free
+> Universal SSL covers only **one** level of subdomain, so on a domain like
+> `facet.nivil.dpdns.org` a per-user `alice.facet.nivil.dpdns.org` is two
+> levels deep and has no certificate — HTTPS fails for every user, and the fix
+> is a paid Advanced Certificate. The second reason is simply that ten
+> hostnames means ten Access applications to keep in step.
+
+### 5c. The ingress file
+
+`/etc/cloudflared/config.yml` no longer changes when you add a user. One
+hostname, two rules:
 
 ```yaml
 tunnel: <TUNNEL-ID>
 credentials-file: /etc/cloudflared/<TUNNEL-ID>.json
 
 ingress:
-  - hostname: alice.facet.example
+  - hostname: facet.yourdomain.com
     path: ^/api/
-    service: http://127.0.0.1:8101
-  - hostname: alice.facet.example
-    service: http://127.0.0.1:3101
+    service: http://127.0.0.1:8000
+  - hostname: facet.yourdomain.com
+    service: http://127.0.0.1:3000
   - service: http_status:404
 ```
 
 Note `^/api/` comes **first**. Order is significant: cloudflared takes the
 first match, so reversing those two lines sends API calls to the frontend.
 
-Editing it by hand means your edits vanish on the next user change. Worse, an
-incremental scheme drifts the moment one edit half-fails — and drift here
-means a hostname pointing at the wrong port, which is one person's resumes
-served to somebody else.
+Both services bind **127.0.0.1**, and that is load-bearing rather than tidy.
+Facet identifies people from the `Cf-Access-Authenticated-User-Email` header
+that Access sets, which is only trustworthy because cloudflared on this host
+is the sole thing that can reach those ports. Bind them anywhere else and
+anyone who can reach the port becomes anyone they like by typing a header.
+The backend refuses to start multi-user on a non-loopback address for exactly
+this reason.
 
 The control plane **writes** that file, so it needs ownership of it:
 
@@ -268,28 +282,37 @@ sudo chmod 440 /etc/sudoers.d/facet-cloudflared
 
 Cloudflare dashboard → **Zero Trust** → **Access** → **Applications**.
 
-For **each** user, one self-hosted application:
+One self-hosted application, covering everyone:
 
 | Field | Value |
 |---|---|
-| Application name | `Facet — Alice` |
+| Application name | `Facet` |
 | Session duration | 24 hours (or your preference) |
-| Subdomain / domain | `alice` / `facet.example` |
-| Policy name | `alice only` |
+| Subdomain / domain | `facet` / `yourdomain.com` |
+| Policy name | `the ten of us` |
 | Action | Allow |
-| Include | **Emails** → `alice@gmail.com` |
+| Include | **Emails** → every user's address, one per line |
 
-Then one more for yourself:
+Then one more for yourself, for the admin portal:
 
 | Field | Value |
 |---|---|
 | Application name | `Facet — admin` |
-| Subdomain / domain | `admin` / `facet.example` |
+| Subdomain / domain | `admin` / `yourdomain.com` |
 | Include | **Emails** → `you@gmail.com` |
 
-**One email per policy.** A policy that includes a whole domain
-(`@gmail.com`) gives every Gmail user access to that person's resumes and
-tracker. The portal prints these exact steps per user when you add them.
+**List addresses individually.** A policy that includes a whole domain
+(`@gmail.com`) lets every Gmail user in the world past the only
+authentication this deployment has.
+
+Access decides *whether* someone gets in. Facet decides *whose data they
+see*, by matching the email Access reports against its own user table. Both
+have to say yes: an address in the Access policy but not registered in Facet
+gets a clean "you have no Facet on this host" rather than somebody else's
+tracker.
+
+Adding a user is therefore two steps that must both happen — add them in the
+admin portal, and add their address to this one policy.
 
 To automate this instead, set `CF_ACCOUNT_ID` and `CF_API_TOKEN` in the
 control plane's unit. The token needs **Access: Apps and Policies — Edit**.
@@ -322,20 +345,49 @@ Open the portal. Before the tunnel is confirmed working, reach it over SSH:
 ssh -L 9000:127.0.0.1:9000 <vm>
 ```
 
-→ `http://localhost:9000`. Once Access is set up, `https://admin.facet.example`.
+→ `http://localhost:9000`. Once Access is set up,
+`https://admin.yourdomain.com`.
 
-Enter an email. Everything else is derived: directories, database, ports, env
-file, systemd unit, frontend container, tunnel ingress, health check. Ports
-are assigned from the user's row id — `3100 + id` and `8100 + id` — and are
-never recycled, so a deleted user's ports never quietly become someone
-else's.
+Enter an email. That creates the registry row and the person's directories
+under `$FACET_HOST_ROOT/users/<slug>/`. Their database is created the first
+time they actually load a page — **no restart, no new port, no DNS, no
+ingress change.** One instance serves everyone.
 
-Steps needing a tool the host lacks report `manual` with the exact command
-rather than failing. A half-configured host tells you what it needs; it does
-not fail at step 7 with a traceback.
+Then add the same address to the Access policy from Part 5d. Both steps are
+required and they fail in opposite directions, which is deliberate:
 
-Then send each person their URL. They sign in with the email you allowed,
-import a resume, and start.
+| Registered in Facet | In the Access policy | What happens |
+|---|---|---|
+| yes | yes | They use Facet |
+| yes | no | Stopped at Access — they never reach Facet |
+| no | yes | Reach Facet, told they have no account here |
+| no | no | Stopped at Access |
+
+There is no combination that shows one person another's data. The failure
+modes are all "locked out", never "let in as somebody else".
+
+Then send each person the same URL — `https://facet.yourdomain.com`. They
+sign in with the email you allowed, import a resume, and start.
+
+### Migrating your own existing data
+
+If you have been using Facet single-user, your record is in the repo's
+`data/` and `workspace/`. Move it into your own account:
+
+```bash
+cd ~/Facet/backend
+./.venv/bin/python scripts/migrate_to_multiuser.py --owner you@gmail.com
+./.venv/bin/python scripts/migrate_to_multiuser.py --owner you@gmail.com --apply
+```
+
+The first run is a dry run. The second copies — and it **copies**, leaving
+the originals exactly where they are. The database goes through SQLite's
+`VACUUM INTO` rather than `cp`, because a live WAL database keeps recent
+commits in a sidecar file and a plain file copy silently loses them. Row
+counts are compared before and after, and a mismatch aborts.
+
+Delete the originals yourself, once you have signed in and confirmed the
+record looks right.
 
 ---
 
@@ -411,8 +463,17 @@ instance has its own private lock and serializes nobody — ten users would run
 ten concurrent agy processes against one authenticated CLI. Nothing breaks
 until two real people tailor at the same moment, and then it breaks quietly.
 
+Then the isolation check — the one that matters most on a shared instance:
+
+```bash
+cd backend && ./.venv/bin/python scripts/test_multiuser.py
+```
+
+It writes as one user, reads as another, and asserts the second sees nothing
+of the first — through the real database, workspace and queue code paths.
+
 Finally, from a browser that is **not** signed in as an allowed email, open
-`https://alice.facet.example`. You should be stopped by Access. If you see
+`https://facet.yourdomain.com`. You should be stopped by Access. If you see
 Facet, your policy is wrong — fix it before anyone uploads a resume.
 
 ---
@@ -424,7 +485,10 @@ Host-level, set in `~/.config/systemd/user/facet-control.service`:
 | Variable | Default | What it does |
 |---|---|---|
 | `FACET_HOST_ROOT` | *(required)* | Where all user instances live |
-| `FACET_BASE_DOMAIN` | `facet.example` | Hostnames are `<slug>.<domain>` |
+| `FACET_BASE_DOMAIN` | *(required)* | The single hostname everyone shares |
+| `FACET_MULTIUSER` | *(off)* | On: identity required, per-user data. Off: original single-user layout |
+| `FACET_BIND_HOST` | `127.0.0.1` | Must stay loopback while `FACET_MULTIUSER` is on — the app refuses otherwise |
+| `FACET_USERS_ROOT` | `$FACET_HOST_ROOT/users` | Per-user homes; must match the control plane's layout |
 | `FACET_TUNNEL_CONFIG` | `/etc/cloudflared/config.yml` | Generated ingress file |
 | `FACET_TUNNEL_ID` | *(empty)* | UUID from `cloudflared tunnel create` |
 | `FACET_SYSTEMD_SCOPE` | `user` unless root | `user` or `system` |

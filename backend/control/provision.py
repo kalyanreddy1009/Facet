@@ -25,7 +25,8 @@ import time
 import zipfile
 from pathlib import Path
 
-from services.paths import ROOT, RULES_PATH
+from services import paths as app_paths
+from services.paths import ROOT
 from . import cloudflare, runtime, store
 
 # How long a deleted account is recoverable. The whole point: the click and
@@ -78,9 +79,9 @@ def _step_seed_rules(user: dict) -> str:
     target = store.user_paths(user["slug"])["workspace"] / "RULES.md"
     if target.exists():
         return "already present"
-    if not RULES_PATH.exists():
-        raise ProvisionError("seed_rules", f"no source RULES.md at {RULES_PATH}")
-    shutil.copy2(RULES_PATH, target)
+    if not app_paths.RULES_PATH.exists():
+        raise ProvisionError("seed_rules", f"no source RULES.md at {app_paths.RULES_PATH}")
+    shutil.copy2(app_paths.RULES_PATH, target)
     return str(target)
 
 

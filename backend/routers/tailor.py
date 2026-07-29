@@ -7,7 +7,6 @@ from typing import Literal, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from routers.resume import PROFILE_PATH
 from services import db, jobs
 from services.agy_runner import (
     cleanup_job_dir,
@@ -23,7 +22,7 @@ from services.docgen import (
     render_resume_pdf,
 )
 from services.matching import keyword_overlap_score
-from services.paths import EXPORTS_DIR
+from services import paths
 
 router = APIRouter()
 
@@ -96,7 +95,7 @@ async def tailor(body: TailorRequest):
             status_code=400,
             detail=f"Job description exceeds the {JD_MAX_CHARS} character cap",
         )
-    if not PROFILE_PATH.exists():
+    if not paths.PROFILE_PATH.exists():
         raise HTTPException(status_code=404, detail="No profile yet — import a resume first")
 
     job_id = await jobs.enqueue("tailor", body.model_dump())
@@ -111,7 +110,7 @@ async def run_tailor_job(job: dict) -> dict:
     response body.
     """
     body = TailorRequest(**job["payload"])
-    profile = json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
+    profile = json.loads(paths.PROFILE_PATH.read_text(encoding="utf-8"))
 
     # Local pre-check, no agy call (Section 5 step 1) — never blocks the
     # run, just tells the person it looks like a weak match.
@@ -147,16 +146,16 @@ async def run_tailor_job(job: dict) -> dict:
     letter_context = build_cover_letter_context(profile, tailored_fields)
     letter_pdf_bytes = render_cover_letter_pdf(letter_context)
 
-    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    paths.EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
     slug = _slugify(body.company)
-    resume_pdf_path = EXPORTS_DIR / f"{slug}.pdf"
-    resume_docx_path = EXPORTS_DIR / f"{slug}.docx"
-    cover_letter_path = EXPORTS_DIR / f"{slug}-cover-letter.pdf"
+    resume_pdf_path = paths.EXPORTS_DIR / f"{slug}.pdf"
+    resume_docx_path = paths.EXPORTS_DIR / f"{slug}.docx"
+    cover_letter_path = paths.EXPORTS_DIR / f"{slug}-cover-letter.pdf"
     resume_pdf_path.write_bytes(pdf_bytes)
     resume_docx_path.write_bytes(docx_bytes)
     cover_letter_path.write_bytes(letter_pdf_bytes)
 
-    # Stored as bare filenames, resolved against EXPORTS_DIR when served.
+    # Stored as bare filenames, resolved against paths.EXPORTS_DIR when served.
     # An absolute path pins a row to one machine's directory layout, which
     # breaks the moment an instance's data directory moves — exactly what
     # provisioning and account import do. Rows written before this change

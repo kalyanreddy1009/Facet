@@ -19,7 +19,8 @@ import threading
 from pathlib import Path
 
 from services.filelock import FileLock, LockTimeout
-from services.paths import DATA_DIR, RULES_PATH, WORKSPACE_DIR as WORKSPACE
+from services import paths
+from services.paths import DATA_DIR
 
 logger = logging.getLogger("facet.agy")
 
@@ -132,7 +133,7 @@ def prepare_job_dir(job_id: int | str, files: dict[str, str],
     job_dir.mkdir(parents=True, exist_ok=True)
 
     for name in copy_from_workspace:
-        source = RULES_PATH if name == "RULES.md" else WORKSPACE / name
+        source = paths.RULES_PATH if name == "RULES.md" else paths.WORKSPACE_ROOT / name
         if source.exists():
             shutil.copy2(source, job_dir / name)
 
@@ -164,7 +165,7 @@ def sweep_orphan_job_dirs(keep: set[str] | None = None) -> int:
 
 def _run_agy_sync(instruction: str, output_filename: str,
                   work_dir: Path | None = None) -> str:
-    work_dir = work_dir or WORKSPACE
+    work_dir = work_dir or paths.WORKSPACE_ROOT
     work_dir.mkdir(parents=True, exist_ok=True)
     output_path = work_dir / output_filename
     if output_path.exists():
@@ -310,14 +311,26 @@ def demo() -> None:
     """
     import tempfile
 
-    global JOBS_DIR, WORKSPACE, RULES_PATH
+    global JOBS_DIR
     root = Path(tempfile.mkdtemp())
     JOBS_DIR = root / "jobs"
-    WORKSPACE = root / "workspace"
-    RULES_PATH = WORKSPACE / "RULES.md"
-    WORKSPACE.mkdir(parents=True)
-    RULES_PATH.write_text("rules", encoding="utf-8")
-    (WORKSPACE / "profile.json").write_text('{"name":"x"}', encoding="utf-8")
+
+    # The per-user paths are derived, so the way to move them is to move the
+    # root they derive from. Assigning paths.RULES_PATH directly would create
+    # a module global that shadows __getattr__ and silently pin every user to
+    # this temp directory.
+    original_workspace = paths.WORKSPACE_DIR
+    paths.WORKSPACE_DIR = root / "workspace"
+    try:
+        _demo_job_dirs(root)
+    finally:
+        paths.WORKSPACE_DIR = original_workspace
+
+
+def _demo_job_dirs(root: Path) -> None:
+    paths.WORKSPACE_ROOT.mkdir(parents=True, exist_ok=True)
+    paths.RULES_PATH.write_text("rules", encoding="utf-8")
+    (paths.WORKSPACE_ROOT / "profile.json").write_text('{"name":"x"}', encoding="utf-8")
 
     job_dir = prepare_job_dir(
         7, {"job_description.md": "a JD"}, copy_from_workspace=("RULES.md", "profile.json")
@@ -340,7 +353,7 @@ def demo() -> None:
 
     # A missing optional input is skipped, not fatal — RULES.md may not exist
     # in a fresh checkout, and that must not break a cut.
-    RULES_PATH.unlink()
+    paths.RULES_PATH.unlink()
     bare = prepare_job_dir(9, {}, copy_from_workspace=("RULES.md",))
     assert not (bare / "RULES.md").exists()
 

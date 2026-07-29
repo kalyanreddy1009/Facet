@@ -8,7 +8,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from services import db
-from services.paths import EXPORTS_DIR
+from services import paths
 
 router = APIRouter()
 
@@ -233,7 +233,7 @@ _DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessing
 def resolve_export(stored: str) -> Path | None:
     """Turn a stored path into a real file inside this instance's exports.
 
-    Everything served here must live under `EXPORTS_DIR`, whatever the
+    Everything served here must live under `paths.EXPORTS_DIR`, whatever the
     database says. Accepts both forms:
 
     - a bare filename, which is what the pipeline writes now, so an instance
@@ -247,7 +247,7 @@ def resolve_export(stored: str) -> Path | None:
     Returns None rather than raising, so callers answer 404 and never confirm
     whether an out-of-bounds file exists.
     """
-    root = EXPORTS_DIR.resolve()
+    root = paths.EXPORTS_DIR.resolve()
     candidate = Path(stored)
     resolved = (candidate if candidate.is_absolute() else root / candidate).resolve()
 
@@ -285,20 +285,29 @@ def demo() -> None:
     """
     import tempfile
 
-    global EXPORTS_DIR
     root = Path(tempfile.mkdtemp())
-    EXPORTS_DIR = root / "exports"
-    EXPORTS_DIR.mkdir(parents=True)
-    (EXPORTS_DIR / "stripe.pdf").write_bytes(b"%PDF fake")
-    (EXPORTS_DIR / "sub").mkdir()
-    (EXPORTS_DIR / "sub" / "nested.pdf").write_bytes(b"%PDF fake")
+    # EXPORTS_DIR is derived, so redirect the root rather than assigning the
+    # derived name — assigning it would shadow __getattr__ for every user.
+    original_data = paths.DATA_DIR
+    paths.DATA_DIR = root
+    try:
+        _demo_exports(root)
+    finally:
+        paths.DATA_DIR = original_data
+
+
+def _demo_exports(root: Path) -> None:
+    paths.EXPORTS_DIR.mkdir(parents=True)
+    (paths.EXPORTS_DIR / "stripe.pdf").write_bytes(b"%PDF fake")
+    (paths.EXPORTS_DIR / "sub").mkdir()
+    (paths.EXPORTS_DIR / "sub" / "nested.pdf").write_bytes(b"%PDF fake")
     secret = root / "secret.txt"
     secret.write_text("not yours", encoding="utf-8")
 
     # What should work: the bare filename the pipeline writes now, and the
     # absolute paths rows written before this change still hold.
-    assert resolve_export("stripe.pdf") == (EXPORTS_DIR / "stripe.pdf").resolve()
-    assert resolve_export(str(EXPORTS_DIR / "stripe.pdf")) is not None
+    assert resolve_export("stripe.pdf") == (paths.EXPORTS_DIR / "stripe.pdf").resolve()
+    assert resolve_export(str(paths.EXPORTS_DIR / "stripe.pdf")) is not None
     assert resolve_export("sub/nested.pdf") is not None, "subdirectories are inside"
 
     # What must not: every way out of the exports directory.
@@ -320,7 +329,7 @@ def demo() -> None:
 
     # The exports root itself is a directory, not a file, so it is refused
     # even though it is trivially "inside" itself.
-    assert resolve_export(str(EXPORTS_DIR)) is None
+    assert resolve_export(str(paths.EXPORTS_DIR)) is None
 
     # A client cannot set these columns any more; the model must ignore them
     # rather than accept them.

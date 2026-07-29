@@ -2,6 +2,71 @@
 
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
+## 2026-07-29 — One instance, many users
+
+Facet now serves everyone from a single backend and a single frontend at one
+hostname, instead of a process pair and a subdomain per person.
+
+The prompt was a domain: `facet.nivil.dpdns.org`. That turned out to rule out
+the existing design on its own — Cloudflare's free Universal SSL covers one
+level of subdomain, so `alice.facet.nivil.dpdns.org` is two levels deep and
+has no certificate. Per-user subdomains would have failed at HTTPS for every
+user, with a paid certificate as the only fix.
+
+**Data is separated by file, not by query.** Each user gets their own
+`tracker.db` under `users/<slug>/`, so isolation is a property of the
+filesystem. The alternative — shared tables with a `user_id` column — makes
+every missing `WHERE` clause a leak of someone's job applications, and there
+are no missing-clause bugs available in a design where the rows are in
+different files. It also meant the existing schema was untouched, so a
+`tracker.db` from the single-user build opens unchanged.
+
+`services/paths.py` is the mechanism: the path constants became functions of
+a `ContextVar` holding the current user, resolved through PEP 562
+`__getattr__` at access time. Every consumer moved from
+`from services.paths import DB_PATH` to `paths.DB_PATH`, because a `from`
+import copies the value once at startup — which is the whole failure this
+change exists to avoid.
+
+Three bugs found while building it, all silent:
+
+- **`run_in_executor` drops ContextVars.** `db.fetch_all` dispatches queries
+  to a worker thread, and that dispatch does not carry the context. Every
+  query would have resolved with no user set and read the shared database —
+  returning plausible, wrong data with nothing raised anywhere.
+  `asyncio.to_thread` copies the context; the fix is one word.
+- **`routers/tailor.py` imported `PROFILE_PATH` from `routers.resume`**, a
+  re-export chain that bound the path at import just as a direct import
+  would.
+- **A whitespace-only identity header** passed the emptiness check, was
+  stripped to `""`, and reached the registry as an empty email lookup. Found
+  by the isolation check, not by reading.
+
+`scripts/test_multiuser.py` writes as Alice, reads as Bob, and asserts
+absence, through the real database, workspace and queue paths. It was
+verified to fail: reinstating `run_in_executor` produces
+`AssertionError: bob can see alice's applications`.
+
+Identity comes from Cloudflare Access's
+`Cf-Access-Authenticated-User-Email`, which is trustworthy only because the
+origin binds loopback — so the backend now refuses to start multi-user on a
+non-loopback address rather than warning about it. `identity.resolve` has no
+return value meaning "carry on as nobody"; the missing-header path raises,
+because a fallback there resolves to the shared directory.
+
+`scripts/migrate_to_multiuser.py` moves an existing single-user installation
+into its owner's directory. It copies rather than moves, compares row counts,
+runs an integrity check, and leaves the originals in place — the thing being
+moved is the only record of where somebody applied for work.
+
+Verified on the host: 401 with no identity, 403 for an unregistered address,
+the owner's own migrated record for his, and `[]` for a second user added
+**while the server was running** — no restart needed.
+
+Still open: `control/provision.py` continues to allocate a port, a systemd
+unit and an ingress entry per user. Those steps are now redundant rather than
+wrong, and are next.
+
 ## 2026-07-29 — The extension, and the bug it was hiding
 
 `extension/` rebuilt around one change: every call to the Facet server now
