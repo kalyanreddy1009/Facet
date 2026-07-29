@@ -25,7 +25,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from pydantic import BaseModel, field_validator
 
-from . import provision, store
+from . import cloudflare, provision, store
 
 logger = logging.getLogger("facet.control")
 
@@ -104,7 +104,9 @@ def user_summary(user: dict) -> dict:
             "workspace": _dir_size(paths["workspace"]),
             "total": _dir_size(paths["home"]),
         },
-        "urls": {"web": f"http://127.0.0.1:{user['web_port']}"},
+        # Everyone's URL is the same one. What differs is who Access says
+        # they are, not where they go.
+        "urls": {"web": f"https://{cloudflare.facet_hostname()}"},
     }
 
 

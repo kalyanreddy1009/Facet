@@ -158,69 +158,15 @@ def run(command: list[str], what: str, available: bool) -> Result:
     return Result(True, "ran", (proc.stdout or what).strip()[:200] or what, command)
 
 
-# ---------------------------------------------------------------- frontend
-
-def compose_command(slug: str, env_file: Path, *args: str) -> list[str]:
-    return [
-        "docker", "compose",
-        "-p", f"facet-{slug}",
-        "--env-file", str(env_file),
-        "-f", str(COMPOSE_FILE),
-        *args,
-    ]
-
-
-def compose_up(slug: str, env_file: Path, available: bool) -> Result:
-    return run(compose_command(slug, env_file, "up", "-d"),
-               f"start {slug}'s frontend", available)
-
-
-def compose_stop(slug: str, env_file: Path, available: bool) -> Result:
-    return run(compose_command(slug, env_file, "stop"),
-               f"stop {slug}'s frontend", available)
-
-
-def compose_start(slug: str, env_file: Path, available: bool) -> Result:
-    return run(compose_command(slug, env_file, "start"),
-               f"start {slug}'s frontend", available)
-
-
-def compose_down(slug: str, env_file: Path, available: bool) -> Result:
-    # No `-v`: volumes are bind mounts to the user's data directory, and
-    # `down -v` on a project that ever had named volumes is the kind of flag
-    # that removes something irreplaceable. Data removal is deletion's job,
-    # where it is deliberate, confirmed and reversible.
-    return run(compose_command(slug, env_file, "down"),
-               f"remove {slug}'s frontend", available)
-
-
-# ----------------------------------------------------------------- backend
-
-def unit_name(slug: str) -> str:
-    return f"facet-api@{slug}.service"
-
-
-def systemctl_command(action: str, slug: str) -> list[str]:
-    return systemctl(action, unit_name(slug))
-
-
-def service_start(slug: str, available: bool) -> Result:
-    return run(systemctl("enable", "--now", unit_name(slug)),
-               f"start {slug}'s backend", available)
-
-
-def service_stop(slug: str, available: bool) -> Result:
-    return run(systemctl_command("stop", slug), f"stop {slug}'s backend", available)
-
-
-def service_restart(slug: str, available: bool) -> Result:
-    return run(systemctl_command("restart", slug), f"restart {slug}'s backend", available)
-
-
-def service_disable(slug: str, available: bool) -> Result:
-    return run(systemctl("disable", "--now", unit_name(slug)),
-               f"remove {slug}'s backend service", available)
-
+# The per-user frontend container and backend systemd unit are gone.
+#
+# One instance serves everyone now, so there is no `facet-alice` compose
+# project and no `facet-api@alice.service` to start, stop or tear down.
+# Facet runs as a single service, managed the ordinary way — `systemctl
+# --user restart facet` — rather than through the control plane.
+#
+# Suspending or deleting a user is a status change plus closing their
+# database handle (see control.provision.quiesce), not a process operation.
 
 def demo() -> None:
     """Self-check:  backend/.venv/bin/python -m control.runtime
@@ -228,34 +174,11 @@ def demo() -> None:
     Command construction only. Nothing is executed, which is the point —
     these have to be right on a host this was never run on.
     """
-    env = Path("/srv/facet/users/alice/.env")
-
-    up = compose_command("alice", env, "up", "-d")
-    assert up[:4] == ["docker", "compose", "-p", "facet-alice"], up
-    assert "--env-file" in up and str(env) in up, up
-    assert up[-2:] == ["up", "-d"], up
-    # The compose file must be named explicitly: the working directory is the
-    # control plane's, not the repo's, and the default lookup would find the
-    # wrong file or none.
-    assert str(COMPOSE_FILE) in up, up
-
-    # `down -v` would remove volumes. Data removal belongs to deletion.
-    assert "-v" not in compose_command("alice", env, "down")
-
-    # The project name is what isolates one user's containers from another's.
-    assert compose_command("bob", env, "ps")[3] == "facet-bob"
-
-    assert unit_name("alice") == "facet-api@alice.service"
-
-    # Scope is a prefix on every systemctl call, so asserting it once here
-    # covers stop/start/restart/disable alike.
+    # Scope is a prefix on every systemctl call, and it is the whole reason
+    # this module exists: the control plane is not root, so `systemctl start`
+    # without --user fails with "Interactive authentication required".
     scope = ["--user"] if systemd_scope() == "user" else []
-    assert systemctl_command("stop", "bob") == \
-        ["systemctl", *scope, "stop", "facet-api@bob.service"]
-    # enable --now, so an instance survives a host reboot rather than needing
-    # someone to remember to start it.
-    assert service_start("alice", available=False).command == \
-        ["systemctl", *scope, "enable", "--now", "facet-api@alice.service"]
+    assert systemctl("restart", "facet") == ["systemctl", *scope, "restart", "facet"]
 
     # An explicit override must win over the euid-derived default, since that
     # is how a root-run deployment opts back into system units.
@@ -276,12 +199,12 @@ def demo() -> None:
 
     # An unavailable tool yields a manual step that still succeeds and still
     # tells you the command — a missing daemon must not fail provisioning.
-    result = compose_up("alice", env, available=False)
+    result = run(["systemctl", "reload", "cloudflared"], "reload tunnel",
+                 available=False)
     assert result.ok and result.mode == "manual", result
-    assert "docker compose" in result.as_dict()["command"]
     # The detail must carry the command too — it is what the portal displays,
     # and "run by hand" without the command cannot be acted on.
-    assert "docker compose -p facet-alice" in result.detail, result.detail
+    assert "systemctl reload cloudflared" in result.detail, result.detail
 
     # A command that genuinely fails is reported as failed, not manual.
     broken = run(["definitely-not-a-real-binary-xyz"], "probe", available=True)

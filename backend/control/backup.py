@@ -262,11 +262,21 @@ def restore(bundle: Path, slug: str | None = None, force: bool = False) -> dict:
     if user is not None:
         from . import provision
 
-        if provision.instance_running(user):
+        # Restoring used to require stopping this user's backend. With one
+        # shared instance that would mean taking Facet down for everybody to
+        # restore one person's backup, which is not a trade worth making.
+        #
+        # Instead: refuse while they are still being served, and otherwise
+        # close their database handle so nothing writes into the directory
+        # about to be replaced. An open SQLite connection follows the inode,
+        # so a restore under a live handle leaves the old data being written
+        # to a file no longer reachable by name.
+        if user["status"] == store.ACTIVE:
             raise BackupError(
-                f"{target_slug}'s instance is serving on port {user['api_port']} — "
-                f"stop it before restoring"
+                f"{target_slug} is still active — suspend the account first. "
+                f"Restoring under a live account would race their own writes."
             )
+        provision.quiesce(user)
 
     if paths["home"].exists():
         if not force:
@@ -427,6 +437,18 @@ def demo() -> None:
     assert not paths["tracker_db"].exists()
 
     # --- restore -----------------------------------------------------------
+    # An active account is refused: restoring underneath somebody who is
+    # using Facet would race their own writes. Suspending is the precondition
+    # now that there is no per-user process to stop.
+    try:
+        restore(bundle)
+        raise AssertionError("restoring over an active account should be refused")
+    except BackupError as exc:
+        assert "suspend" in str(exc).lower(), exc
+
+    from . import provision
+
+    provision.suspend(user["id"], "drill")
     outcome = restore(bundle)
     assert outcome["matches_manifest"], outcome
     assert outcome["rows"]["applications"] == 2, outcome

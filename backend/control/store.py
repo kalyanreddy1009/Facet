@@ -35,12 +35,13 @@ USERS_DIR = HOST_ROOT / "users"
 EXPORTS_DIR = HOST_ROOT / "exports"
 DELETED_DIR = HOST_ROOT / "deleted"
 
-# Ports are derived from the user id, and ids are never recycled. That closes
-# the nastiest failure available to this design: a deleted user's port being
-# reassigned while a stale container or a cached tunnel rule still points at
-# it, silently handing one person's Facet to someone else.
-WEB_PORT_BASE = 3100
-API_PORT_BASE = 8100
+# `web_port` and `api_port` are vestigial. One instance serves everyone now,
+# so nobody has a port of their own; both are written as 0.
+#
+# The columns stay because removing one from SQLite means rebuilding the
+# table, and the rule for user-owned data here is additive migrations only.
+# An unused column costs nothing; a table rebuild on somebody's live record
+# is exactly the kind of operation that loses data.
 
 PROVISIONING, ACTIVE, SUSPENDED, DEPROVISIONING, DELETED = (
     "provisioning", "active", "suspended", "deprovisioning", "deleted",
@@ -180,10 +181,6 @@ def create_user_row(email: str, display_name: str | None) -> dict:
         (email, slug, display_name, PROVISIONING, time.time()),
     )
     user_id = cur.lastrowid
-    conn.execute(
-        "UPDATE users SET web_port = ?, api_port = ? WHERE id = ?",
-        (WEB_PORT_BASE + user_id, API_PORT_BASE + user_id, user_id),
-    )
     conn.commit()
     return get_user(user_id)
 

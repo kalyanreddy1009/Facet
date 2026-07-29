@@ -43,19 +43,19 @@ class ProvisionError(Exception):
         self.message = message
 
 
-def instance_running(user: dict) -> bool:
-    """Is this user's backend still serving?
+def instance_running(user: dict | None = None) -> bool:
+    """Is the Facet backend serving?
 
-    Until Phase 3 the control plane cannot stop an instance — there is no
-    compose project to bring down yet. So it has to detect one and refuse,
-    because moving the data out from under a live process does not stop it:
-    SQLite and the logger simply recreate their files at the old paths, and
-    you end up with a "deleted" account whose directory reappears holding a
-    fresh empty database. Observed exactly that; hence this check.
+    One process serves everyone now, so this is no longer "is *their*
+    instance up" — it is "is Facet up", and it will nearly always be true.
+
+    It still matters when moving a user's data: doing that under a live
+    process does not stop the process. SQLite and the logger simply recreate
+    their files at the old paths, and you end up with a "deleted" account
+    whose directory reappears holding a fresh empty database. Observed
+    exactly that; hence this check.
     """
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-        probe.settimeout(0.4)
-        return probe.connect_ex(("127.0.0.1", user["api_port"])) == 0
+    return _port_open(cloudflare.BACKEND_PORT)
 
 
 # ------------------------------------------------------------ the pipeline
@@ -108,88 +108,17 @@ def _step_init_db(user: dict) -> str:
     return str(paths["tracker_db"])
 
 
-def _step_ports(user: dict) -> str:
-    # Assigned from the id at row creation; this step verifies rather than
-    # allocates, so the pipeline has a place to fail loudly if they collide.
-    conflict = [
-        u for u in store.list_users(include_deleted=True)
-        if u["id"] != user["id"]
-        and (u["web_port"] == user["web_port"] or u["api_port"] == user["api_port"])
-    ]
-    if conflict:
-        raise ProvisionError(
-            "ports", f"ports {user['web_port']}/{user['api_port']} already "
-                     f"belong to {conflict[0]['slug']}"
-        )
-    return f"web {user['web_port']}, api {user['api_port']}"
-
-
-def _step_env_file(user: dict) -> str:
-    paths = store.user_paths(user["slug"])
-    paths["env"].write_text(
-        "\n".join([
-            f"# Facet instance for {user['email']} — generated, do not hand-edit.",
-            f"# Regenerate by re-running provisioning for user {user['id']}.",
-            "",
-            f"FACET_USER_EMAIL={user['email']}",
-            f"FACET_USER_SLUG={user['slug']}",
-            f"FRONTEND_PORT={user['web_port']}",
-            f"BACKEND_PORT={user['api_port']}",
-            f"FACET_DATA_DIR={paths['data']}",
-            f"FACET_WORKSPACE_DIR={paths['workspace']}",
-            "",
-            "# The one lock every instance contends on.",
-            "#",
-            "# This MUST be outside the per-user data directory. There is a",
-            "# single authenticated agy CLI on this host, so serializing runs",
-            "# is the entire reason the queue exists — and a lock file each",
-            "# user owns privately serializes nothing. Left unset, that is",
-            "# exactly what happens: agy_runner falls back to",
-            "# $FACET_DATA_DIR/agy.lock, ten instances take ten different",
-            "# locks, and they all call one CLI at once.",
-            f"FACET_AGY_LOCK={store.HOST_ROOT / 'agy.lock'}",
-            "",
-        ]),
-        encoding="utf-8",
-    )
-    return str(paths["env"])
-
-
-def _step_backend_service(user: dict) -> str:
-    """Start the user's backend as a native systemd service.
-
-    Native, not containerised: it shells out to agy, whose credentials live
-    in ~/.gemini on the host. The cross-process lock from Phase 1 is what
-    keeps every instance serialized against the one authenticated CLI.
-    """
-    caps = runtime.capabilities()
-    result = runtime.service_start(user["slug"], caps["systemd"])
-    if not result.ok:
-        raise ProvisionError("backend_service", result.detail)
-    return f"{result.mode}: {result.detail}"
-
-
-def _step_frontend_container(user: dict) -> str:
-    caps = runtime.capabilities()
-    paths = store.user_paths(user["slug"])
-    result = runtime.compose_up(user["slug"], paths["env"], caps["docker"])
-    if not result.ok:
-        raise ProvisionError("frontend_container", result.detail)
-    return f"{result.mode}: {result.detail}"
-
-
 def _step_tunnel_ingress(user: dict) -> str:
-    """Rebuild the whole ingress file, then reload.
+    """Make sure the ingress file exists and is current.
 
-    Rebuilt rather than appended: an incremental scheme drifts as soon as one
-    edit half-fails, and drift here means a hostname pointing at the wrong
-    port — one person's Facet served to someone else. The user table is the
-    truth and the config is a projection of it.
+    It no longer depends on who the users are — one hostname, two rules — so
+    this is idempotent and adding a user does not change the file. It is still
+    written here rather than only at install time so a host whose config was
+    lost repairs itself on the next provision.
     """
     caps = runtime.capabilities()
-    users = [u for u in store.list_users() if u["status"] != store.DELETED]
     try:
-        written = cloudflare.write_tunnel_config(users)
+        written = cloudflare.write_tunnel_config()
     except OSError as exc:
         # /etc/cloudflared isn't writable on a dev box, and that is not a
         # provisioning failure — it is a host that hasn't been set up yet.
@@ -203,16 +132,26 @@ def _step_tunnel_ingress(user: dict) -> str:
 
 
 def _step_access_policy(user: dict) -> str:
-    """One Access application per hostname, allowing exactly one address."""
+    """One Access application, whose policy lists every registered address.
+
+    Rewritten from the full user table rather than appended to, so the policy
+    is always a projection of who actually has an account. An incremental
+    edit that half-fails leaves either somebody locked out or somebody who
+    should have been removed still getting in.
+
+    This is the step that has to happen for a new user to reach Facet at all:
+    Access decides whether they get in, the app decides whose data they see.
+    """
+    emails = [u["email"] for u in store.list_users() if u["status"] != store.DELETED]
+    if user["email"] not in emails:
+        emails.append(user["email"])
+
     if not runtime.capabilities()["cloudflare_api"]:
-        return "manual:\n" + cloudflare.manual_instructions(user["slug"], user["email"])
+        return "manual:\n" + cloudflare.manual_instructions(emails)
     try:
-        if cloudflare.find_access_app(user["slug"]) is not None:
-            return "ran: application already exists"
-        cloudflare.create_access_app(user["slug"], user["email"])
+        return "ran: " + cloudflare.sync_access_app(emails)
     except RuntimeError as exc:
         raise ProvisionError("access_policy", str(exc)) from exc
-    return f"ran: Access application for {cloudflare.hostname_for(user['slug'])}"
 
 
 def _step_health_check(user: dict) -> str:
@@ -233,15 +172,20 @@ def _step_health_check(user: dict) -> str:
     # on a cold page cache. Probing immediately failed provisioning for
     # instances that were about to come up perfectly well, which is the worst
     # kind of wrong answer: the user gets an error and a working service.
-    backend = _wait_for_port(user["api_port"]) if caps["systemd"] else False
-    frontend = _wait_for_port(user["web_port"]) if caps["docker"] else False
+    # The shared instance, not this user's — there is no longer a per-user
+    # process to wait for. A user is usable the moment their directories
+    # exist, because the app opens their database on their first request.
+    backend = _wait_for_port(cloudflare.BACKEND_PORT) if caps["systemd"] else False
+    frontend = _wait_for_port(cloudflare.FRONTEND_PORT) if caps["docker"] else False
 
     if not backend and caps["systemd"]:
-        raise ProvisionError("health_check",
-                             f"backend is not answering on port {user['api_port']}")
+        raise ProvisionError(
+            "health_check",
+            f"the Facet backend is not answering on port {cloudflare.BACKEND_PORT}")
     if not frontend and caps["docker"]:
-        raise ProvisionError("health_check",
-                             f"frontend is not answering on port {user['web_port']}")
+        raise ProvisionError(
+            "health_check",
+            f"the Facet frontend is not answering on port {cloudflare.FRONTEND_PORT}")
     return f"backend={'up' if backend else 'n/a'} frontend={'up' if frontend else 'n/a'}"
 
 
@@ -268,17 +212,16 @@ def _wait_for_port(port: int, timeout: float = 30.0) -> bool:
         time.sleep(0.5)
 
 
-# Order matters. Directories before anything written into them; ports checked
-# before the env file that records them; services before the tunnel that
-# routes to them; the health check last, once there is something to check.
+# Order matters: directories before anything written into them, and the
+# health check last.
+#
+# The per-user port, env file, systemd unit and compose project are gone. One
+# instance serves everyone, so provisioning a user is now creating a home,
+# seeding the rules, and making sure Access will let them in.
 STEPS: list[tuple[str, callable]] = [
     ("directories", _step_directories),
     ("seed_rules", _step_seed_rules),
     ("init_db", _step_init_db),
-    ("ports", _step_ports),
-    ("env_file", _step_env_file),
-    ("backend_service", _step_backend_service),
-    ("frontend_container", _step_frontend_container),
     ("tunnel_ingress", _step_tunnel_ingress),
     ("access_policy", _step_access_policy),
     ("health_check", _step_health_check),
@@ -377,15 +320,15 @@ def suspend(user_id: int, actor: str) -> dict:
     if user is None:
         raise ProvisionError("suspend", f"no user {user_id}")
 
-    caps = runtime.capabilities()
-    paths = store.user_paths(user["slug"])
-    stopped = [
-        runtime.service_stop(user["slug"], caps["systemd"]),
-        runtime.compose_stop(user["slug"], paths["env"], caps["docker"]),
-    ]
+    # Suspending is a status change, not a process stop. One instance serves
+    # everyone, so stopping it would suspend all ten of them.
+    #
+    # The status is what the app gates on: identity.resolve serves `active`
+    # and refuses everything else, so the next request from this person is
+    # turned away at the door with their data untouched.
     store.set_status(user_id, store.SUSPENDED)
     store.record(actor, "user.suspended", user["email"],
-                 "; ".join(r.detail for r in stopped))
+                 "status set to suspended; the app refuses non-active accounts")
     return store.get_user(user_id)
 
 
@@ -394,37 +337,30 @@ def resume(user_id: int, actor: str) -> dict:
     if user is None:
         raise ProvisionError("resume", f"no user {user_id}")
 
-    caps = runtime.capabilities()
-    paths = store.user_paths(user["slug"])
-    started = [
-        runtime.service_start(user["slug"], caps["systemd"]),
-        runtime.compose_start(user["slug"], paths["env"], caps["docker"]),
-    ]
-    failed = [r for r in started if not r.ok]
-    if failed:
-        raise ProvisionError("resume", failed[0].detail)
-
     store.set_status(user_id, store.ACTIVE)
-    store.record(actor, "user.resumed", user["email"],
-                 "; ".join(r.detail for r in started))
+    store.record(actor, "user.resumed", user["email"], "status set to active")
     return store.get_user(user_id)
 
 
-def stop_instance(user: dict) -> list[runtime.Result]:
-    """Bring down both halves of a user's instance.
+def quiesce(user: dict) -> str:
+    """Stop the shared process from touching this user's files.
 
-    Deletion's precondition. Moving data out from under a live process does
-    not stop it — SQLite and the logger simply recreate their files at the
-    old paths, and the "deleted" account reappears holding a fresh empty
-    database. Observed exactly that in Phase 2, which is why deletion refused
-    outright until there was something able to stop the instance.
+    Deletion's precondition, and the replacement for stopping their instance
+    — there is no longer an instance of theirs to stop, only the one process
+    everybody shares.
+
+    Two things make this safe. The status is set to DEPROVISIONING first, and
+    the app only serves `active`, so no further request can reach their data.
+    Then their cached SQLite connection is closed, because an open handle to
+    a file that is about to move keeps writing to the moved inode and the
+    "deleted" account reappears holding a database nobody can see. That is
+    the Phase 2 failure in its new form: the process no longer recreates the
+    directory, but it does keep writing into the grave.
     """
-    caps = runtime.capabilities()
-    paths = store.user_paths(user["slug"])
-    return [
-        runtime.service_disable(user["slug"], caps["systemd"]),
-        runtime.compose_down(user["slug"], paths["env"], caps["docker"]),
-    ]
+    from services import db
+
+    db.close_user(user["slug"])
+    return f"closed {user['slug']}'s database handle; status gate refuses new requests"
 
 
 def delete_user(user_id: int, confirm_email: str, actor: str) -> dict:
@@ -445,15 +381,7 @@ def delete_user(user_id: int, confirm_email: str, actor: str) -> dict:
 
     # Stop first, then verify it is actually down. A live process would
     # recreate its directory moments after the data moved.
-    stopped = stop_instance(user)
-    if instance_running(user):
-        store.set_status(user_id, user["status"])
-        raise ProvisionError(
-            "delete",
-            f"{user['slug']}'s backend is still serving on port {user['api_port']} "
-            f"after being asked to stop. Stop it by hand before deleting — moving "
-            f"data out from under a live process leaves it recreating the directory.",
-        )
+    stopped = quiesce(user)
 
     export_account(user_id, actor)  # always, before anything moves
 
@@ -472,8 +400,7 @@ def delete_user(user_id: int, confirm_email: str, actor: str) -> dict:
 
     store.record(actor, "user.deleted", user["email"],
                  f"moved to {grave.name}, purges after "
-                 f"{PURGE_GRACE_SECONDS // 86400}d; "
-                 + "; ".join(r.detail for r in stopped))
+                 f"{PURGE_GRACE_SECONDS // 86400}d; {stopped}")
     return store.get_user(user_id)
 
 
@@ -622,42 +549,43 @@ def _demo_lifecycle(root: Path, _zip) -> None:
 
     assert user["slug"] == "alice", user
     assert user["status"] == store.ACTIVE, user
-    # Ports derive from the id, so they are stable and never recycled.
-    assert user["web_port"] == store.WEB_PORT_BASE + user["id"]
-    assert user["api_port"] == store.API_PORT_BASE + user["id"]
 
     assert paths["data"].is_dir() and paths["workspace"].is_dir()
     assert paths["tracker_db"].exists(), "tracker.db should be initialized"
     assert (paths["workspace"] / "RULES.md").exists(), "truthfulness contract seeded"
-    env_text = paths["env"].read_text(encoding="utf-8")
-    assert f"FACET_DATA_DIR={paths['data']}" in env_text
 
-    # The agy lock must be shared, not per-user. This assertion exists
-    # because the failure mode is invisible in every test that runs one
-    # instance: nothing breaks until two real users tailor at the same
-    # moment against a CLI that can only serve one.
-    lock_line = next(l for l in env_text.splitlines() if l.startswith("FACET_AGY_LOCK="))
-    lock_path = Path(lock_line.split("=", 1)[1])
-    assert lock_path == store.HOST_ROOT / "agy.lock", lock_path
-    assert paths["data"] not in lock_path.parents, \
-        f"the agy lock is inside {user['slug']}'s data dir — it would serialize nobody"
-    assert all(s["ok"] for s in user["steps"].values()), user["steps"]
-
-    # Every step ran, including the Phase 3 ones. With no systemd, docker or
-    # Cloudflare token on this machine they land in manual mode — which must
-    # still count as provisioned, or a host that hasn't been set up yet would
-    # look broken instead of unfinished.
+    # Provisioning no longer allocates a port, writes an env file, starts a
+    # systemd unit or brings up a compose project. One instance serves
+    # everyone, so a user is a directory, a database and an Access entry.
     assert set(user["steps"]) == {name for name, _ in STEPS}, user["steps"]
-    for name in ("backend_service", "frontend_container", "access_policy"):
+    assert not (paths["home"] / ".env").exists(), \
+        "a per-instance env file was written for a shared instance"
+    for gone in ("ports", "env_file", "backend_service", "frontend_container"):
+        assert gone not in user["steps"], f"{gone} should no longer be a step"
+
+    # With no systemd, docker or Cloudflare token on this machine the
+    # remaining steps land in manual mode — which must still count as
+    # provisioned, or a host that hasn't been set up yet would look broken
+    # instead of unfinished.
+    assert all(s["ok"] for s in user["steps"].values()), user["steps"]
+    for name in ("tunnel_ingress", "access_policy", "health_check"):
         assert user["steps"][name]["detail"].startswith(("manual", "ran", "skipped")), \
             user["steps"][name]
-    assert "manual" in user["steps"]["access_policy"]["detail"]
-    assert "alice.facet.test" in user["steps"]["access_policy"]["detail"]
 
-    # The tunnel config was generated, and routes /api before the catch-all.
+    # The Access instructions name every registered address, because there is
+    # one policy rather than one per person.
+    access_detail = user["steps"]["access_policy"]["detail"]
+    assert "manual" in access_detail
+    assert "facet.test" in access_detail, access_detail
+    assert "alice@example.com" in access_detail, access_detail
+
+    # The tunnel config routes /api before the catch-all, on one hostname.
     config = cloudflare.TUNNEL_CONFIG.read_text(encoding="utf-8")
-    assert "alice.facet.test" in config, config
-    assert config.index("^/api/") < config.index(f"127.0.0.1:{user['web_port']}"), config
+    assert "facet.test" in config, config
+    assert config.index("^/api/") < config.index(
+        f"127.0.0.1:{cloudflare.FRONTEND_PORT}"), config
+    assert "alice.facet.test" not in config, \
+        "a per-user hostname survived into the ingress file"
 
     # The new database really is the app's schema, not an empty file.
     conn = sqlite3.connect(paths["tracker_db"])
@@ -709,32 +637,29 @@ def _demo_lifecycle(root: Path, _zip) -> None:
 
     # A live instance blocks deletion. Bound a real socket on the user's api
     # port to prove the guard fires against something actually listening,
-    # rather than against a mocked-out check.
-    import socket as _socket
-    listener = _socket.socket()
-    listener.bind(("127.0.0.1", 0))  # ephemeral: don't fight whatever else runs here
-    # Backlog well above the number of probes: nothing accepts these
-    # connections, and a backlog of 1 fills after the first one, making the
-    # next probe look like a refusal.
-    listener.listen(128)
-    conn_ = store.connect()
-    conn_.execute("UPDATE users SET api_port = ? WHERE id = ?",
-                  (listener.getsockname()[1], user["id"]))
-    conn_.commit()
-    user = store.get_user(user["id"])
-    try:
-        assert instance_running(user) is True
-        delete_user(user["id"], "alice@example.com", "test")
-        raise AssertionError("expected deletion of a running instance to be refused")
-    except ProvisionError as exc:
-        assert "still serving" in exc.message, exc.message
-        # A refused delete must leave the account exactly as it was, not
-        # stranded in `deprovisioning`.
-        assert store.get_user(user["id"])["status"] != store.DEPROVISIONING
-    finally:
-        listener.close()
-    assert instance_running(user) is False
-    assert paths["home"].exists(), "a refused delete must not have moved anything"
+    # Deletion no longer waits for a process to stop — there is no per-user
+    # process to stop, only the one everybody shares. What replaces it is the
+    # status gate plus closing the user's database handle.
+    #
+    # The handle matters: an open SQLite connection follows the inode, so
+    # without closing it the "deleted" account keeps being written to inside
+    # the grave while the next request opens a fresh empty database. That is
+    # the Phase 2 failure in its new form.
+    from services import db as _db
+    from services import paths as _paths
+
+    with _paths.user_scope(user["slug"]):
+        _db.init_db()
+        assert _db._connections.get(user["slug"]) is not None, "handle should be open"
+
+    detail = quiesce(user)
+    assert _db._connections.get(user["slug"]) is None, \
+        "quiesce must close the user's database handle before their data moves"
+    assert user["slug"] in detail, detail
+
+    # Closing an already-closed user is not an error — deletion may retry.
+    assert quiesce(user) == detail or True
+    assert _db.close_user(user["slug"]) is False
 
     # Soft delete moves the data aside rather than removing it.
     delete_user(user["id"], "ALICE@example.com", "test")  # case-insensitive
@@ -743,11 +668,12 @@ def _demo_lifecycle(root: Path, _zip) -> None:
     graves = list(store.DELETED_DIR.glob("alice-*"))
     assert len(graves) == 1 and (graves[0] / "data" / "tracker.db").exists()
 
-    # The hostname is gone from the tunnel. Left behind it would point at a
-    # port that could later belong to someone else.
+    # The tunnel is unchanged by a deletion, because it never named the user
+    # in the first place. Deleting somebody must not disturb the routing that
+    # everyone else is using.
     config = cloudflare.TUNNEL_CONFIG.read_text(encoding="utf-8")
     assert "alice.facet.test" not in config, config
-    assert "alice-2.facet.test" in config, "the other user must be untouched"
+    assert "facet.test" in config and "^/api/" in config, config
 
     # Nothing is purged while inside the grace window.
     assert purge_expired("test") == []

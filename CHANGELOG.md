@@ -63,9 +63,28 @@ Verified on the host: 401 with no identity, 403 for an unregistered address,
 the owner's own migrated record for his, and `[]` for a second user added
 **while the server was running** — no restart needed.
 
-Still open: `control/provision.py` continues to allocate a port, a systemd
-unit and an ingress entry per user. Those steps are now redundant rather than
-wrong, and are next.
+Then the redundant half came out. Provisioning had ten steps; it has six.
+Gone: the per-user port, env file, systemd unit and compose project, along
+with `runtime.compose_*` and `runtime.service_*` — about 100 lines of dead
+command construction. Net **-55 lines** across the cleanup.
+
+Removing them exposed two things that had quietly become dangerous:
+
+- **Suspending a user stopped their instance.** With one shared process that
+  would have suspended all ten. It is a status change now, and the app only
+  serves `active`.
+- **Deleting or restoring a user demanded stopping their backend**, which is
+  everyone's backend. Replaced by `provision.quiesce`: the status gate stops
+  new requests, and the user's SQLite handle is closed before their directory
+  moves. That last part matters — an open handle follows the inode, so
+  without it a deleted account keeps being written to inside the grave while
+  the next request opens a fresh empty database. It is the Phase 2 failure
+  wearing new clothes.
+
+`web_port` and `api_port` stay as columns, written as 0. Dropping a column in
+SQLite means rebuilding the table, and the rule for user-owned data is
+additive migrations only — an unused column costs nothing, a table rebuild on
+somebody's live record is how records get lost.
 
 ## 2026-07-29 — The extension, and the bug it was hiding
 

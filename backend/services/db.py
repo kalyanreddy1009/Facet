@@ -71,6 +71,20 @@ def _get_connection() -> sqlite3.Connection:
     return conn
 
 
+def close_user(user: str | None) -> bool:
+    """Close and forget one user's connection.
+
+    Needed before their directory moves: an open SQLite handle follows the
+    inode, so a deleted account would keep being written to inside the grave
+    while the next request opened a fresh empty database.
+    """
+    conn = _connections.pop(user, None)
+    if conn is None:
+        return False
+    conn.close()
+    return True
+
+
 def close_all() -> None:
     """Close every cached connection. For tests and shutdown."""
     for conn in _connections.values():

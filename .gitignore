@@ -7,6 +7,10 @@ data/settings.json
 # DEFAULT_FEEDS when it's absent.
 data/feeds.json
 data/tracker.db
+# Per-user homes. A pattern, not a list: users are created at runtime, so
+# naming their files individually guarantees the next one gets committed.
+data/users/
+workspace/users/
 data/tracker.db-wal
 data/tracker.db-shm
 data/logs/

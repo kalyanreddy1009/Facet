@@ -18,21 +18,34 @@ Python 3.12, Node 22, Docker 29). Where something was verified, it says so.
 
 ```
 Cloudflare Tunnel + Access  ──►  nothing is published on any interface
-   admin.facet.example      ──►  127.0.0.1:9000   control plane   [you only]
-   alice.facet.example/api/ ──►  127.0.0.1:8101   native backend  [alice only]
-   alice.facet.example/     ──►  127.0.0.1:3101   frontend container
+   admin.facet.example      ──►  127.0.0.1:9000   control plane  [you only]
+   facet.facet.example/api/ ──►  127.0.0.1:8000   backend        [everyone]
+   facet.facet.example/     ──►  127.0.0.1:3000   frontend       [everyone]
 ```
 
-The backend is **native**, the frontend is **containerised**. That split is
-`PLAN.md` D6: the backend shells out to `agy`, whose credentials live in
-`~/.gemini` for one OS user and cannot be reached from a container. The
-cross-process lock in `services/filelock.py` is what keeps every instance
-serialized against the single authenticated CLI.
+**One hostname, one instance, everyone.** Access authenticates at the edge
+and sets `Cf-Access-Authenticated-User-Email`; the backend maps that address
+to a user and serves that user's directory. Each person has their own
+`tracker.db` under `users/<slug>/`, so isolation is a property of the
+filesystem rather than of every query remembering a `WHERE` clause.
 
-`/api/*` is routed by the tunnel, not by Next. Next bakes rewrite
-destinations at *build* time, so a Next-side proxy would mean one image build
-per user. Letting cloudflared match on path means no per-user address is baked
-in anywhere and one image serves everybody.
+Per-user subdomains were the earlier design and could not work: Cloudflare's
+free Universal SSL covers a single level of subdomain, so on a domain like
+`facet.nivil.dpdns.org` a per-user `alice.facet.…` has no certificate at all.
+
+Trusting that header is only sound because both services bind **127.0.0.1**,
+so cloudflared on this host is the sole thing that can reach them. The
+backend refuses to start multi-user on any other address rather than warning
+about it.
+
+The backend is **native** rather than containerised — `PLAN.md` D6: it shells
+out to `agy`, whose credentials live in `~/.gemini` for one OS user and
+cannot be reached from a container. The cross-process lock in
+`services/filelock.py` still serializes every agy run against that single
+authenticated CLI.
+
+`/api/*` is routed by the tunnel, not by Next, which bakes rewrite
+destinations at *build* time.
 
 ## Everything runs as one ordinary user
 
@@ -185,10 +198,14 @@ Gate `admin.facet.example` to your address only.
 https://admin.facet.example
 ```
 
-Email in, everything else derived: directories, database, ports, env file,
-systemd unit, frontend container, tunnel ingress, health check. Steps that
-need a tool the host lacks report `manual` with the exact command rather than
-failing.
+Email in, and the rest follows: their directories, their database, the
+tunnel ingress (unchanged — it does not name users), the Access policy, and a
+health check. No port, no env file, no systemd unit, no container: one
+instance serves everybody, so adding a person does not start anything.
+
+Their database is created on their first request, so a user added while the
+service is running needs no restart. Steps that need a tool the host lacks
+report `manual` with the exact command rather than failing.
 
 Before the tunnel exists you can reach the portal over SSH:
 
