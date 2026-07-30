@@ -45,7 +45,11 @@ export default function LoadingOverlay({ queuePosition }: { queuePosition?: numb
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 z-50 grid place-items-center bg-bg/80 px-6"
+      /* The one scrim token, the same one the Sheet uses. `bg-bg/80` was a
+         second, lighter scrim invented here: on paper it tinted the page
+         without dimming it, so the thing being waited for stayed just as
+         visible as the thing doing the waiting. */
+      className="fixed inset-0 z-50 grid place-items-center bg-overlay px-6"
     >
       <div className="rounded-lg chrome px-6 py-5 flex flex-col items-center gap-3 shadow-popover">
         <Loader2 className="w-4 h-4 text-text-faint animate-spin" aria-hidden />

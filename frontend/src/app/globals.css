@@ -47,13 +47,29 @@
 
   /* Translucent forms of the same surfaces. These are what `.panel`, `.card`
      and `.chrome` actually paint, so the ambient field reads through the whole
-     interface instead of only the nav. Alpha is deliberately high enough that
-     14px body text keeps its contrast — "slightly more transparent", not
-     "see-through". */
-  --glass-1: rgba(255, 255, 255, 0.76);
-  --glass-2: rgba(255, 255, 255, 0.84);
-  --glass-3: rgba(238, 238, 240, 0.9);
-  --glass-blur: 16px;
+     interface instead of only the nav.
+
+     Raised hard from 0.76/0.84. Transparency does opposite things in the two
+     themes: on black, whatever shows through a panel is *darker* than the
+     panel, so the text keeps its contrast and only the surface changes. On
+     paper, what shows through is the ambient tint — which is darker than the
+     white panel — so every translucent surface loses contrast against its own
+     text, and a card sitting over one of the glows goes visibly grey in one
+     corner. That is the muddiness, and it is not fixable by darkening the
+     text: the surface itself has to hold still.
+
+     At 0.93 there is still glass — the blur, the saturate, the edge highlight
+     and a hint of the field underneath all survive — but the panel is a
+     surface first and an effect second. `prefers-reduced-transparency` still
+     drops to fully opaque below. */
+  --glass-1: rgba(255, 255, 255, 0.93);
+  --glass-2: rgba(255, 255, 255, 0.96);
+  --glass-3: rgba(238, 238, 240, 0.97);
+  /* Down from 16px, and the saturate below from 1.4. With the surfaces at
+     0.93 there is very little left to blur or saturate — the pixels behind
+     barely reach the eye — so the larger radius was paying full price for an
+     effect nobody could see. */
+  --glass-blur: 12px;
   /* The top highlight that makes a translucent panel read as a pane of glass
      rather than a hole. One hairline, never a gradient wash. On paper the
      light edge is nearly white — it reads against the ambient tint the panel
@@ -156,7 +172,7 @@
      fastest way to look fake, and on paper the dark theme's 0.6 alpha reads as
      a smudge rather than depth, so light mode carries the same two levels at a
      fraction of the strength. */
-  --shadow-raised: 0 1px 2px rgba(15, 17, 21, 0.06), 0 8px 24px -12px rgba(15, 17, 21, 0.18);
+  --shadow-raised: 0 1px 2px rgba(15, 17, 21, 0.07), 0 8px 22px -10px rgba(15, 17, 21, 0.22);
   --shadow-float: 0 2px 4px rgba(15, 17, 21, 0.07), 0 16px 48px -16px rgba(15, 17, 21, 0.24);
 
   /* One line of the ambient lattice. Dark-on-light now, and at a higher alpha
@@ -372,8 +388,8 @@ button:not(:disabled),
     background: var(--glass-1);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
   }
 
   .panel-inset {
@@ -386,8 +402,8 @@ button:not(:disabled),
     background: var(--glass-2);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
   }
 
   /* The primary content container: a panel that is the subject of its screen
@@ -400,8 +416,8 @@ button:not(:disabled),
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-raised);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
   }
 
   /* The glass edge — one hairline of light along the top, the thing that
@@ -431,9 +447,12 @@ button:not(:disabled),
      most opaque thing on screen: a translucent nav over a translucent panel
      over the field is three layers of haze and no legibility. */
   .chrome {
-    background: rgba(255, 255, 255, 0.84);
-    -webkit-backdrop-filter: blur(20px) saturate(1.6);
-    backdrop-filter: blur(20px) saturate(1.6);
+    /* The most opaque surface in the app, and the only one with content
+       moving *underneath* it — a sticky nav you can read the page through is
+       the single worst place to spend transparency. */
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    backdrop-filter: blur(14px) saturate(1.2);
     border: 1px solid var(--border);
   }
 
