@@ -7,6 +7,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Activity, Menu, X } from "lucide-react";
 import { ENTER, REDUCED } from "@/lib/motion";
 import AccountMenu from "@/components/ui/AccountMenu";
+import FacetMark from "@/components/ui/FacetMark";
 import { useSession } from "@/lib/useSession";
 
 const LINKS = [
@@ -20,48 +21,6 @@ const LINKS = [
 // only appears in the mobile menu at the end. Deliberately does NOT poll
 // /api/status from every page: that report does real work on each call.
 const STATUS_LINK = { href: "/status", label: "Status" };
-
-/** The mark: a brilliant cut, seen face on.
- *
- *  The previous one was a pentagon with a line through it — at 17px it read as
- *  a shield, a house, or a generic "app", and the one shape this product is
- *  named after was the one thing it did not look like. This is the real
- *  geometry instead: a flat table across the top, a girdle at the widest
- *  point, and the crown and pavilion facets meeting at a culet.
- *
- *  Drawn on the true silhouette rather than a symmetrical diamond, because a
- *  rotated square is a playing-card suit and a stone is wider than it is deep
- *  above the girdle.
- *
- *  Monochrome — it inherits text colour like every other icon in the app.
- *  Sized by the caller: 17px inside the app, larger on the landing page, where
- *  the name is the page's first line rather than a way back. */
-function FacetMark({ size = 17 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-      {/* Silhouette. `strokeLinejoin: round` keeps the culet from spiking into
-          a hairline point when the icon is scaled up on the landing page. */}
-      <path
-        d="M6.6 3.25h10.8L22 10 12 21.4 2 10l4.6-6.75Z"
-        stroke="currentColor"
-        strokeWidth="1.45"
-        strokeLinejoin="round"
-      />
-      {/* The girdle — the one line that makes it a cut stone rather than a
-          crystal, so it carries more weight than the facets. */}
-      <path d="M2 10h20" stroke="currentColor" strokeWidth="1.1" opacity="0.62" />
-      {/* Crown facets down to the girdle, pavilion facets down to the culet.
-          Light enough to survive 17px without filling in. */}
-      <path
-        d="M6.6 3.25 9.1 10 12 21.4 14.9 10l2.5-6.75M9.1 10h5.8"
-        stroke="currentColor"
-        strokeWidth="0.85"
-        strokeLinejoin="round"
-        opacity="0.4"
-      />
-    </svg>
-  );
-}
 
 export default function NavBar() {
   const pathname = usePathname();
@@ -79,25 +38,30 @@ export default function NavBar() {
 
   // On the landing page the wordmark is doing a different job — it is the
   // product's name to someone who has never seen it, not a home button to
-  // someone who lives here. So it is set larger and lit there, and stays
-  // quiet everywhere else.
+  // someone who lives here. So it is set larger there, and stays quiet
+  // everywhere else. The glint, though, runs on every page: the brand should
+  // not behave like a different brand once you are signed in.
   const landing = pathname === "/";
 
   return (
-    <header className="sticky top-0 z-40 chrome border-x-0 border-t-0">
-      <div className="max-w-shell mx-auto h-nav px-5 sm:px-8 flex items-center justify-between gap-6">
+    <header className="sticky top-0 z-40 nav-shell">
+      <div className="max-w-shell mx-auto h-nav px-5 sm:px-8 flex items-center justify-between gap-4">
         <Link
           href="/"
-          className={`flex items-center shrink-0 text-text transition-opacity duration-fast hover:opacity-80 ${
+          className={`group flex items-center shrink-0 text-text rounded-lg outline-none ${
             landing ? "gap-2.5" : "gap-2"
           }`}
         >
-          <FacetMark size={landing ? 30 : 17} />
+          {/* The mark leans into the light on hover — a stone catching it,
+              which is the one gesture this brand gets to make. */}
+          <span className="nav-mark inline-flex">
+            <FacetMark size={landing ? 30 : 18} />
+          </span>
           <span
             className={
               landing
                 ? "wordmark text-[1.75rem] sm:text-[2rem] font-semibold tracking-[-0.035em] leading-none"
-                : "text-sm font-semibold tracking-tight"
+                : "wordmark text-[0.95rem] font-semibold tracking-[-0.02em]"
             }
           >
             Facet
@@ -105,7 +69,7 @@ export default function NavBar() {
         </Link>
 
         {showApp && (
-          <nav className="hidden md:flex items-center gap-0.5" aria-label="Main">
+          <nav className="hidden md:flex items-center gap-1" aria-label="Main">
             {LINKS.map((link) => {
               const active = pathname === link.href;
               return (
@@ -113,18 +77,22 @@ export default function NavBar() {
                   key={link.href}
                   href={link.href}
                   aria-current={active ? "page" : undefined}
-                  className="relative px-3 py-2 text-sm font-medium transition-colors duration-fast"
+                  className={`nav-pill relative text-sm font-medium ${
+                    active ? "text-text" : "text-text-dim hover:text-text"
+                  }`}
                 >
+                  {/* The moving indicator is the filled pill itself rather than
+                      a rule under the label: it travels between destinations as
+                      one object, which reads as "you are here" instead of as
+                      four separate underlines taking turns. */}
                   {active && (
                     <motion.span
-                      layoutId="nav-underline"
-                      className="absolute inset-x-2 -bottom-px h-px bg-accent"
+                      layoutId="nav-pill"
+                      className="absolute inset-0 rounded-lg nav-pill-active"
                       transition={reduced ? REDUCED : ENTER}
                     />
                   )}
-                  <span className={active ? "text-text" : "text-text-dim hover:text-text"}>
-                    {link.label}
-                  </span>
+                  <span className="relative z-10">{link.label}</span>
                 </Link>
               );
             })}
@@ -136,9 +104,9 @@ export default function NavBar() {
             <Link
               href={STATUS_LINK.href}
               aria-current={pathname === STATUS_LINK.href ? "page" : undefined}
-              className={`hidden md:flex items-center gap-1.5 px-2.5 h-7 rounded text-xs transition-colors duration-fast ${
+              className={`nav-pill nav-pill-sm relative hidden md:flex items-center gap-1.5 text-xs ${
                 pathname === STATUS_LINK.href
-                  ? "text-text bg-surface-2"
+                  ? "text-text nav-pill-active"
                   : "text-text-faint hover:text-text-dim"
               }`}
             >
@@ -175,7 +143,7 @@ export default function NavBar() {
       </div>
 
       {open && showApp && (
-        <nav className="md:hidden border-t border-border px-5 py-2 flex flex-col" aria-label="Main">
+        <nav className="md:hidden border-t border-border px-4 py-2 flex flex-col gap-0.5" aria-label="Main">
           {[...LINKS, STATUS_LINK].map((link) => (
             <Link
               key={link.href}
@@ -185,8 +153,10 @@ export default function NavBar() {
               // menu that stays open in that one case reads as a stuck menu.
               onClick={() => setOpen(false)}
               aria-current={pathname === link.href ? "page" : undefined}
-              className={`py-2.5 text-sm transition-colors duration-fast ${
-                pathname === link.href ? "text-text font-medium" : "text-text-dim hover:text-text"
+              className={`nav-pill justify-start text-sm ${
+                pathname === link.href
+                  ? "text-text font-medium nav-pill-active"
+                  : "text-text-dim hover:text-text"
               }`}
             >
               {link.label}

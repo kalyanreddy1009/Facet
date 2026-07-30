@@ -19,7 +19,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Check, Lock, Search, Sparkles } from "lucide-react";
+import { ArrowRight, Check, FileDown, Lock, Search, Sparkles } from "lucide-react";
 import { useSession } from "@/lib/useSession";
 import StoneGraphic from "./StoneGraphic";
 
@@ -29,8 +29,16 @@ const FAQ = [
     a: "No. Your Stone — built from the resume you import — is the only source of truth about you. The AI can reorder, re-emphasize and rephrase what's genuinely there; it can't add anything that isn't. That constraint is the product, not a setting.",
   },
   {
+    q: "What do I actually get for a posting?",
+    a: "A tailored resume, a cover letter and a short recruiter pitch, each downloadable as PDF or Word. The layout is fixed and identical every time — only the emphasis moves, so you can send one without reading it end to end and still know what it says.",
+  },
+  {
     q: "How does it get LinkedIn and Naukri postings without scraping them?",
-    a: "Two legitimate routes. Aggregator APIs like Jooble already index postings syndicated from those boards and hand them over through their own API. And Facet builds the saved-search URL for each platform so you create the alert there yourself. Nothing ever logs into a job platform on your behalf — that's how accounts get banned, and the cost would land on you.",
+    a: "Two legitimate routes. Aggregator APIs like Adzuna and Arbeitnow already index postings syndicated from those boards and hand them over through their own API. And Facet builds the saved-search URL for each platform so you create the alert there yourself, then reads the RSS it gives you. Nothing ever logs into a job platform on your behalf — that's how accounts get banned, and the cost would land on you.",
+  },
+  {
+    q: "Does it keep track of what happens after I apply?",
+    a: "That's the Cabinet. Every facet you cut, everything you've sent, what's gone quiet and needs a nudge, and the interviews on the other side of it. Point it at your calendar feed and it will spot interview invitations and match them to the application they belong to, so the record keeps itself.",
   },
   {
     q: "Will Facet submit applications for me?",
@@ -58,9 +66,14 @@ const STEPS = [
     body: "Postings from public job APIs and the alerts you've subscribed to, deduplicated and ranked against your Stone. Search and filter across all of them at once instead of tab by tab.",
   },
   {
-    icon: Check,
+    icon: FileDown,
     title: "A facet per job",
-    body: "Cut a tailored resume, cover letter and recruiter pitch for a specific posting. Same layout every time — only the emphasis moves, and only within what your Stone supports.",
+    body: "Cut a tailored resume, cover letter and recruiter pitch for one posting, then take them away as PDF or Word. Same layout every time — only the emphasis moves.",
+  },
+  {
+    icon: Check,
+    title: "And what came of it",
+    body: "The Cabinet holds everything you've sent, what has gone quiet, and the interviews that followed. Connect a calendar feed and it files those itself.",
   },
 ];
 
@@ -154,7 +167,7 @@ export default function LandingContent() {
           <p className="text-lg text-text-dim max-w-prose text-pretty">
             Facet keeps one honest record of your real background, searches every major job board
             from a single bar, and cuts a tailored resume, cover letter and recruiter pitch for each
-            posting — without inventing a single thing.
+            posting — then tracks what came of it. Without inventing a single thing.
           </p>
           <div className="flex flex-wrap items-center gap-2.5 mt-1">
             <Link href={primary.href} className="btn btn-lg btn-primary">
@@ -183,9 +196,9 @@ export default function LandingContent() {
       <Reveal className="max-w-shell mx-auto px-5 sm:px-8 py-16 scroll-mt-nav" id="how">
         <h2 className="text-3xl font-semibold text-text text-balance">How it works</h2>
         <p className="mt-2 text-md text-text-dim max-w-prose text-pretty">
-          Three steps, and the first one happens exactly once.
+          Four steps, and the first one happens exactly once.
         </p>
-        <ol className="mt-8 grid sm:grid-cols-3 gap-4">
+        <ol className="mt-8 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {STEPS.map((step, i) => (
             <li
               key={step.title}

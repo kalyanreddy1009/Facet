@@ -57,7 +57,7 @@ export default function Segmented<T extends string>({
             {active && (
               <motion.span
                 layoutId={layoutId}
-                className="absolute inset-0 rounded-sm bg-surface-3 border border-border"
+                className="absolute inset-0 rounded-sm seg-active"
                 transition={reduced ? REDUCED : ENTER}
               />
             )}
