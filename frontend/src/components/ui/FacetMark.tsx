@@ -23,6 +23,13 @@ import { FACETS, GIRDLE, TABLE, VIEW_BOX } from "@/lib/gem";
  * line detail.
  */
 export default function FacetMark({ size = 17 }: { size?: number }) {
+  // The 16 upper-girdle facets are dropped. They are the smallest ring, they
+  // ring the rim, and at 18px they collapse into a grey band that eats the
+  // silhouette — the mark reads as a pearl. Kites and stars are the large
+  // shapes that still carry structure at this size, and the girdle stroke
+  // already draws the edge those rim facets were describing.
+  const shapes = FACETS.filter((facet) => facet.k !== "ug");
+
   return (
     <svg
       width={size}
@@ -32,26 +39,29 @@ export default function FacetMark({ size = 17 }: { size?: number }) {
       aria-hidden
       className="shrink-0"
     >
-      {FACETS.map((facet) => (
+      {shapes.map((facet) => (
         <path
           key={facet.d}
           d={facet.d}
           fill="currentColor"
           // Inverted against `lit`: on a light interface more ink means less
           // light, so the facets facing away from the source are the dark
-          // ones. Raised to 1.15 to push the two sides apart — at this size a
-          // linear ramp turns into one flat grey disc.
-          opacity={(0.05 + 0.66 * Math.pow(1 - facet.lit, 1.15)).toFixed(3)}
+          // ones. The exponent is high and the range nearly full, because the
+          // failure mode at 18px is not "too subtle" — it is a uniform grey
+          // disc that reads as a pearl. What survives at this size is one
+          // hard terminator between a light half and a dark half.
+          opacity={(0.04 + 0.8 * Math.pow(1 - facet.lit, 1.2)).toFixed(3)}
         />
       ))}
-      {/* The table stays near-empty. It is the brightest plane on a real stone,
-          and leaving it open is what gives the mark a centre. */}
-      <path d={TABLE} fill="currentColor" opacity="0.07" />
+      {/* Left almost open. The table is the brightest plane on a real stone,
+          and at 18px an empty centre is the difference between a cut gem and a
+          filled blob. */}
+      <path d={TABLE} fill="currentColor" opacity="0.04" />
       <path
         d={GIRDLE}
         fill="none"
         stroke="currentColor"
-        strokeWidth="9"
+        strokeWidth="10"
         strokeLinejoin="round"
       />
     </svg>

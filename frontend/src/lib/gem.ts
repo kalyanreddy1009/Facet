@@ -82,3 +82,23 @@ export const REFLECTION = "M145.2 130.4 L130.4 145.2 L109.6 145.2 L94.8 130.4 L9
 /** The viewBox every consumer must use. Exported so a caller cannot pick a
  *  different one and silently crop the girdle. */
 export const VIEW_BOX = "0 0 240 240";
+
+/** The pavilion rim. The stone does not stop at the girdle — it continues
+ *  below it to a point, and from directly above you still see a band of that
+ *  underside around the edge. Without it the figure is a disc; with it, it is
+ *  an object with a thickness. */
+export const PAVILION_INNER = "M210.0 120.0 L203.1 154.4 L183.6 183.6 L154.4 203.1 L120.0 210.0 L85.6 203.1 L56.4 183.6 L36.9 154.4 L30.0 120.0 L36.9 85.6 L56.4 56.4 L85.6 36.9 L120.0 30.0 L154.4 36.9 L183.6 56.4 L203.1 85.6 Z";
+
+/** Caustics: the light the stone throws past its own edge onto whatever it is
+ *  sitting on. Eight tapered rays aligned to the girdle's main points, because
+ *  that is where a real cut concentrates light. */
+export const RAYS = [
+  "M215.7 155.4 L269.7 182.0 L212.7 162.6 Z",
+  "M162.6 212.7 L182.0 269.7 L155.4 215.7 Z",
+  "M84.6 215.7 L58.0 269.7 L77.4 212.7 Z",
+  "M27.3 162.6 L-29.7 182.0 L24.3 155.4 Z",
+  "M24.3 84.6 L-29.7 58.0 L27.3 77.4 Z",
+  "M77.4 27.3 L58.0 -29.7 L84.6 24.3 Z",
+  "M155.4 24.3 L182.0 -29.7 L162.6 27.3 Z",
+  "M212.7 77.4 L269.7 58.0 L215.7 84.6 Z",
+];

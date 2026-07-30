@@ -45,22 +45,27 @@ export default function NavBar() {
 
   return (
     <header className="sticky top-0 z-40 nav-shell">
-      <div className="max-w-shell mx-auto h-nav px-5 sm:px-8 flex items-center justify-between gap-4">
+      {/* Three columns rather than space-between: the outer two are equal
+          fractions, so the track lands on the optical centre of the island no
+          matter how wide the brand or the account control happen to be. With
+          space-between it drifts, and a nav that is almost centred reads as a
+          mistake rather than as a choice. */}
+      <div className="glass nav-island max-w-shell mx-auto px-2.5 sm:px-3 grid grid-cols-[auto_1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-3">
         <Link
           href="/"
-          className={`group flex items-center shrink-0 text-text rounded-lg outline-none ${
-            landing ? "gap-2.5" : "gap-2"
+          className={`group nav-pill shrink-0 justify-self-start text-text ${
+            landing ? "gap-2.5 !h-[42px] !px-3.5" : "gap-2"
           }`}
         >
           {/* The mark leans into the light on hover — a stone catching it,
               which is the one gesture this brand gets to make. */}
           <span className="nav-mark inline-flex">
-            <FacetMark size={landing ? 30 : 18} />
+            <FacetMark size={landing ? 26 : 18} />
           </span>
           <span
             className={
               landing
-                ? "wordmark text-[1.75rem] sm:text-[2rem] font-semibold tracking-[-0.035em] leading-none"
+                ? "wordmark text-[1.4rem] sm:text-[1.6rem] font-semibold tracking-[-0.035em] leading-none"
                 : "wordmark text-[0.95rem] font-semibold tracking-[-0.02em]"
             }
           >
@@ -69,7 +74,7 @@ export default function NavBar() {
         </Link>
 
         {showApp && (
-          <nav className="hidden md:flex items-center gap-1" aria-label="Main">
+          <nav className="hidden md:flex nav-track justify-self-center" aria-label="Main">
             {LINKS.map((link) => {
               const active = pathname === link.href;
               return (
@@ -78,17 +83,17 @@ export default function NavBar() {
                   href={link.href}
                   aria-current={active ? "page" : undefined}
                   className={`nav-pill relative text-sm font-medium ${
-                    active ? "text-text" : "text-text-dim hover:text-text"
+                    active ? "nav-pill-on" : "text-text-dim hover:text-text"
                   }`}
                 >
-                  {/* The moving indicator is the filled pill itself rather than
-                      a rule under the label: it travels between destinations as
-                      one object, which reads as "you are here" instead of as
-                      four separate underlines taking turns. */}
+                  {/* Every item is already a pane; this is the accent moving
+                      across them. It travels as one object rather than four
+                      backgrounds taking turns, which is what makes the change
+                      of page read as movement instead of a redraw. */}
                   {active && (
                     <motion.span
                       layoutId="nav-pill"
-                      className="absolute inset-0 rounded-lg nav-pill-active"
+                      className="absolute inset-0 rounded-[11px] nav-pill-active"
                       transition={reduced ? REDUCED : ENTER}
                     />
                   )}
@@ -99,15 +104,15 @@ export default function NavBar() {
           </nav>
         )}
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-self-end gap-1.5">
           {showApp && (
             <Link
               href={STATUS_LINK.href}
               aria-current={pathname === STATUS_LINK.href ? "page" : undefined}
               className={`nav-pill nav-pill-sm relative hidden md:flex items-center gap-1.5 text-xs ${
                 pathname === STATUS_LINK.href
-                  ? "text-text nav-pill-active"
-                  : "text-text-faint hover:text-text-dim"
+                  ? "nav-pill-active nav-pill-on"
+                  : "text-text-dim hover:text-text"
               }`}
             >
               <Activity className="w-3.5 h-3.5" aria-hidden />
@@ -132,7 +137,7 @@ export default function NavBar() {
             <button
               type="button"
               onClick={() => setOpen((o) => !o)}
-              className="btn btn-ghost md:hidden"
+              className="nav-pill nav-pill-sm md:hidden !w-9 text-text-dim hover:text-text"
               aria-expanded={open}
               aria-label={open ? "Close menu" : "Open menu"}
             >
@@ -143,7 +148,12 @@ export default function NavBar() {
       </div>
 
       {open && showApp && (
-        <nav className="md:hidden border-t border-border px-4 py-2 flex flex-col gap-0.5" aria-label="Main">
+        <nav
+          /* The header is pointer-transparent so the page stays clickable
+             around the island; anything real inside it has to opt back in. */
+          className="glass pointer-events-auto md:hidden mt-2 max-w-shell mx-auto rounded-2xl p-2 flex flex-col gap-1"
+          aria-label="Main"
+        >
           {[...LINKS, STATUS_LINK].map((link) => (
             <Link
               key={link.href}
@@ -153,9 +163,9 @@ export default function NavBar() {
               // menu that stays open in that one case reads as a stuck menu.
               onClick={() => setOpen(false)}
               aria-current={pathname === link.href ? "page" : undefined}
-              className={`nav-pill justify-start text-sm ${
+              className={`nav-pill !justify-start !h-10 text-sm ${
                 pathname === link.href
-                  ? "text-text font-medium nav-pill-active"
+                  ? "nav-pill-active nav-pill-on font-medium"
                   : "text-text-dim hover:text-text"
               }`}
             >

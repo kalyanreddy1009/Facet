@@ -76,11 +76,11 @@ export default function AccountMenu() {
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`Account: ${user.display_name}`}
-        className="flex items-center gap-2 px-1.5 h-7 rounded text-xs text-text-faint hover:text-text-dim transition-colors duration-fast"
+        className="nav-pill nav-pill-sm gap-2 !pl-1 !pr-2.5 text-xs text-text-dim hover:text-text"
       >
         <span
           aria-hidden
-          className="grid place-items-center w-6 h-6 rounded-full bg-surface-3 text-text text-[11px] font-medium"
+          className="grid place-items-center w-[22px] h-[22px] rounded-full bg-accent-soft text-accent-text text-[10.5px] font-semibold ring-1 ring-accent-border"
         >
           {initial}
         </span>
@@ -99,7 +99,7 @@ export default function AccountMenu() {
             transition={reduced ? REDUCED : ENTER}
             // Scales from the button it belongs to, not from its own middle.
             style={{ transformOrigin: "top right" }}
-            className="absolute right-0 mt-2 w-60 rounded-lg chrome shadow-popover py-1 z-50 overflow-hidden"
+            className="absolute right-0 mt-2 w-60 rounded-2xl glass py-1.5 z-50 overflow-hidden"
           >
             <div className="px-3 py-2.5 border-b border-border">
               <p className="text-sm font-medium truncate">{user.display_name}</p>

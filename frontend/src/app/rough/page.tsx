@@ -151,7 +151,7 @@ export default function RoughPage() {
 
       <div className="flex gap-8 mt-6">
         <aside className="hidden lg:block w-60 shrink-0">
-          <div className="sticky top-[calc(var(--nav-h)+1.5rem)] max-h-[calc(100vh-var(--nav-h)-3rem)] overflow-y-auto pr-1 -mr-1">
+          <div className="sticky top-[calc(var(--nav-block)+1.25rem)] max-h-[calc(100vh-var(--nav-block)-2.5rem)] overflow-y-auto pr-1 -mr-1">
             <FilterRail filters={filters} facets={facets} onChange={patch} />
           </div>
         </aside>

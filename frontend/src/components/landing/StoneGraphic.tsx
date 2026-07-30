@@ -1,4 +1,4 @@
-import { FACETS, GIRDLE, REFLECTION, TABLE, VIEW_BOX } from "@/lib/gem";
+import { FACETS, GIRDLE, PAVILION_INNER, RAYS, REFLECTION, TABLE, VIEW_BOX } from "@/lib/gem";
 
 /**
  * The stone — the hero illustration, and the source of the app's identity.
@@ -40,15 +40,17 @@ import { FACETS, GIRDLE, REFLECTION, TABLE, VIEW_BOX } from "@/lib/gem";
  *
  *  Two greys with a blue bias rather than neutral: a colourless stone still
  *  takes the colour of the light around it, and a perfectly neutral gradient
- *  reads as plastic. Kept as raw values, not tokens — this is a rendering of a
+ *  reads as plastic. The dark end is genuinely dark — a stone whose shadowed
+ *  facets only reach mid-grey looks like frosted plastic, because the range
+ *  between its lightest and darkest face is what the eye reads as gloss. Kept as raw values, not tokens — this is a rendering of a
  *  material, not a surface of the interface, and it must not shift when the
  *  palette does. */
 function shade(lit: number): string {
-  const dark = [86, 100, 128];
-  const light = [250, 252, 255];
+  const dark = [58, 72, 102];
+  const light = [252, 253, 255];
   // Squared, so the falloff is steeper near the terminator — light does not
   // fall off linearly across a curved arrangement of flats.
-  const t = lit * lit * 0.78 + lit * 0.22;
+  const t = lit * lit * 0.74 + lit * 0.26;
   const mix = dark.map((c, i) => Math.round(c + (light[i] - c) * t));
   return `rgb(${mix.join(" ")})`;
 }
@@ -57,10 +59,27 @@ function shade(lit: number): string {
  *  facets, on the lit side — a highlight on the dark side would read as a
  *  mistake. */
 const FLARES = [
-  { x: 75.9, y: 75.9, size: 38, delay: "0s" },
-  { x: 46, y: 120, size: 26, delay: "3.1s" },
-  { x: 120, y: 20, size: 22, delay: "5.7s" },
+  // Sized down hard from a first pass that read as cartoon twinkles: a facet
+  // catching the light is a point with arms, not a star sitting on top of the
+  // stone. None of them may span more than one facet.
+  { x: 75.9, y: 75.9, size: 22, delay: "0s" },
+  { x: 46, y: 120, size: 15, delay: "3.1s" },
+  { x: 120, y: 20, size: 13, delay: "5.7s" },
+  { x: 108, y: 62, size: 10, delay: "7.4s" },
 ];
+
+/** A four-point star, drawn with concave sides so the arms taper the way a
+ *  real lens flare does. This is the shape everyone recognises as "sparkle";
+ *  a soft round blob reads as a smudge on the screen instead. */
+function starPath(x: number, y: number, r: number): string {
+  const w = r * 0.13;
+  return (
+    `M${x} ${y - r} Q${x + w} ${y - w} ${x + r} ${y} ` +
+    `Q${x + w} ${y + w} ${x} ${y + r} ` +
+    `Q${x - w} ${y + w} ${x - r} ${y} ` +
+    `Q${x - w} ${y - w} ${x} ${y - r}Z`
+  );
+}
 
 /** Fluid rather than a fixed pixel size: on a wide screen the stone is the
  *  counterweight to the hero type, and a 320px graphic beside 6rem headline
@@ -85,6 +104,33 @@ export default function StoneGraphic({
           background:
             "radial-gradient(circle at 40% 32%, rgba(74,118,240,0.36), rgba(23,164,187,0.18) 45%, rgba(168,85,247,0.10) 62%, transparent 72%)",
         }}
+      />
+
+      {/* The light the stone throws onto the page around it. Outside the SVG's
+          own figure and behind it, because caustics land on the surface the
+          stone is resting on — not on the stone. */}
+      <div className="absolute inset-0 grid place-items-center pointer-events-none">
+        <svg viewBox={VIEW_BOX} className="w-full h-full hidden motion-safe:block gem-rays">
+          <defs>
+            <radialGradient id="gem-ray" cx="0.5" cy="0.5" r="0.5">
+              <stop offset="30%" stopColor="#8fb0ff" stopOpacity="0.34" />
+              <stop offset="100%" stopColor="#8fb0ff" stopOpacity="0" />
+            </radialGradient>
+          </defs>
+          <g fill="url(#gem-ray)">
+            {RAYS.map((d) => (
+              <path key={d} d={d} />
+            ))}
+          </g>
+        </svg>
+      </div>
+
+      {/* A contact shadow. Small, soft and offset down — it is the one cue
+          that says the stone is resting on the page rather than printed on
+          it, and it costs one blurred ellipse. */}
+      <div
+        className="absolute left-1/2 -translate-x-1/2 bottom-[10%] w-[44%] h-[6%] rounded-[50%] blur-xl"
+        style={{ background: "rgba(38, 48, 72, 0.22)" }}
       />
 
       <svg
@@ -141,6 +187,24 @@ export default function StoneGraphic({
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0.5" />
           </linearGradient>
 
+          {/* The underside, seen through the girdle: darker than any crown
+              facet, because almost none of it is facing the viewer. */}
+          <radialGradient id="gem-pavilion" cx="0.38" cy="0.32" r="0.75">
+            <stop offset="72%" stopColor="#2b3752" stopOpacity="0" />
+            <stop offset="88%" stopColor="#2b3752" stopOpacity="0.42" />
+            <stop offset="100%" stopColor="#1b2438" stopOpacity="0.55" />
+          </radialGradient>
+
+          {/* The chromatic rim. Same spectrum as the fire, at half strength —
+              it is an edge effect, not a second rainbow. */}
+          <linearGradient id="gem-rim" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#ff4d6d" stopOpacity="0.55" />
+            <stop offset="30%" stopColor="#ffb020" stopOpacity="0.4" />
+            <stop offset="55%" stopColor="#42d99a" stopOpacity="0.35" />
+            <stop offset="78%" stopColor="#3aa8ff" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.55" />
+          </linearGradient>
+
           <radialGradient id="gem-flare">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
             <stop offset="35%" stopColor="#dbe6ff" stopOpacity="0.45" />
@@ -193,28 +257,53 @@ export default function StoneGraphic({
         </g>
         <path d={TABLE} fill="none" stroke="#ffffff" strokeOpacity="0.8" strokeWidth="1" />
         <path d={REFLECTION} fill="none" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="0.6" />
+        {/* The pavilion band — the underside of the stone, visible around the
+            rim from directly above. This is what turns a disc into a solid. */}
+        <path d={GIRDLE} fill="url(#gem-pavilion)" fillRule="evenodd" />
+        <path d={PAVILION_INNER} fill="none" stroke="#ffffff" strokeOpacity="0.3" strokeWidth="0.6" />
+
+        {/* The girdle, twice: a dark structural edge, and over it a thin
+            chromatic rim. Dispersion is strongest where light leaves the stone
+            at a glancing angle, which is exactly the edge — so the rim is
+            where a real diamond shows colour first. */}
         <path
           d={GIRDLE}
           fill="none"
-          stroke="#5d6b88"
-          strokeOpacity="0.5"
+          stroke="#2d3852"
+          strokeOpacity="0.45"
           strokeWidth="1.3"
           strokeLinejoin="round"
+        />
+        <path
+          d={GIRDLE}
+          fill="none"
+          stroke="url(#gem-rim)"
+          strokeWidth="1.9"
+          strokeLinejoin="round"
+          className="hidden motion-safe:block gem-rim-spin"
+          style={{ mixBlendMode: "screen" }}
         />
 
         {/* 4. Specular flares. Long cycles and prime-ish offsets, so they never
                settle into a rhythm you can predict. */}
         <g className="hidden motion-safe:block">
           {FLARES.map((flare) => (
-            <circle
+            <g
               key={`${flare.x}-${flare.y}`}
-              cx={flare.x}
-              cy={flare.y}
-              r={flare.size}
-              fill="url(#gem-flare)"
               className="gem-flare"
               style={{ animationDelay: flare.delay }}
-            />
+            >
+              {/* Bloom under the star: the glow a bright point puts into the
+                  air around it. The star alone reads as a decal. */}
+              <circle cx={flare.x} cy={flare.y} r={flare.size * 0.62} fill="url(#gem-flare)" />
+              <path d={starPath(flare.x, flare.y, flare.size)} fill="#ffffff" opacity="0.95" />
+              <path
+                d={starPath(flare.x, flare.y, flare.size * 0.55)}
+                fill="#ffffff"
+                transform={`rotate(45 ${flare.x} ${flare.y})`}
+                opacity="0.6"
+              />
+            </g>
           ))}
         </g>
       </svg>

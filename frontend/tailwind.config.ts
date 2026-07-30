@@ -113,7 +113,11 @@ const config: Config = {
         prose: "66ch",
       },
       spacing: {
+        /** The island itself. */
         nav: "var(--nav-h)",
+        /** The vertical space the floating nav occupies, inset included. What
+         *  anything positioning itself below the nav actually needs. */
+        "nav-block": "var(--nav-block)",
       },
     },
   },
