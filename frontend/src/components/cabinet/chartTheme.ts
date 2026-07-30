@@ -22,14 +22,3 @@ export const CHART = {
   },
   label: "#4d5872", // --text-dim
 } as const;
-
-/** The funnel is a single measure at four depths, so it reads as one accent
- *  stepping up in weight — not four unrelated hues. On paper the ramp runs
- *  light-to-dark, the opposite of the dark theme: further down the funnel is
- *  more ink, because on white more ink is what reads as more weight. */
-export const FUNNEL_COLORS: Record<string, string> = {
-  Cut: "#a9c0fa",
-  Set: "#7b9cf5",
-  Interviewing: "#4a76f0",
-  Offer: "#2a51c6",
-};

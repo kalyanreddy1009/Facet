@@ -50,7 +50,7 @@ export default function NavBar() {
           matter how wide the brand or the account control happen to be. With
           space-between it drifts, and a nav that is almost centred reads as a
           mistake rather than as a choice. */}
-      <div className="glass nav-island max-w-shell mx-auto px-2.5 sm:px-3 grid grid-cols-[auto_1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div className="nav-island max-w-shell mx-auto px-2.5 sm:px-3 grid grid-cols-[auto_1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-3">
         <Link
           href="/"
           className={`group nav-pill shrink-0 justify-self-start text-text ${

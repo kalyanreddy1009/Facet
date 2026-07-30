@@ -169,6 +169,40 @@ function Reveal({
   );
 }
 
+/** A section the stone's light reaches.
+ *
+ *  The beam that leaves the gem in the hero does not stop at the illustration:
+ *  one bar per section sweeps across it on the same 9s clock, delayed by how
+ *  far down the page the section sits, so the light visibly travels. That is
+ *  the difference between an animated illustration with a page under it and a
+ *  page that is lit by the illustration.
+ *
+ *  `overflow-hidden` matters — without it the sweep escapes its section and
+ *  paints a diagonal band across the whole document. */
+function LitSection({
+  children,
+  className = "",
+  id,
+  /** Position in the page, which becomes the beam's delay. */
+  index,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  id?: string;
+  index: number;
+}) {
+  return (
+    <section id={id} className={`relative overflow-hidden ${className}`}>
+      <div
+        className="beam-sweep hidden motion-safe:block"
+        style={{ animationDelay: `${0.35 + index * 0.55}s` }}
+        aria-hidden
+      />
+      <div className="relative">{children}</div>
+    </section>
+  );
+}
+
 /** Section heading. Every section on the page gets the same three parts in the
  *  same order, which is most of what keeps a long page from drifting. */
 function SectionHead({
@@ -249,7 +283,7 @@ export default function LandingContent() {
       </section>
 
       {/* ------------------------------------------------------- how it works */}
-      <section className="max-w-shell mx-auto px-5 sm:px-8 py-20 scroll-mt-nav-block" id="how">
+      <LitSection index={0} id="how" className="max-w-shell mx-auto px-5 sm:px-8 py-20 scroll-mt-nav-block">
         <Reveal>
           <SectionHead
             eyebrow="How it works"
@@ -283,10 +317,10 @@ export default function LandingContent() {
             </Reveal>
           ))}
         </ol>
-      </section>
+      </LitSection>
 
       {/* ------------------------------------------------- the honesty proof */}
-      <section className="max-w-shell mx-auto px-5 sm:px-8 py-20">
+      <LitSection index={1} className="max-w-shell mx-auto px-5 sm:px-8 py-20">
         <Reveal className="max-w-2xl">
           <SectionHead
             eyebrow="The constraint"
@@ -319,10 +353,10 @@ export default function LandingContent() {
             Re-emphasized and re-worded — never a claim your Stone doesn&apos;t support.
           </p>
         </Reveal>
-      </section>
+      </LitSection>
 
       {/* ------------------------------------------------------- vocabulary */}
-      <section className="max-w-shell mx-auto px-5 sm:px-8 py-20">
+      <LitSection index={2} className="max-w-shell mx-auto px-5 sm:px-8 py-20">
         <Reveal className="max-w-2xl">
           <SectionHead
             eyebrow="Vocabulary"
@@ -345,10 +379,10 @@ export default function LandingContent() {
             </Reveal>
           ))}
         </dl>
-      </section>
+      </LitSection>
 
       {/* -------------------------------------------------------------- FAQ */}
-      <section className="max-w-3xl mx-auto px-5 sm:px-8 py-20">
+      <LitSection index={3} className="max-w-3xl mx-auto px-5 sm:px-8 py-20">
         <Reveal>
           <SectionHead eyebrow="Questions" title="The ones worth asking first" />
         </Reveal>
@@ -370,10 +404,10 @@ export default function LandingContent() {
             </Reveal>
           ))}
         </div>
-      </section>
+      </LitSection>
 
       {/* --------------------------------------------------------------- CTA */}
-      <section className="max-w-shell mx-auto px-5 sm:px-8 pb-28 pt-4">
+      <LitSection index={4} className="max-w-shell mx-auto px-5 sm:px-8 pb-28 pt-4">
         <Reveal>
           <div className="glass-card relative overflow-hidden p-10 sm:p-16 flex flex-col items-center gap-4 text-center">
             {/* One glint behind the closing card, echoing the hero stone. The
@@ -409,7 +443,7 @@ export default function LandingContent() {
             </div>
           </div>
         </Reveal>
-      </section>
+      </LitSection>
     </main>
   );
 }

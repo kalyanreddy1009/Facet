@@ -1,12 +1,10 @@
 "use client";
 
-import { useReducedMotion } from "framer-motion";
-import { Funnel, FunnelChart, LabelList, ResponsiveContainer, Tooltip } from "recharts";
 import type { Application, DashboardSummary } from "@/lib/api";
 import Panel from "@/components/ui/Panel";
 import Button from "@/components/ui/Button";
 import StatNumber from "./StatNumber";
-import { CHART, FUNNEL_COLORS } from "./chartTheme";
+import PipelineView from "./PipelineView";
 import { parseDate } from "@/lib/format";
 
 interface ApplicationsViewProps {
@@ -21,14 +19,6 @@ function daysAgo(value: string): number {
 }
 
 export default function ApplicationsView({ summary, onUpdateStatus }: ApplicationsViewProps) {
-  const reduced = useReducedMotion();
-  const funnelData = Object.entries(summary.funnel).map(([stage, value]) => ({
-    name: stage,
-    value,
-    fill: FUNNEL_COLORS[stage],
-  }));
-  const hasFunnel = funnelData.some((entry) => entry.value > 0);
-
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -47,31 +37,8 @@ export default function ApplicationsView({ summary, onUpdateStatus }: Applicatio
         </Panel>
 
         <Panel className="p-5">
-          <p className="label mb-4">Funnel</p>
-          {hasFunnel ? (
-            <div style={{ width: "100%", height: 190 }}>
-              <ResponsiveContainer>
-                <FunnelChart>
-                  <Tooltip contentStyle={CHART.tooltip} cursor={false} />
-                  {/* recharts animates in JS, out of reach of the
-                      reduced-motion block in globals.css. */}
-                  <Funnel dataKey="value" data={funnelData} isAnimationActive={!reduced}>
-                    <LabelList
-                      position="right"
-                      dataKey="name"
-                      fill={CHART.label}
-                      stroke="none"
-                      fontSize={12}
-                    />
-                  </Funnel>
-                </FunnelChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <p className="text-sm text-text-faint py-10 text-center">
-              Nothing to plot yet — cut a facet and set it.
-            </p>
-          )}
+          <p className="label mb-4">Pipeline</p>
+          <PipelineView funnel={summary.funnel} rejected={summary.rejected_count} />
         </Panel>
       </div>
 

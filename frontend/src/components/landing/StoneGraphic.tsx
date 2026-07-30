@@ -1,311 +1,233 @@
-import { FACETS, GIRDLE, PAVILION_INNER, RAYS, REFLECTION, TABLE, VIEW_BOX } from "@/lib/gem";
+import {
+  CROWN,
+  CULET,
+  EXITS,
+  GIRDLE_LINE,
+  PAVILION,
+  PROFILE,
+  PROFILE_VIEW_BOX,
+  STRIKE,
+  TABLE_LINE,
+} from "@/lib/gemProfile";
 
 /**
- * The stone — the hero illustration, and the source of the app's identity.
+ * The stone, struck.
  *
- * It is a round brilliant seen from above, and the geometry is generated
- * rather than drawn: one table, 8 star facets, 8 kites and 16 upper-girdle
- * facets, which is the real crown of a brilliant cut. It lives in `lib/gem`
- * and `components/ui/FacetMark` draws the same coordinates at 17px, so the
- * mark and the hero are one design at two sizes rather than two drawings of a
- * similar idea — they cannot drift, because there is only one set of numbers.
+ * A round brilliant in profile, at real proportions, with one hard source
+ * above it. The whole figure is a single event on a loop:
  *
- * The light is physical rather than decorative:
+ *   0.0s  a bolt falls from off-canvas and hits the table
+ *   0.5s  the stone flashes — the crown lights, the pavilion lights a beat
+ *         later, because that is the order light actually travels
+ *   0.9s  five refracted beams leave through the girdle and cross the page
+ *   6.0s  everything is dark again, and the loop waits before repeating
  *
- *   1. Each facet has a fixed `lit` value, computed from the angle between its
- *      outward normal and a light source at the upper left. That is what makes
- *      a flat vector read as a solid object — the facets nearest the light are
- *      near-white, the ones facing away are deep slate, and every one between
- *      them is interpolated rather than picked.
- *   2. A sweep rotates over the top of that, clipped to the stone and blended
- *      with `screen`, so it *adds* light the way a real highlight does instead
- *      of painting grey over the shading.
- *   3. Dispersion. White light entering a gem is refracted by wavelength, which
- *      is why a diamond throws colour. A second, counter-rotating pass carries
- *      a low-opacity spectrum — counter-rotating because the two effects must
- *      never lock into one obvious spinning wheel.
- *   4. Three specular flares at facet junctions, on long staggered cycles, so
- *      the stone catches the eye at intervals rather than pulsing.
+ * Profile rather than the plan view it replaces, because the app needed a
+ * light *source*. Seen from above a stone can only glint at you. Seen from
+ * the side you can watch the beam arrive, sink into the pavilion, turn around
+ * on the back facets and leave through the crown — which is the actual reason
+ * a cut stone is bright, and now the organising idea of the whole page. The
+ * beams that leave here are the same ones `BeamField` continues across the
+ * sections below, on the same clock.
  *
- * All of it is CSS and SVG: no canvas, no requestAnimationFrame, no WebGL, no
- * image request. An earlier version of this file *was* a three.js scene, at
- * ~600KB of JavaScript and a permanent animation frame, for a decorative shape
- * on one page. Everything that moves here is `transform` or `opacity` on a
- * composited layer, and every animation is inside `motion-safe:`, because SMIL
- * and CSS keyframes both ignore `prefers-reduced-motion` unless something
- * makes them respect it.
+ * Cost: no canvas, no rAF, no WebGL, no image. Everything that animates is
+ * `opacity` or `transform` on a small element, and the whole sequence is one
+ * CSS timeline with delays — so the browser can schedule it once rather than
+ * being driven frame by frame from JavaScript. The previous version animated
+ * two viewport-scale gradient rects with `mix-blend-mode` on a continuous
+ * rotation, which is a large blended surface recomposited every frame,
+ * forever. This one animates nothing while it is dark.
  */
 
-/** Facet fill, interpolated between a deep slate and near-white.
+/** Facet fill, from a deep slate to near-white.
  *
- *  Two greys with a blue bias rather than neutral: a colourless stone still
- *  takes the colour of the light around it, and a perfectly neutral gradient
- *  reads as plastic. The dark end is genuinely dark — a stone whose shadowed
- *  facets only reach mid-grey looks like frosted plastic, because the range
- *  between its lightest and darkest face is what the eye reads as gloss. Kept as raw values, not tokens — this is a rendering of a
- *  material, not a surface of the interface, and it must not shift when the
- *  palette does. */
-function shade(lit: number): string {
-  const dark = [58, 72, 102];
-  const light = [252, 253, 255];
-  // Squared, so the falloff is steeper near the terminator — light does not
-  // fall off linearly across a curved arrangement of flats.
-  const t = lit * lit * 0.74 + lit * 0.26;
-  const mix = dark.map((c, i) => Math.round(c + (light[i] - c) * t));
-  return `rgb(${mix.join(" ")})`;
+ *  The dark end is genuinely dark. The span between a stone's lightest and
+ *  darkest face is what the eye reads as gloss, and a gem whose shadow side
+ *  only reaches mid-grey looks like frosted plastic. */
+function shade(lit: number, floor = 0, depth = 0): string {
+  const dark = [34, 45, 72];
+  const light = [248, 251, 255];
+  const t = Math.max(floor, lit * lit * 0.7 + lit * 0.3) * (1 - depth);
+  return `rgb(${dark.map((c, i) => Math.round(c + (light[i] - c) * t)).join(" ")})`;
 }
 
-/** Where the flares sit, and how their cycles are offset. Junctions of three
- *  facets, on the lit side — a highlight on the dark side would read as a
- *  mistake. */
-const FLARES = [
-  // Sized down hard from a first pass that read as cartoon twinkles: a facet
-  // catching the light is a point with arms, not a star sitting on top of the
-  // stone. None of them may span more than one facet.
-  { x: 75.9, y: 75.9, size: 22, delay: "0s" },
-  { x: 46, y: 120, size: 15, delay: "3.1s" },
-  { x: 120, y: 20, size: 13, delay: "5.7s" },
-  { x: 108, y: 62, size: 10, delay: "7.4s" },
-];
-
-/** A four-point star, drawn with concave sides so the arms taper the way a
- *  real lens flare does. This is the shape everyone recognises as "sparkle";
- *  a soft round blob reads as a smudge on the screen instead. */
-function starPath(x: number, y: number, r: number): string {
-  const w = r * 0.13;
-  return (
-    `M${x} ${y - r} Q${x + w} ${y - w} ${x + r} ${y} ` +
-    `Q${x + w} ${y + w} ${x} ${y + r} ` +
-    `Q${x - w} ${y + w} ${x - r} ${y} ` +
-    `Q${x - w} ${y - w} ${x} ${y - r}Z`
-  );
-}
-
-/** Fluid rather than a fixed pixel size: on a wide screen the stone is the
- *  counterweight to the hero type, and a 320px graphic beside 6rem headline
- *  text reads as an afterthought. Capped so it stays a companion to the copy
- *  and never the subject of the page. */
 export default function StoneGraphic({
-  size = "clamp(18rem, 30vw, 30rem)",
+  size = "clamp(17rem, 26vw, 27rem)",
 }: {
   size?: number | string;
 }) {
   return (
     <div
-      className="relative grid place-items-center w-full"
+      className="relative grid place-items-center w-full stone-scene"
       style={{ width: size, height: size, maxWidth: "100%" }}
       aria-hidden
     >
-      {/* The light the stone is sitting in, thrown back onto the page. Behind
-          the figure, and the only place the second hue appears at strength. */}
-      <div
-        className="absolute inset-[6%] rounded-full blur-3xl opacity-80 gem-halo"
-        style={{
-          background:
-            "radial-gradient(circle at 40% 32%, rgba(74,118,240,0.36), rgba(23,164,187,0.18) 45%, rgba(168,85,247,0.10) 62%, transparent 72%)",
-        }}
-      />
-
-      {/* The light the stone throws onto the page around it. Outside the SVG's
-          own figure and behind it, because caustics land on the surface the
-          stone is resting on — not on the stone. */}
-      <div className="absolute inset-0 grid place-items-center pointer-events-none">
-        <svg viewBox={VIEW_BOX} className="w-full h-full hidden motion-safe:block gem-rays">
-          <defs>
-            <radialGradient id="gem-ray" cx="0.5" cy="0.5" r="0.5">
-              <stop offset="30%" stopColor="#8fb0ff" stopOpacity="0.34" />
-              <stop offset="100%" stopColor="#8fb0ff" stopOpacity="0" />
-            </radialGradient>
-          </defs>
-          <g fill="url(#gem-ray)">
-            {RAYS.map((d) => (
-              <path key={d} d={d} />
-            ))}
-          </g>
-        </svg>
-      </div>
-
-      {/* A contact shadow. Small, soft and offset down — it is the one cue
-          that says the stone is resting on the page rather than printed on
-          it, and it costs one blurred ellipse. */}
-      <div
-        className="absolute left-1/2 -translate-x-1/2 bottom-[10%] w-[44%] h-[6%] rounded-[50%] blur-xl"
-        style={{ background: "rgba(38, 48, 72, 0.22)" }}
-      />
-
       <svg
         width="100%"
         height="100%"
-        viewBox={VIEW_BOX}
+        viewBox={PROFILE_VIEW_BOX}
         fill="none"
-        className="relative"
-        /* Without an isolated stacking context, `screen` on the light passes
-           blends against everything painted beneath the SVG — the halo, the
-           ambient field, the page — instead of against the stone. It happens
-           to look close to right on this background, which is the kind of bug
-           that survives review and then breaks the day someone changes the
-           page colour. */
+        className="relative overflow-visible"
+        /* `screen` on the flash layers has to blend against the stone, not
+           against whatever the page happens to be painted with. */
         style={{ isolation: "isolate" }}
       >
         <defs>
-          {/* The moving highlight. A soft band rather than a hard edge, so it
-              reads as light crossing the stone and not as a wiper. */}
-          <linearGradient id="gem-sweep" x1="0" y1="0" x2="1" y2="0.4">
-            <stop offset="0%" stopColor="#fff" stopOpacity="0" />
-            <stop offset="38%" stopColor="#fff" stopOpacity="0.10" />
-            <stop offset="50%" stopColor="#fff" stopOpacity="0.92" />
-            <stop offset="62%" stopColor="#fff" stopOpacity="0.10" />
-            <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+          {/* The bolt. White at the core, accent at the edges — the way a hot
+              discharge looks, rather than a blue line. */}
+          <linearGradient id="bolt-core" x1="0" y1="0" x2="0.3" y2="1">
+            <stop offset="0%" stopColor="#dce8ff" stopOpacity="0" />
+            <stop offset="35%" stopColor="#ffffff" stopOpacity="0.95" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="1" />
           </linearGradient>
 
-          {/* Dispersion: the visible spectrum in order, at an opacity where it
-              is a suggestion of colour rather than a rainbow decal. */}
-          <linearGradient id="gem-fire" x1="0" y1="0.2" x2="1" y2="0.8">
-            <stop offset="0%" stopColor="#ff4d6d" stopOpacity="0" />
-            <stop offset="18%" stopColor="#ff4d6d" stopOpacity="0.5" />
-            <stop offset="34%" stopColor="#ffb020" stopOpacity="0.42" />
-            <stop offset="50%" stopColor="#42d99a" stopOpacity="0.38" />
-            <stop offset="66%" stopColor="#3aa8ff" stopOpacity="0.45" />
-            <stop offset="82%" stopColor="#a855f7" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
+          {/* Each refracted beam: bright where it leaves the stone, gone by
+              the time it reaches the edge of the figure. */}
+          <linearGradient id="beam-fade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.85" />
+            <stop offset="22%" stopColor="#a8c4ff" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#a8c4ff" stopOpacity="0" />
           </linearGradient>
 
-          {/* The table is a flat window straight down into the stone, so it is
-              the one face that shows depth rather than a shade. */}
-          <linearGradient id="gem-table" x1="0.15" y1="0" x2="0.85" y2="1">
-            <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="38%" stopColor="#dfe8fa" />
-            <stop offset="100%" stopColor="#9dabcb" />
-          </linearGradient>
-
-          {/* What the table shows is the pavilion below it, not the sky. Dark
-              at the top where the far side of the stone is in shadow, bright
-              at the bottom where it throws light back. */}
-          <linearGradient id="gem-reflection" x1="0.2" y1="0" x2="0.8" y2="1">
-            <stop offset="0%" stopColor="#7e8dae" stopOpacity="0.55" />
-            <stop offset="55%" stopColor="#aebbd8" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0.5" />
-          </linearGradient>
-
-          {/* The underside, seen through the girdle: darker than any crown
-              facet, because almost none of it is facing the viewer. */}
-          <radialGradient id="gem-pavilion" cx="0.38" cy="0.32" r="0.75">
-            <stop offset="72%" stopColor="#2b3752" stopOpacity="0" />
-            <stop offset="88%" stopColor="#2b3752" stopOpacity="0.42" />
-            <stop offset="100%" stopColor="#1b2438" stopOpacity="0.55" />
-          </radialGradient>
-
-          {/* The chromatic rim. Same spectrum as the fire, at half strength —
-              it is an edge effect, not a second rainbow. */}
-          <linearGradient id="gem-rim" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#ff4d6d" stopOpacity="0.55" />
-            <stop offset="30%" stopColor="#ffb020" stopOpacity="0.4" />
-            <stop offset="55%" stopColor="#42d99a" stopOpacity="0.35" />
-            <stop offset="78%" stopColor="#3aa8ff" stopOpacity="0.45" />
-            <stop offset="100%" stopColor="#a855f7" stopOpacity="0.55" />
-          </linearGradient>
-
-          <radialGradient id="gem-flare">
+          <radialGradient id="impact-glow">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-            <stop offset="35%" stopColor="#dbe6ff" stopOpacity="0.45" />
-            <stop offset="100%" stopColor="#dbe6ff" stopOpacity="0" />
+            <stop offset="40%" stopColor="#cfe0ff" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#cfe0ff" stopOpacity="0" />
           </radialGradient>
 
-          <clipPath id="gem-body">
-            <path d={GIRDLE} />
+          <clipPath id="stone-body">
+            <path d={PROFILE} />
           </clipPath>
         </defs>
 
-        {/* 1. The solid. Fixed shading — this is the object, and it does not
-               move; everything after this is light falling on it. */}
+        {/* ---- the stone at rest -------------------------------------- */}
         <g>
-          {FACETS.map((facet) => (
+          {/* The pavilion is under the girdle and away from the source, so it
+              is uniformly darker than the crown. Without that step the two
+              halves read as one flat polygon with lines drawn on it. */}
+          {PAVILION.map((facet) => (
+            <path key={facet.d} d={facet.d} fill={shade(facet.lit, 0, 0.42)} />
+          ))}
+          {CROWN.map((facet) => (
             <path key={facet.d} d={facet.d} fill={shade(facet.lit)} />
           ))}
-          <path d={TABLE} fill="url(#gem-table)" />
-          {/* The pavilion, seen through the table. */}
-          <path d={REFLECTION} fill="url(#gem-reflection)" />
         </g>
 
-        {/* 2. + 3. The two passes of moving light, both clipped to the stone.
-               `screen` adds light instead of covering the shading with grey —
-               a normal-blended white band would flatten the facets it crossed,
-               which is exactly what a real highlight does not do. */}
-        <g clipPath="url(#gem-body)" className="hidden motion-safe:block">
-          <g className="gem-sweep-spin" style={{ mixBlendMode: "screen" }}>
-            <rect x="-120" y="-120" width="480" height="480" fill="url(#gem-sweep)" />
+        {/* ---- the flash ---------------------------------------------- */}
+        {/* Two groups, not one: the crown lights first and the pavilion a
+            beat later, which is the order the light gets there. Doing both at
+            once is what makes an effect read as a filter rather than as an
+            event. */}
+        <g clipPath="url(#stone-body)" className="hidden motion-safe:block">
+          <g className="stone-flash-crown" style={{ mixBlendMode: "screen" }}>
+            {CROWN.map((facet) => (
+              <path key={`fc${facet.d}`} d={facet.d} fill={shade(facet.lit, 0.55)} />
+            ))}
           </g>
-          <g className="gem-fire-spin" style={{ mixBlendMode: "screen" }}>
-            <rect x="-120" y="-120" width="480" height="480" fill="url(#gem-fire)" />
+          <g className="stone-flash-pavilion" style={{ mixBlendMode: "screen" }}>
+            {PAVILION.map((facet) => (
+              <path key={`fp${facet.d}`} d={facet.d} fill={shade(facet.lit, 0.42)} />
+            ))}
           </g>
         </g>
 
-        {/* Facet edges, over the light. Every real cut stone reads as edges
-            first — without them the shading alone looks like a gradient mesh. */}
-        {/* Facet edges, over the light. Brightness follows the facet rather
-            than being one flat white: a uniform outline is exactly what makes
-            a vector gem read as a diagram of a gem. */}
-        <g strokeWidth="0.7" fill="none">
-          {FACETS.map((facet) => (
-            <path
-              key={`e${facet.d}`}
-              d={facet.d}
-              stroke="#ffffff"
-              strokeOpacity={(0.2 + 0.55 * facet.lit).toFixed(2)}
-            />
+        {/* ---- structure ---------------------------------------------- */}
+        <path d={PROFILE} fill="none" stroke="#2b3a5c" strokeOpacity="0.55" strokeWidth="1.2" />
+        <path d={GIRDLE_LINE} stroke="#ffffff" strokeOpacity="0.5" strokeWidth="1" />
+        <path d={TABLE_LINE} stroke="#ffffff" strokeOpacity="0.85" strokeWidth="1.4" />
+        {/* Facet edges, drawn over the fills so the cut reads at any size. */}
+        <g stroke="#ffffff" strokeOpacity="0.22" strokeWidth="0.6" fill="none">
+          {CROWN.map((facet) => (
+            <path key={`e${facet.d}`} d={facet.d} />
+          ))}
+          {PAVILION.map((facet) => (
+            <path key={`e${facet.d}`} d={facet.d} />
           ))}
         </g>
-        <path d={TABLE} fill="none" stroke="#ffffff" strokeOpacity="0.8" strokeWidth="1" />
-        <path d={REFLECTION} fill="none" stroke="#ffffff" strokeOpacity="0.35" strokeWidth="0.6" />
-        {/* The pavilion band — the underside of the stone, visible around the
-            rim from directly above. This is what turns a disc into a solid. */}
-        <path d={GIRDLE} fill="url(#gem-pavilion)" fillRule="evenodd" />
-        <path d={PAVILION_INNER} fill="none" stroke="#ffffff" strokeOpacity="0.3" strokeWidth="0.6" />
 
-        {/* The girdle, twice: a dark structural edge, and over it a thin
-            chromatic rim. Dispersion is strongest where light leaves the stone
-            at a glancing angle, which is exactly the edge — so the rim is
-            where a real diamond shows colour first. */}
-        <path
-          d={GIRDLE}
-          fill="none"
-          stroke="#2d3852"
-          strokeOpacity="0.45"
-          strokeWidth="1.3"
-          strokeLinejoin="round"
-        />
-        <path
-          d={GIRDLE}
-          fill="none"
-          stroke="url(#gem-rim)"
-          strokeWidth="1.9"
-          strokeLinejoin="round"
-          className="hidden motion-safe:block gem-rim-spin"
-          style={{ mixBlendMode: "screen" }}
-        />
-
-        {/* 4. Specular flares. Long cycles and prime-ish offsets, so they never
-               settle into a rhythm you can predict. */}
+        {/* ---- the strike --------------------------------------------- */}
         <g className="hidden motion-safe:block">
-          {FLARES.map((flare) => (
-            <g
-              key={`${flare.x}-${flare.y}`}
-              className="gem-flare"
-              style={{ animationDelay: flare.delay }}
-            >
-              {/* Bloom under the star: the glow a bright point puts into the
-                  air around it. The star alone reads as a decal. */}
-              <circle cx={flare.x} cy={flare.y} r={flare.size * 0.62} fill="url(#gem-flare)" />
-              <path d={starPath(flare.x, flare.y, flare.size)} fill="#ffffff" opacity="0.95" />
-              <path
-                d={starPath(flare.x, flare.y, flare.size * 0.55)}
-                fill="#ffffff"
-                transform={`rotate(45 ${flare.x} ${flare.y})`}
-                opacity="0.6"
-              />
-            </g>
-          ))}
+          {/* The bolt itself: a jagged fall from off-canvas to the table.
+              Drawn as a stroke so it can be dashed in, which costs one
+              property rather than one element per segment. */}
+          <path
+            className="stone-bolt"
+            d={`M${STRIKE.x - 26} -60 L${STRIKE.x - 6} -18 L${STRIKE.x - 20} 2 L${
+              STRIKE.x - 2
+            } 26 L${STRIKE.x - 12} 40 L${STRIKE.x} ${STRIKE.y}`}
+            stroke="url(#bolt-core)"
+            strokeWidth="3.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+          />
+          {/* Its halo, so the bolt has air around it rather than being a
+              sticker on the page. */}
+          <path
+            className="stone-bolt stone-bolt-halo"
+            d={`M${STRIKE.x - 26} -60 L${STRIKE.x - 6} -18 L${STRIKE.x - 20} 2 L${
+              STRIKE.x - 2
+            } 26 L${STRIKE.x - 12} 40 L${STRIKE.x} ${STRIKE.y}`}
+            stroke="#8fb4ff"
+            strokeWidth="9"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+            opacity="0.35"
+          />
+          <circle
+            className="stone-impact"
+            cx={STRIKE.x}
+            cy={STRIKE.y}
+            r="46"
+            fill="url(#impact-glow)"
+          />
         </g>
+
+        {/* ---- what leaves the stone ---------------------------------- */}
+        {/* Five beams out of the girdle, each on its own delay so they open
+            like a fan rather than switching on together. They are scaled from
+            their origin, so the animation is a transform and the browser never
+            re-rasterises them. */}
+        <g className="hidden motion-safe:block">
+          {EXITS.map((exit, i) => {
+            const toLeft = exit.x < 120;
+            return (
+              <g
+                key={`${exit.x}-${exit.y}`}
+                className="stone-beam"
+                style={{
+                  transformOrigin: `${exit.x}px ${exit.y}px`,
+                  animationDelay: `${0.9 + i * 0.06}s`,
+                }}
+              >
+                {/* Clamped to just outside the stone's own box. An earlier
+                    version ran them to ±380, which put a wedge of light
+                    straight across the headline in the next column — light
+                    over body copy is a legibility bug however pretty it is.
+                    Crossing the *page* is the job of the section sweeps
+                    below, which pass behind content rather than over it. */}
+                <path
+                  d={`M${exit.x} ${exit.y} L${toLeft ? -34 : 274} ${
+                    exit.y - 46 - i * 18
+                  } L${toLeft ? -34 : 274} ${exit.y + 8 - i * 18} Z`}
+                  fill="url(#beam-fade)"
+                  opacity={0.46 - i * 0.05}
+                />
+              </g>
+            );
+          })}
+        </g>
+
+        {/* The culet catches the last of it — the point every pavilion facet
+            aims at, and the one place a profile stone can sparkle. */}
+        <circle
+          className="hidden motion-safe:block stone-culet"
+          cx={CULET.x}
+          cy={CULET.y}
+          r="7"
+          fill="url(#impact-glow)"
+        />
       </svg>
     </div>
   );

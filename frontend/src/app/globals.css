@@ -168,6 +168,11 @@
   --t-slow: 320ms;
   --t-slower: 520ms;
 
+  /* The hero's clock. Every part of the strike sequence and every beam sweep
+     on the landing page runs for exactly this long, so they stay in phase
+     forever with nothing coordinating them. */
+  --strike: 9s;
+
   /* Shadows. Neutral, and near-black at low alpha — a coloured shadow is the
      fastest way to look fake, and on paper the dark theme's 0.6 alpha reads as
      a smudge rather than depth, so light mode carries the same two levels at a
@@ -316,10 +321,13 @@ button:not(:disabled),
   .ambient-glow {
     position: absolute;
     border-radius: 50%;
-    /* A radial-gradient rather than a box-shadow blur: it stays one cheap
-       composited paint at any size. */
-    filter: blur(30px);
-    will-change: transform;
+    /* No `filter: blur()`. These are 34–62vmax elements: a blur filter on a
+       surface that size is one of the most expensive things a page can ask
+       for, and it was being recomputed as each one drifted. A radial gradient
+       is already soft — the blur was adding nothing but cost.
+       `will-change` is also gone. It promotes each glow to its own permanent
+       compositor layer, and three viewport-sized permanent layers is real
+       memory for an effect that reads at 8% opacity. */
   }
 
   .ambient-glow-a {
@@ -383,9 +391,8 @@ button:not(:disabled),
   .ambient-grain {
     position: absolute;
     inset: 0;
-    opacity: 0.5;
+    opacity: 0.32;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' fill='none' filter='url(%23n)' opacity='0.32'/%3E%3C/svg%3E");
-    mix-blend-mode: multiply;
   }
 
   /* The floor. A page that ends in the same flat tone it started in has no
@@ -439,8 +446,6 @@ button:not(:disabled),
     background: var(--glass-1);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
   }
 
   .panel-inset {
@@ -453,8 +458,6 @@ button:not(:disabled),
     background: var(--glass-2);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
   }
 
   /* The primary content container: a panel that is the subject of its screen
@@ -467,8 +470,6 @@ button:not(:disabled),
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-raised);
-    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.15);
   }
 
   /* The glass edge — one hairline of light along the top, the thing that
@@ -502,203 +503,185 @@ button:not(:disabled),
        moving *underneath* it — a sticky nav you can read the page through is
        the single worst place to spend transparency. */
     background: rgba(255, 255, 255, 0.95);
+    /* The one surviving backdrop-filter in the app. A popover, sheet or toast
+       is transient and there is at most one on screen, so it can afford what a
+       list of forty rows cannot. */
     -webkit-backdrop-filter: blur(14px) saturate(1.2);
     backdrop-filter: blur(14px) saturate(1.2);
     border: 1px solid var(--border);
   }
 
-  /* ---- Liquid glass ------------------------------------------------ */
-  /* One material, used by the nav island, popovers and any surface that has
-     to float above the page rather than sit in it.
-
-     Real glass in a UI is four things happening at once, and skipping any of
-     them is what makes a "glassmorphism" panel read as a grey rectangle with
-     a blur behind it:
-
-       1. Refraction — the backdrop is blurred AND saturated. Saturation is
-          the half people leave out; glass concentrates colour, and without it
-          the blur just looks like fog.
-       2. A specular top edge, where the light catches the lip. One hairline
-          of near-white, inset.
-       3. A shaded bottom edge, where the pane is thickest and least lit.
-       4. A shadow that is soft and far, because the thing is genuinely above
-          the page — not a 2px drop shadow, which reads as a sticker.
-
-     The gradient runs light-to-slightly-less-light, matching the ambient
-     field's own direction. */
-  .glass {
-    background: linear-gradient(
-      160deg,
-      rgba(255, 255, 255, 0.82) 0%,
-      rgba(255, 255, 255, 0.68) 52%,
-      rgba(246, 247, 250, 0.74) 100%
-    );
-    -webkit-backdrop-filter: blur(22px) saturate(1.9);
-    backdrop-filter: blur(22px) saturate(1.9);
-    box-shadow:
-      /* the lit lip */
-      inset 0 1px 0 rgba(255, 255, 255, 0.95),
-      /* the thick edge, and the sides */
-      inset 0 -1px 0 rgba(15, 17, 21, 0.06),
-      inset 1px 0 0 rgba(255, 255, 255, 0.5),
-      inset -1px 0 0 rgba(255, 255, 255, 0.5),
-      /* the hairline that gives it an outline at all */
-      0 0 0 1px rgba(15, 17, 21, 0.07),
-      /* and the fact that it is above the page */
-      0 12px 32px -12px rgba(15, 17, 21, 0.22),
-      0 2px 8px -4px rgba(15, 17, 21, 0.1);
-  }
-
-  /* ---- The top bar ------------------------------------------------- */
-  /* An island, not a bar. It floats inset from all three edges so the page
-     visibly runs underneath it — which is the entire point of making it
-     glass, and impossible when the bar is welded to the viewport edge and
-     spans the full width. */
+  /* ---- The instrument ---------------------------------------------- */
+  /* The nav is the one dark object in a light interface.
+     
+     The reasoning, since it is a reversal: this app is a workbench. The page
+     is paper — a light, quiet surface you read and write on — and the thing
+     that should never compete with it is the chrome. Translucent white chrome
+     on a white page has no contrast to spend, which is why the last two
+     attempts needed ever more elaborate tricks (a recessed well, a lit lip, a
+     conic edge) just to make a row of buttons visible against the bar holding
+     them. Turning the bar dark solves that in one move: every control on it
+     reads instantly, the brand mark inverts to light without any special
+     case, and the interface gains an anchor — a tool at the top of the bench.
+     
+     It also pays for itself. There is no backdrop-filter here any more, and
+     `backdrop-filter` is the single most expensive property in this file:
+     each element carrying one forces the compositor to re-sample everything
+     behind it on every frame it is on screen. */
   .nav-shell {
     padding: var(--nav-inset) max(var(--nav-inset), env(safe-area-inset-left));
-    /* The header itself is nothing. Every pixel of appearance belongs to the
-       island inside it, or the glass would be a full-width bar again. */
     background: transparent;
+    /* The header is a positioning frame, nothing else — anything real inside
+       it opts back into pointer events. */
     pointer-events: none;
   }
+
   .nav-island {
     pointer-events: auto;
     height: var(--nav-h);
-    border-radius: 18px;
+    border-radius: 15px;
+    /* Graphite, with the same blue bias as the stone's shadowed facets. Two
+       stops, because a flat dark rectangle reads as a hole rather than as an
+       object with a surface. */
+    background: linear-gradient(to bottom, #1e2536 0%, #141a27 100%);
+    box-shadow:
+      /* the lit top edge of a milled surface */
+      inset 0 1px 0 rgba(255, 255, 255, 0.11),
+      /* and the shadow it drops on the paper */
+      0 1px 2px rgba(15, 17, 21, 0.16), 0 10px 28px -12px rgba(15, 17, 21, 0.42);
+
+    /* Everything inside inherits an inverted palette, so `text-text-dim`,
+       `text-text` and the mark's currentColor all do the right thing without
+       a single dark-mode variant at any call site. This is the whole reason
+       the tokens are custom properties. */
+    --text: #f2f5fa;
+    --text-dim: #a9b4c8;
+    --text-faint: #8d99b0;
+    --text-ghost: #74809a;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --accent-text: #9fbaff;
+    --accent-soft: rgba(122, 158, 255, 0.16);
+    --accent-border: rgba(122, 158, 255, 0.4);
+    --surface-2: rgba(255, 255, 255, 0.08);
+    --surface-3: rgba(255, 255, 255, 0.12);
+    /* Set on the element, not only as a token: anything inside that does not
+       name a colour — an inline SVG using currentColor, most of all the mark —
+       has to inherit the light ink rather than the page's dark default. */
+    color: var(--text);
   }
 
-  /* The destinations sit in a recessed track — a shallow well pressed into
-     the island. Without it the panes below have nothing to be lighter *than*:
-     a white pane at 50% on a white glass bar is invisible, which is precisely
-     how a row of controls ends up reading as a row of words. The track is
-     what makes them controls. */
+  /* The destinations, in a shallow well milled into the face. On a dark
+     ground a well is a *darker* patch, not a lighter one. */
   .nav-track {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     padding: 3px;
-    border-radius: 14px;
-    background: rgba(15, 17, 21, 0.05);
-    box-shadow: inset 0 1px 2px rgba(15, 17, 21, 0.07),
-      inset 0 0 0 1px rgba(15, 17, 21, 0.04), 0 1px 0 rgba(255, 255, 255, 0.75);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.28);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
-  /* Each destination is its own control, and visibly one at rest — not a word
-     that grows a background when you approach it. A raised pane in the well,
-     with its own lit top edge and hairline. */
+  /* At rest a destination is a label on the instrument — legible, and not
+     pretending to be a raised button. The contrast between the well and the
+     face already separates them; adding a pane to each one as well is the
+     stack of tricks that made the light version look cheap. */
   .nav-pill {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 32px;
-    padding: 0 13px;
-    border-radius: 11px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 9px;
     white-space: nowrap;
-    background: linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.98),
-      rgba(255, 255, 255, 0.86)
-    );
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1),
-      0 0 0 1px rgba(15, 17, 21, 0.09), 0 1px 2px rgba(15, 17, 21, 0.06);
-    transition: color var(--t-fast) var(--ease), background var(--t) var(--ease),
-      box-shadow var(--t) var(--ease), transform var(--t) var(--ease-emph);
+    color: var(--text-dim);
+    transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
   }
   .nav-pill-sm {
-    height: 28px;
-    padding: 0 10px;
-    border-radius: 9px;
+    height: 26px;
+    padding: 0 9px;
+    border-radius: 8px;
   }
 
-  /* Where you are: the accent takes the pane over, keeping the lit lip so it
-     is still the same material and not a flat swatch dropped on top. */
+  /* Where you are: the one lit key on the instrument. */
   .nav-pill-active {
-    background: linear-gradient(to bottom, #5b83f5, var(--accent));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4),
-      0 0 0 1px rgba(48, 86, 196, 0.55), 0 2px 6px -2px rgba(74, 118, 240, 0.55);
+    background: linear-gradient(to bottom, #5b83f5, #3f6ae8);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 3px rgba(20, 30, 60, 0.55);
   }
-  /* The label on the filled pane has to invert with it. */
   .nav-pill-on {
-    color: var(--on-accent);
+    color: #ffffff;
   }
 
   @media (hover: hover) {
     .nav-pill:hover {
-      background: #ffffff;
-      transform: translateY(-1px);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1),
-        0 0 0 1px rgba(15, 17, 21, 0.12), 0 4px 10px -4px rgba(15, 17, 21, 0.2);
-    }
-    .nav-pill:active {
-      transform: translateY(0) scale(0.97);
-      transition-duration: var(--t-fast);
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.08);
     }
     .nav-mark {
       transition: transform var(--t-slow) var(--ease-emph);
     }
     .group:hover .nav-mark {
-      transform: rotate(-14deg) scale(1.06);
+      transform: rotate(-12deg) scale(1.06);
     }
   }
 
+  /* Floating overlay panels — the account menu, the mobile nav sheet. Named
+     for what it is rather than for an effect, since the effect is now only a
+     small blur behind a mostly-opaque surface. */
+  .glass {
+    background: linear-gradient(to bottom, #1e2536 0%, #141a27 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11), 0 1px 2px rgba(15, 17, 21, 0.16),
+      0 14px 34px -14px rgba(15, 17, 21, 0.45);
+    --text: #f2f5fa;
+    --text-dim: #a9b4c8;
+    --text-faint: #8d99b0;
+    --border: rgba(255, 255, 255, 0.1);
+    --surface-2: rgba(255, 255, 255, 0.08);
+    --surface-3: rgba(255, 255, 255, 0.12);
+    --accent-text: #9fbaff;
+    color: var(--text);
+  }
+
   /* ---- Landing surfaces -------------------------------------------- */
-  /* A card that floats on the page the way the nav does. Same material, more
-     radius, and a highlight that curves with the corner rather than running
-     flat across the top — at 24px radius a straight hairline visibly leaves
-     the edge, which is the tell that a "glass" card is a rectangle with a
-     gradient on it. */
+  /* A card that floats on the page.
+
+     No backdrop-filter, and that is the point. There were up to sixteen of
+     these on the landing page, each one asking the compositor to re-sample
+     and blur everything behind it on every frame it was on screen — while
+     three radial gradients drifted underneath and the hero animated. That is
+     what made scrolling crawl. A near-opaque fill over the ambient field is
+     visually within a hair of the blurred version on a light background,
+     because there is little behind it with enough contrast to blur, and it
+     costs one paint instead of a per-frame resample.
+
+     The lit edge is a plain inset shadow rather than the conic-gradient ring
+     it was: `mask-composite` on a pseudo-element creates a second compositing
+     layer per card, for a highlight nobody can consciously see. */
   .glass-card {
     position: relative;
-    border-radius: 24px;
+    border-radius: 22px;
     background: linear-gradient(
       158deg,
-      rgba(255, 255, 255, 0.9) 0%,
-      rgba(255, 255, 255, 0.72) 55%,
-      rgba(244, 246, 250, 0.8) 100%
+      rgba(255, 255, 255, 0.97) 0%,
+      rgba(253, 253, 254, 0.94) 55%,
+      rgba(246, 247, 250, 0.95) 100%
     );
-    -webkit-backdrop-filter: blur(20px) saturate(1.7);
-    backdrop-filter: blur(20px) saturate(1.7);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95),
-      inset 0 -1px 0 rgba(15, 17, 21, 0.05), 0 0 0 1px rgba(15, 17, 21, 0.06),
-      0 18px 40px -20px rgba(15, 17, 21, 0.22);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 0 0 1px rgba(15, 17, 21, 0.07),
+      0 14px 34px -22px rgba(15, 17, 21, 0.3);
   }
 
-  /* The corner highlight. A conic sweep clipped to a 1px inset ring, so the
-     lit edge travels around the top-left corner and fades before the bottom
-     right — where a pane of glass sitting under a light from the upper left
-     would actually stop catching it. */
-  .glass-card::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: conic-gradient(
-      from 200deg at 50% 50%,
-      transparent 0deg,
-      rgba(255, 255, 255, 0.9) 60deg,
-      rgba(255, 255, 255, 0.35) 130deg,
-      transparent 210deg
-    );
-    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-
-  /* Lifts on hover, for the cards that are worth pointing at. Deliberately
-     not on every card — a page where everything rises when the cursor passes
-     is a page that flinches. */
+  /* Lifts on hover, for the cards worth pointing at. Deliberately not every
+     card — a page where everything rises as the cursor passes is a page that
+     flinches. Transform and shadow only, so it never repaints its content. */
   .glass-card-lift {
     transition: transform var(--t-slow) var(--ease-emph), box-shadow var(--t-slow) var(--ease-emph);
   }
   @media (hover: hover) {
     .glass-card-lift:hover {
       transform: translateY(-3px);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95),
-        inset 0 -1px 0 rgba(15, 17, 21, 0.05), 0 0 0 1px rgba(15, 17, 21, 0.07),
-        0 28px 56px -24px rgba(15, 17, 21, 0.28);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 0 0 1px rgba(15, 17, 21, 0.09),
+        0 24px 48px -24px rgba(15, 17, 21, 0.34);
     }
   }
 
@@ -707,15 +690,15 @@ button:not(:disabled),
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    /* One line, always. It is three or four words with a rule in front of it;
-       wrapped across two lines it stops reading as a label and starts reading
-       as a broken heading. */
-    white-space: nowrap;
     font-size: 11.5px;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--accent-text);
+    /* One line, always. Three words with a rule in front of them, wrapped
+       across two lines, stop reading as a label and start reading as a
+       broken heading. */
+    white-space: nowrap;
   }
   .eyebrow::before {
     content: "";
@@ -840,8 +823,6 @@ button:not(:disabled),
     background: var(--glass-2);
     color: var(--text);
     border-color: var(--border-control);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
   }
   .btn-default:hover:not(:disabled) {
     background: var(--surface-1);
@@ -1132,118 +1113,240 @@ button:not(:disabled),
 }
 
 /* ---- The hero stone ------------------------------------------------------
-   Light moving over the gem. Three cycles, none of them a common multiple of
-   another, so the stone never repeats a frame you have already watched.
+   One event on one clock. Every animation below runs for exactly --strike, so
+   they stay in phase forever without any JavaScript coordinating them, and the
+   percentages *are* the storyboard:
 
-   `transform-box: fill-box` + `transform-origin: center` makes the rotation
-   turn about the stone's own centre rather than the SVG's 0,0 — without it
-   the sweep orbits off-canvas and the effect looks broken rather than slow.
-   Both passes rotate a rect far larger than the viewBox, so no corner of the
-   gradient ever enters the clip. */
-.gem-sweep-spin,
-.gem-fire-spin {
-  transform-box: fill-box;
-  transform-origin: center;
-  will-change: transform;
-}
-.gem-sweep-spin {
-  animation: gem-spin 15s linear infinite;
-}
-/* Counter-rotating, and slower. Two passes turning the same way would lock
-   into one wheel; opposed, they beat against each other and the colour keeps
-   arriving somewhere new. */
-.gem-fire-spin {
-  animation: gem-spin-reverse 23s linear infinite;
-  opacity: 0.62;
-}
-.gem-rim-spin {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: gem-spin 19s linear infinite;
-}
-/* The thrown light turns with the stone, slower, and breathes — caustics on a
-   real surface swim rather than strobe. */
-.gem-rays {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: gem-spin 38s linear infinite, gem-rays-breathe 7s var(--ease) infinite alternate;
-  opacity: 0.75;
-}
+     3%   the bolt falls
+     5%   it lands, and the impact blooms
+     6%   the crown lights
+     8%   the pavilion lights, a beat later, because that is the order light
+          actually reaches it
+    12%   five beams leave through the girdle
+    45%   the last of it fades
+    100%  dark, and waiting — which is most of the cycle, on purpose
 
-.gem-flare {
-  transform-box: fill-box;
-  transform-origin: center;
+   Nothing animates during the dark stretch. The version this replaces rotated
+   two viewport-scale gradient rects with `mix-blend-mode` continuously and
+   forever; this one is idle roughly 55% of the time and animates only small
+   elements with opacity and transform. */
+.stone-bolt {
   opacity: 0;
-  animation: gem-flare 9s var(--ease) infinite;
+  animation: bolt-fall var(--strike) var(--ease-out) infinite;
 }
-/* The halo breathes on a long cycle — the light in the room, not a pulse. */
-.gem-halo {
-  animation: gem-halo 12s var(--ease) infinite alternate;
+.stone-bolt-halo {
+  animation-name: bolt-fall-halo;
+}
+.stone-impact {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: impact var(--strike) var(--ease-out) infinite;
+}
+.stone-flash-crown {
+  opacity: 0;
+  animation: flash-crown var(--strike) var(--ease) infinite;
+}
+.stone-flash-pavilion {
+  opacity: 0;
+  animation: flash-pavilion var(--strike) var(--ease) infinite;
+}
+.stone-beam {
+  opacity: 0;
+  animation: beam-out var(--strike) var(--ease-out) infinite;
+}
+.stone-culet {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: culet-spark var(--strike) var(--ease-out) infinite;
 }
 
-@keyframes gem-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes gem-spin-reverse {
-  from {
-    transform: rotate(360deg);
-  }
-  to {
-    transform: rotate(0deg);
-  }
-}
-
-/* A flare arrives fast and leaves slowly, like light catching an edge as the
-   angle passes — then stays dark for most of the cycle. */
-@keyframes gem-flare {
+@keyframes bolt-fall {
   0%,
-  58% {
+  2% {
     opacity: 0;
-    transform: scale(0.35) rotate(-12deg);
+    transform: translateY(-22px);
   }
-  /* The catch: two frames wide. A sparkle that fades in is a glow, and a glow
-     is not what a facet does when it crosses the light. */
-  64% {
+  3.4% {
     opacity: 1;
-    transform: scale(1.08) rotate(0deg);
+    transform: translateY(0);
   }
-  72% {
-    opacity: 0.55;
-    transform: scale(0.92) rotate(4deg);
+  4.6% {
+    opacity: 0.85;
+  }
+  7% {
+    opacity: 0;
+    transform: translateY(0);
   }
   100% {
     opacity: 0;
-    transform: scale(0.5) rotate(10deg);
   }
 }
 
-@keyframes gem-rays-breathe {
-  from {
+@keyframes bolt-fall-halo {
+  0%,
+  2% {
+    opacity: 0;
+  }
+  3.4% {
     opacity: 0.45;
   }
-  to {
+  8% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes impact {
+  0%,
+  3.6% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  5.2% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  13% {
+    opacity: 0;
+    transform: scale(1.75);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes flash-crown {
+  0%,
+  4.4% {
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  15% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes flash-pavilion {
+  0%,
+  6% {
+    opacity: 0;
+  }
+  8.4% {
     opacity: 0.9;
   }
-}
-
-@keyframes gem-halo {
-  from {
-    opacity: 0.62;
-    transform: scale(0.97);
+  19% {
+    opacity: 0;
   }
-  to {
-    opacity: 0.92;
-    transform: scale(1.03);
+  100% {
+    opacity: 0;
   }
 }
 
-/* The glint crosses once, then rests for most of the cycle. A continuous
+/* The beams open outward from the girdle rather than fading in on the spot —
+   scaleX from the exit point, so it reads as light leaving the stone. */
+@keyframes beam-out {
+  0%,
+  9% {
+    opacity: 0;
+    transform: scaleX(0.05);
+  }
+  12.5% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  34% {
+    opacity: 0.85;
+    transform: scaleX(1);
+  }
+  46% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes culet-spark {
+  0%,
+  10% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  13% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+  24% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---- What the beams do to the page --------------------------------------
+   The light does not stop at the illustration. One bar per section sweeps
+   across it on the same clock, delayed by how far down the page it is, so the
+   refracted light visibly travels — the sections are lit by the stone rather
+   than merely sitting beneath it.
+
+   One animated element per section, transform and opacity only. A per-card
+   version of this looked better for about a second and cost sixteen animated
+   layers. */
+.beam-sweep {
+  position: absolute;
+  top: -20%;
+  left: -40%;
+  width: 55%;
+  height: 140%;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(0, 0, 0) rotate(14deg);
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(150, 182, 255, 0.1) 38%,
+    rgba(214, 230, 255, 0.4) 50%,
+    rgba(150, 182, 255, 0.1) 62%,
+    transparent 100%
+  );
+  animation: beam-cross var(--strike) var(--ease-out) infinite;
+}
+
+@keyframes beam-cross {
+  0%,
+  10% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(14deg);
+  }
+  16% {
+    opacity: 0.9;
+  }
+  40% {
+    opacity: 0.55;
+  }
+  52% {
+    opacity: 0;
+    transform: translate3d(240%, 0, 0) rotate(14deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(240%, 0, 0) rotate(14deg);
+  }
+}
+
+/* The glint crosses once/* The glint crosses once, then rests for most of the cycle. A continuous
    sweep in the corner of the eye is the thing people disable. */
 @keyframes wordmark-glint {
   0% {

@@ -1,67 +1,61 @@
-import { FACETS, GIRDLE, TABLE, VIEW_BOX } from "@/lib/gem";
+import { CROWN, GIRDLE_LINE, MARK_VIEW_BOX, PAVILION, PROFILE } from "@/lib/gemProfile";
 
 /**
- * The mark — the hero stone at 17px.
+ * The mark — the hero stone at 18px.
  *
- * Same geometry, from `lib/gem`, so the two cannot drift. What changes is how
- * it is drawn: the hero shades each facet in real colour, and the mark can't,
- * because it has to sit in a nav and inherit whatever colour the text around it
- * is. So it shades in *opacity* instead. Each facet is `currentColor` at an
- * alpha derived from its own light value — a lit side and a dark side — which
- * is what still reads as a faceted solid when the whole thing is 17 pixels
- * across and the individual facets are a pixel and a half.
+ * Same profile geometry as `landing/StoneGraphic`, from `lib/gemProfile`, so
+ * the two cannot drift: there is one set of coordinates and both draw it.
  *
- * Three earlier attempts are worth recording, because they all look reasonable
- * as descriptions and none of them survived being rendered at 17px:
+ * The plan view this replaces was a disc of 32 facets, and at 18px it averaged
+ * into a grey circle that read as a pearl no matter how the shading was tuned
+ * — four separate attempts are recorded in the file's history. The profile has
+ * something the plan view never did at small size: a *silhouette*. A flat top,
+ * two shoulders and a point is legible at 12px, recognisable as a cut gem
+ * without any interior detail at all, and unmistakable in a favicon.
  *
- *   - outlined facets: a wheel, or a steering wheel
- *   - kite facets only: a flower, or a snowflake
- *   - solid silhouette with light facet lines cut into it: a gear, or a sun
- *
- * Shading was the thing that worked. An icon this small has room for one idea,
- * and "light hits it from the upper left" is a better one than any amount of
- * line detail.
+ * It shades in opacity rather than colour, because it lives in the nav and has
+ * to inherit whatever colour the text around it is — which, now that the nav
+ * is dark, means it has to work in both directions from one definition.
  */
-export default function FacetMark({ size = 17 }: { size?: number }) {
-  // The 16 upper-girdle facets are dropped. They are the smallest ring, they
-  // ring the rim, and at 18px they collapse into a grey band that eats the
-  // silhouette — the mark reads as a pearl. Kites and stars are the large
-  // shapes that still carry structure at this size, and the girdle stroke
-  // already draws the edge those rim facets were describing.
-  const shapes = FACETS.filter((facet) => facet.k !== "ug");
-
+export default function FacetMark({ size = 18 }: { size?: number }) {
   return (
     <svg
       width={size}
-      height={size}
-      viewBox={VIEW_BOX}
+      /* Not square. The box is cropped to the stone, which is 250×154, and
+         forcing that into a square would squash the cut. */
+      height={Math.round((size * 154) / 250)}
+      viewBox={MARK_VIEW_BOX}
       fill="none"
       aria-hidden
       className="shrink-0"
     >
-      {shapes.map((facet) => (
+      {/* Pavilion first, then crown: the lower half is the darker mass, and
+          drawing it underneath means the girdle needs no seam. */}
+      {PAVILION.map((facet) => (
         <path
           key={facet.d}
           d={facet.d}
           fill="currentColor"
-          // Inverted against `lit`: on a light interface more ink means less
-          // light, so the facets facing away from the source are the dark
-          // ones. The exponent is high and the range nearly full, because the
-          // failure mode at 18px is not "too subtle" — it is a uniform grey
-          // disc that reads as a pearl. What survives at this size is one
-          // hard terminator between a light half and a dark half.
-          opacity={(0.04 + 0.8 * Math.pow(1 - facet.lit, 1.2)).toFixed(3)}
+          opacity={(0.26 + 0.4 * (1 - facet.lit)).toFixed(3)}
         />
       ))}
-      {/* Left almost open. The table is the brightest plane on a real stone,
-          and at 18px an empty centre is the difference between a cut gem and a
-          filled blob. */}
-      <path d={TABLE} fill="currentColor" opacity="0.04" />
+      {CROWN.map((facet) => (
+        <path
+          key={facet.d}
+          d={facet.d}
+          fill="currentColor"
+          opacity={(0.08 + 0.34 * (1 - facet.lit)).toFixed(3)}
+        />
+      ))}
+      {/* The girdle is the one interior line that survives at 18px — it is
+          what separates the two halves and makes the shape read as cut rather
+          than as a kite. */}
+      <path d={GIRDLE_LINE} stroke="currentColor" strokeWidth="4" opacity="0.5" />
       <path
-        d={GIRDLE}
+        d={PROFILE}
         fill="none"
         stroke="currentColor"
-        strokeWidth="10"
+        strokeWidth="9"
         strokeLinejoin="round"
       />
     </svg>
