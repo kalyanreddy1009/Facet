@@ -52,7 +52,7 @@ export default function Segmented<T extends string>({
             onClick={() => onChange(segment.value)}
             className={`relative rounded-sm font-medium transition-colors duration-fast flex items-center gap-1.5 ${
               size === "sm" ? "h-6 px-2 text-xs" : "h-7 px-3 text-sm"
-            } ${active ? "text-text" : "text-text-faint hover:text-text-dim"}`}
+            } ${active ? "text-white" : "text-text-faint hover:text-text-dim"}`}
           >
             {active && (
               <motion.span

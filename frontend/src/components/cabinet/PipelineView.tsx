@@ -99,8 +99,10 @@ export default function PipelineView({ funnel, rejected }: PipelineViewProps) {
                 shape of the loss is visible at a glance without any of the
                 distortion a tapering funnel introduces. */}
             <div className="flex-1 h-7 rounded-md bg-surface-3 overflow-hidden">
+              {/* A solid fill rather than a tint: at 7px tall over a tinted
+                  track, a 10%-alpha bar is a suggestion of a bar. */}
               <div
-                className="h-full rounded-md bg-accent-soft border border-accent-border transition-[width] duration-slower ease-emph"
+                className="h-full rounded-md bg-gradient-to-b from-[#6d93f7] to-[#4a76f0] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] transition-[width] duration-slower ease-emph"
                 style={{ width: `${Math.max(row.share * 100, row.value > 0 ? 4 : 0)}%` }}
               />
             </div>

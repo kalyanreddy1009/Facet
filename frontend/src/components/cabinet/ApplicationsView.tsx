@@ -22,7 +22,7 @@ export default function ApplicationsView({ summary, onUpdateStatus }: Applicatio
   return (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Panel className="p-5 flex flex-col justify-between gap-4">
+        <Panel className="p-5 flex flex-col gap-5">
           <StatNumber
             label="Response rate"
             value={
@@ -30,7 +30,7 @@ export default function ApplicationsView({ summary, onUpdateStatus }: Applicatio
             }
             hint="Interviewing plus offers, over everything you actually sent."
           />
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+          <div className="grid grid-cols-2 gap-4 pt-5 border-t border-border">
             <StatNumber label="Rejected" value={String(summary.rejected_count)} />
             <StatNumber label="Offers" value={String(summary.funnel.Offer)} />
           </div>

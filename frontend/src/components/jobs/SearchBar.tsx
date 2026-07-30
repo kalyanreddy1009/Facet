@@ -98,7 +98,13 @@ export default function SearchBar({
         />
       </div>
 
-      <div className="flex gap-2">
+      {/* Wraps. Three controls — sort, Filters, and a button whose label is
+          "Search all boards" — do not fit on one line at 390px, and `.btn`
+          sets `white-space: nowrap`, so without this the row pushed the whole
+          document 59px wider than the viewport and every page scrolled
+          sideways. Found by measuring scrollWidth in a real browser at phone
+          size; it is invisible at any desktop width. */}
+      <div className="flex flex-wrap gap-2">
         <label className="sr-only" htmlFor="job-sort">
           Sort results
         </label>
@@ -129,7 +135,7 @@ export default function SearchBar({
           variant="primary"
           loading={searching}
           cap={ArrowRight}
-          className="btn-lg"
+          className="btn-lg grow sm:grow-0"
         >
           {searching ? "Searching boards…" : "Search all boards"}
         </Button>

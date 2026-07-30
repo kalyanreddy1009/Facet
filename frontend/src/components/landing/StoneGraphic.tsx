@@ -11,54 +11,69 @@ import {
 } from "@/lib/gemProfile";
 
 /**
- * The stone, struck.
+ * The stone, lit.
  *
- * A round brilliant in profile, at real proportions, with one hard source
- * above it. The whole figure is a single event on a loop:
+ * A round brilliant in profile under one continuous source. Light falls on the
+ * table, travels down into the pavilion, turns on the back facets and leaves
+ * through the girdle as a fan of colour that keeps moving across the page.
+ * Nothing here blinks and nothing waits: every part of it is visible at every
+ * moment, and every part of it is in slow motion.
  *
- *   0.0s  a bolt falls from off-canvas and hits the table
- *   0.5s  the stone flashes — the crown lights, the pavilion lights a beat
- *         later, because that is the order light actually travels
- *   0.9s  five refracted beams leave through the girdle and cross the page
- *   6.0s  everything is dark again, and the loop waits before repeating
+ * Two things this had to get right, both learned by finally watching it in a
+ * real browser rather than reasoning about the keyframes:
  *
- * Profile rather than the plan view it replaces, because the app needed a
- * light *source*. Seen from above a stone can only glint at you. Seen from
- * the side you can watch the beam arrive, sink into the pavilion, turn around
- * on the back facets and leave through the crown — which is the actual reason
- * a cut stone is bright, and now the organising idea of the whole page. The
- * beams that leave here are the same ones `BeamField` continues across the
- * sections below, on the same clock.
+ *   1. LIGHT ON PAPER IS COLOUR, NOT BRIGHTNESS. The first version drew white
+ *      beams over a near-white page, which is invisible by construction — you
+ *      cannot add brightness to something already at the top of the range.
+ *      Every beam here is saturated indigo, violet or cyan at real alpha. That
+ *      is how a shaft of light reads on paper: as a tinted volume, the way a
+ *      sunbeam reads in a dusty room.
  *
- * Cost: no canvas, no rAF, no WebGL, no image. Everything that animates is
- * `opacity` or `transform` on a small element, and the whole sequence is one
- * CSS timeline with delays — so the browser can schedule it once rather than
- * being driven frame by frame from JavaScript. The previous version animated
- * two viewport-scale gradient rects with `mix-blend-mode` on a continuous
- * rotation, which is a large blended surface recomposited every frame,
- * forever. This one animates nothing while it is dark.
+ *   2. AN EVENT IS NOT AN ANIMATION. The version before this was a strike on a
+ *      9s loop, and five captured frames out of eight were simply dark.
+ *      Something that spends most of its cycle invisible reads as "no
+ *      animation" however good the 0.4s where it fires. So the beam is
+ *      continuous, and everything moves on long overlapping periods — 11s,
+ *      13s, 17s, 19s, 23s — chosen coprime so the scene never returns to a
+ *      pose you have already watched.
+ *
+ * Cost: no canvas, no rAF, no WebGL, no image request. Every animation is
+ * `opacity` or `transform` on a small element. A long duration is not more
+ * expensive than a short one — the compositor simply interpolates more slowly
+ * — and this is far cheaper than the rotating blended viewport-scale rects it
+ * replaces.
  */
 
 /** Facet fill, from a deep slate to near-white.
  *
  *  The dark end is genuinely dark. The span between a stone's lightest and
- *  darkest face is what the eye reads as gloss, and a gem whose shadow side
- *  only reaches mid-grey looks like frosted plastic. */
-function shade(lit: number, floor = 0, depth = 0): string {
-  const dark = [34, 45, 72];
-  const light = [248, 251, 255];
-  const t = Math.max(floor, lit * lit * 0.7 + lit * 0.3) * (1 - depth);
+ *  darkest face is what the eye reads as gloss — a gem whose shadow side only
+ *  reaches mid-grey looks like frosted plastic. */
+function shade(lit: number, depth = 0): string {
+  const dark = [30, 41, 68];
+  const light = [252, 253, 255];
+  const t = (lit * lit * 0.66 + lit * 0.34) * (1 - depth);
   return `rgb(${dark.map((c, i) => Math.round(c + (light[i] - c) * t)).join(" ")})`;
 }
 
+/** The fan leaving the girdle: hue, vertical drop and period per ray. The
+ *  periods are coprime so the fan never returns to the same arrangement. */
+const FAN = [
+  { hue: "#6d8cff", drop: -54, period: "13s", delay: "0s", alpha: 0.5 },
+  { hue: "#8f7bff", drop: -22, period: "17s", delay: "-3s", alpha: 0.42 },
+  { hue: "#4fb6e8", drop: 12, period: "11s", delay: "-6s", alpha: 0.46 },
+  { hue: "#6d8cff", drop: 44, period: "19s", delay: "-2s", alpha: 0.38 },
+  { hue: "#a874f0", drop: 74, period: "23s", delay: "-8s", alpha: 0.32 },
+];
+
 export default function StoneGraphic({
-  size = "clamp(17rem, 26vw, 27rem)",
+  size = "clamp(18rem, 28vw, 30rem)",
 }: {
   size?: number | string;
 }) {
   return (
     <div
-      className="relative grid place-items-center w-full stone-scene"
+      className="relative grid place-items-center w-full"
       style={{ width: size, height: size, maxWidth: "100%" }}
       aria-hidden
     >
@@ -68,31 +83,44 @@ export default function StoneGraphic({
         viewBox={PROFILE_VIEW_BOX}
         fill="none"
         className="relative overflow-visible"
-        /* `screen` on the flash layers has to blend against the stone, not
-           against whatever the page happens to be painted with. */
         style={{ isolation: "isolate" }}
       >
         <defs>
-          {/* The bolt. White at the core, accent at the edges — the way a hot
-              discharge looks, rather than a blue line. */}
-          <linearGradient id="bolt-core" x1="0" y1="0" x2="0.3" y2="1">
-            <stop offset="0%" stopColor="#dce8ff" stopOpacity="0" />
-            <stop offset="35%" stopColor="#ffffff" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="1" />
+          {/* The incoming shaft: faintest and widest above, tightening and
+              saturating as it nears the table. */}
+          <linearGradient id="shaft" x1="0" y1="0" x2="0.15" y2="1">
+            <stop offset="0%" stopColor="#8ea8ff" stopOpacity="0.04" />
+            <stop offset="55%" stopColor="#7b9bff" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#5f83ff" stopOpacity="0.46" />
           </linearGradient>
 
-          {/* Each refracted beam: bright where it leaves the stone, gone by
-              the time it reaches the edge of the figure. */}
-          <linearGradient id="beam-fade" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.85" />
-            <stop offset="22%" stopColor="#a8c4ff" stopOpacity="0.45" />
-            <stop offset="100%" stopColor="#a8c4ff" stopOpacity="0" />
+          {/* One gradient per ray, so each fades along its own length. */}
+          {FAN.map((ray, i) => (
+            <linearGradient key={`${ray.hue}${i}`} id={`ray-${i}`} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity={ray.alpha * 0.9} />
+              <stop offset="12%" stopColor={ray.hue} stopOpacity={ray.alpha} />
+              <stop offset="100%" stopColor={ray.hue} stopOpacity="0" />
+            </linearGradient>
+          ))}
+
+          {/* Colour separating as it crosses the inside of the stone. */}
+          <linearGradient id="inner-fire" x1="0" y1="0" x2="1" y2="0.6">
+            <stop offset="0%" stopColor="#5f83ff" stopOpacity="0" />
+            <stop offset="26%" stopColor="#7d68ff" stopOpacity="0.55" />
+            <stop offset="48%" stopColor="#39c5e8" stopOpacity="0.5" />
+            <stop offset="70%" stopColor="#b06cf0" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#5f83ff" stopOpacity="0" />
           </linearGradient>
 
-          <radialGradient id="impact-glow">
+          <radialGradient id="table-hot">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-            <stop offset="40%" stopColor="#cfe0ff" stopOpacity="0.4" />
+            <stop offset="45%" stopColor="#cfe0ff" stopOpacity="0.35" />
             <stop offset="100%" stopColor="#cfe0ff" stopOpacity="0" />
+          </radialGradient>
+
+          <radialGradient id="pool">
+            <stop offset="0%" stopColor="#7b9bff" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#7b9bff" stopOpacity="0" />
           </radialGradient>
 
           <clipPath id="stone-body">
@@ -100,43 +128,51 @@ export default function StoneGraphic({
           </clipPath>
         </defs>
 
-        {/* ---- the stone at rest -------------------------------------- */}
+        {/* ---- the shaft, always on ----------------------------------- */}
+        {/* Drawn before the stone so the stone occludes it. Light arriving
+            from in front of the object it lands on is the cheapest possible
+            tell that a scene is fake. It sways two degrees about the point
+            where it meets the table — enough to feel alive, small enough never
+            to look like it is swinging. */}
+        <g className="beam-sway" style={{ transformOrigin: `${STRIKE.x}px ${STRIKE.y}px` }}>
+          <path
+            d={`M${STRIKE.x - 62} -120 L${STRIKE.x + 26} -120 L${STRIKE.x + 11} ${STRIKE.y} L${
+              STRIKE.x - 13
+            } ${STRIKE.y} Z`}
+            fill="url(#shaft)"
+          />
+          {/* A brighter core inside the shaft, breathing on its own period, so
+              the beam has internal life rather than being a flat wedge. */}
+          <path
+            className="beam-core"
+            d={`M${STRIKE.x - 30} -120 L${STRIKE.x - 4} -120 L${STRIKE.x + 3} ${STRIKE.y} L${
+              STRIKE.x - 7
+            } ${STRIKE.y} Z`}
+            fill="url(#shaft)"
+          />
+        </g>
+
+        {/* ---- the stone ---------------------------------------------- */}
         <g>
-          {/* The pavilion is under the girdle and away from the source, so it
-              is uniformly darker than the crown. Without that step the two
-              halves read as one flat polygon with lines drawn on it. */}
           {PAVILION.map((facet) => (
-            <path key={facet.d} d={facet.d} fill={shade(facet.lit, 0, 0.42)} />
+            <path key={facet.d} d={facet.d} fill={shade(facet.lit, 0.44)} />
           ))}
           {CROWN.map((facet) => (
             <path key={facet.d} d={facet.d} fill={shade(facet.lit)} />
           ))}
         </g>
 
-        {/* ---- the flash ---------------------------------------------- */}
-        {/* Two groups, not one: the crown lights first and the pavilion a
-            beat later, which is the order the light gets there. Doing both at
-            once is what makes an effect read as a filter rather than as an
-            event. */}
-        <g clipPath="url(#stone-body)" className="hidden motion-safe:block">
-          <g className="stone-flash-crown" style={{ mixBlendMode: "screen" }}>
-            {CROWN.map((facet) => (
-              <path key={`fc${facet.d}`} d={facet.d} fill={shade(facet.lit, 0.55)} />
-            ))}
-          </g>
-          <g className="stone-flash-pavilion" style={{ mixBlendMode: "screen" }}>
-            {PAVILION.map((facet) => (
-              <path key={`fp${facet.d}`} d={facet.d} fill={shade(facet.lit, 0.42)} />
-            ))}
-          </g>
+        {/* Colour moving inside the stone: two passes at different speeds and
+            opposite directions, because refraction is not one band sliding
+            across a window. */}
+        <g clipPath="url(#stone-body)">
+          <rect className="fire-a" x="-240" y="0" width="480" height="240" fill="url(#inner-fire)" />
+          <rect className="fire-b" x="-240" y="0" width="480" height="240" fill="url(#inner-fire)" />
         </g>
 
         {/* ---- structure ---------------------------------------------- */}
-        <path d={PROFILE} fill="none" stroke="#2b3a5c" strokeOpacity="0.55" strokeWidth="1.2" />
-        <path d={GIRDLE_LINE} stroke="#ffffff" strokeOpacity="0.5" strokeWidth="1" />
-        <path d={TABLE_LINE} stroke="#ffffff" strokeOpacity="0.85" strokeWidth="1.4" />
-        {/* Facet edges, drawn over the fills so the cut reads at any size. */}
-        <g stroke="#ffffff" strokeOpacity="0.22" strokeWidth="0.6" fill="none">
+        <path d={PROFILE} fill="none" stroke="#26365c" strokeOpacity="0.6" strokeWidth="1.2" />
+        <g stroke="#ffffff" strokeOpacity="0.26" strokeWidth="0.6" fill="none">
           {CROWN.map((facet) => (
             <path key={`e${facet.d}`} d={facet.d} />
           ))}
@@ -144,90 +180,49 @@ export default function StoneGraphic({
             <path key={`e${facet.d}`} d={facet.d} />
           ))}
         </g>
+        <path d={GIRDLE_LINE} stroke="#ffffff" strokeOpacity="0.55" strokeWidth="1" />
+        <path d={TABLE_LINE} stroke="#ffffff" strokeOpacity="0.9" strokeWidth="1.6" />
 
-        {/* ---- the strike --------------------------------------------- */}
-        <g className="hidden motion-safe:block">
-          {/* The bolt itself: a jagged fall from off-canvas to the table.
-              Drawn as a stroke so it can be dashed in, which costs one
-              property rather than one element per segment. */}
-          <path
-            className="stone-bolt"
-            d={`M${STRIKE.x - 26} -60 L${STRIKE.x - 6} -18 L${STRIKE.x - 20} 2 L${
-              STRIKE.x - 2
-            } 26 L${STRIKE.x - 12} 40 L${STRIKE.x} ${STRIKE.y}`}
-            stroke="url(#bolt-core)"
-            strokeWidth="3.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-          />
-          {/* Its halo, so the bolt has air around it rather than being a
-              sticker on the page. */}
-          <path
-            className="stone-bolt stone-bolt-halo"
-            d={`M${STRIKE.x - 26} -60 L${STRIKE.x - 6} -18 L${STRIKE.x - 20} 2 L${
-              STRIKE.x - 2
-            } 26 L${STRIKE.x - 12} 40 L${STRIKE.x} ${STRIKE.y}`}
-            stroke="#8fb4ff"
-            strokeWidth="9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            fill="none"
-            opacity="0.35"
-          />
-          <circle
-            className="stone-impact"
-            cx={STRIKE.x}
-            cy={STRIKE.y}
-            r="46"
-            fill="url(#impact-glow)"
-          />
-        </g>
+        {/* Where the shaft meets the table: a hot spot that breathes. */}
+        <ellipse
+          className="table-hot"
+          cx={STRIKE.x}
+          cy={STRIKE.y}
+          rx="34"
+          ry="13"
+          fill="url(#table-hot)"
+        />
 
-        {/* ---- what leaves the stone ---------------------------------- */}
-        {/* Five beams out of the girdle, each on its own delay so they open
-            like a fan rather than switching on together. They are scaled from
-            their origin, so the animation is a transform and the browser never
-            re-rasterises them. */}
-        <g className="hidden motion-safe:block">
-          {EXITS.map((exit, i) => {
+        {/* ---- the fan ------------------------------------------------ */}
+        {/* Continuous. Each ray breathes on its own period and the fan as a
+            whole rocks slowly, so light is always leaving the stone and never
+            leaving it the same way twice. */}
+        <g className="fan-rock" style={{ transformOrigin: "120px 96px" }}>
+          {FAN.map((ray, i) => {
+            const exit = EXITS[i];
             const toLeft = exit.x < 120;
+            const end = toLeft ? -150 : 390;
             return (
-              <g
-                key={`${exit.x}-${exit.y}`}
-                className="stone-beam"
+              <path
+                key={`${ray.hue}-${i}`}
+                className="fan-ray"
                 style={{
                   transformOrigin: `${exit.x}px ${exit.y}px`,
-                  animationDelay: `${0.9 + i * 0.06}s`,
+                  animationDuration: ray.period,
+                  animationDelay: ray.delay,
                 }}
-              >
-                {/* Clamped to just outside the stone's own box. An earlier
-                    version ran them to ±380, which put a wedge of light
-                    straight across the headline in the next column — light
-                    over body copy is a legibility bug however pretty it is.
-                    Crossing the *page* is the job of the section sweeps
-                    below, which pass behind content rather than over it. */}
-                <path
-                  d={`M${exit.x} ${exit.y} L${toLeft ? -34 : 274} ${
-                    exit.y - 46 - i * 18
-                  } L${toLeft ? -34 : 274} ${exit.y + 8 - i * 18} Z`}
-                  fill="url(#beam-fade)"
-                  opacity={0.46 - i * 0.05}
-                />
-              </g>
+                d={`M${exit.x} ${exit.y - 3} L${end} ${exit.y + ray.drop - 30} L${end} ${
+                  exit.y + ray.drop + 34
+                } L${exit.x} ${exit.y + 3} Z`}
+                fill={`url(#ray-${i})`}
+              />
             );
           })}
         </g>
 
-        {/* The culet catches the last of it — the point every pavilion facet
-            aims at, and the one place a profile stone can sparkle. */}
-        <circle
-          className="hidden motion-safe:block stone-culet"
-          cx={CULET.x}
-          cy={CULET.y}
-          r="7"
-          fill="url(#impact-glow)"
-        />
+        {/* The culet, and the pool of light the stone throws below it. */}
+        <ellipse className="pool" cx={CULET.x} cy={CULET.y + 16} rx="66" ry="16" fill="url(#pool)" />
+        <circle className="culet-glow" cx={CULET.x} cy={CULET.y} r="9" fill="url(#table-hot)" />
       </svg>
     </div>
   );

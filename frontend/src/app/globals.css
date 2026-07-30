@@ -498,17 +498,40 @@ button:not(:disabled),
   /* Chrome — nav, sheets, popovers. Sits closest to the viewer, so it is the
      most opaque thing on screen: a translucent nav over a translucent panel
      over the field is three layers of haze and no legibility. */
+  /* Chrome: every surface that floats *above* the work rather than being part
+     of it — toasts, popovers, the loading panel.
+
+     These are now the instrument, the same dark material as the nav. That is
+     the point of the reversal: it is not that the nav happens to be dark, it
+     is that in this app anything which is the *tool* rather than the *work* is
+     dark, and the paper is reserved for your content. A toast telling you an
+     account was suspended is the tool talking; it should look like the tool.
+
+     Scoping the tokens is what makes this a one-line change at each call site
+     instead of a dark variant of every component: `text-text-dim` inside a
+     toast resolves to the light value automatically. */
   .chrome {
-    /* The most opaque surface in the app, and the only one with content
-       moving *underneath* it — a sticky nav you can read the page through is
-       the single worst place to spend transparency. */
-    background: rgba(255, 255, 255, 0.95);
-    /* The one surviving backdrop-filter in the app. A popover, sheet or toast
-       is transient and there is at most one on screen, so it can afford what a
-       list of forty rows cannot. */
-    -webkit-backdrop-filter: blur(14px) saturate(1.2);
-    backdrop-filter: blur(14px) saturate(1.2);
-    border: 1px solid var(--border);
+    background: linear-gradient(to bottom, #1e2536 0%, #141a27 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11), 0 1px 2px rgba(15, 17, 21, 0.16),
+      0 14px 34px -14px rgba(15, 17, 21, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    --text: #f2f5fa;
+    --text-dim: #a9b4c8;
+    --text-faint: #8d99b0;
+    --text-ghost: #74809a;
+    --border: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --accent-text: #9fbaff;
+    --accent-soft: rgba(122, 158, 255, 0.16);
+    --accent-border: rgba(122, 158, 255, 0.4);
+    --surface-2: rgba(255, 255, 255, 0.08);
+    --surface-3: rgba(255, 255, 255, 0.12);
+    /* Status inks have to invert too, or an error toast prints maroon on
+       graphite and cannot be read at all. */
+    --ok-text: #6ee7a0;
+    --warn-text: #f0c674;
+    --danger-text: #ff9b93;
+    color: var(--text);
   }
 
   /* ---- The instrument ---------------------------------------------- */
@@ -618,11 +641,14 @@ button:not(:disabled),
       color: var(--text);
       background: rgba(255, 255, 255, 0.08);
     }
-    .nav-mark {
+    /* The hover tilt lives on the SVG and the breathing on its wrapper: an
+       animation's transform beats a hovered element's own transform, so
+       putting both on one element would silently kill the hover. */
+    .nav-mark > svg {
       transition: transform var(--t-slow) var(--ease-emph);
     }
-    .group:hover .nav-mark {
-      transform: rotate(-12deg) scale(1.06);
+    .group:hover .nav-mark > svg {
+      transform: rotate(-12deg) scale(1.08);
     }
   }
 
@@ -949,25 +975,27 @@ button:not(:disabled),
     animation: dot-pulse 1.6s var(--ease) infinite;
   }
 
-  /* The landing wordmark. The name is the first thing on the page, so on the
-     landing route it is set large and lit: a glint travels across the letters
-     the way light travels a cut stone. Only `background-position` animates,
-     so it composites — and it is the app's own metaphor rather than a
-     generic shimmer, which is why it earns the pixels. */
+  /* The wordmark.
+     
+     A slow, continuous travel rather than the quick sweep this was: the glint
+     used to cross in 1.6s and then sit still for 6.4s, which reads as a blink
+     — you notice it having happened rather than watching it happen. Now the
+     highlight drifts across the letters over 18 seconds and never stops, so it
+     is always somewhere and never anywhere abruptly. Only `background-position`
+     animates, so it composites. */
   .wordmark {
-    /* Four stops, not three: the glint passes through the accent on its way
-       in and out, so the sweep reads as light refracting — a hue shift — where
-       a single bright stop just reads as a lighter letter. Both hues already
-       belong to the system; nothing new is introduced for decoration. */
+    /* A narrow band on a wide canvas. Wider stops turned the whole word blue
+       as the highlight passed, which reads as the brand changing colour rather
+       than as light crossing it. */
     background-image: linear-gradient(
       100deg,
-      var(--text) 36%,
-      var(--accent) 45%,
-      var(--glint) 51%,
-      var(--accent) 57%,
-      var(--text) 66%
+      var(--text) 42%,
+      color-mix(in srgb, var(--accent) 65%, var(--text)) 47.5%,
+      var(--glint) 50%,
+      color-mix(in srgb, var(--accent) 65%, var(--text)) 52.5%,
+      var(--text) 58%
     );
-    background-size: 280% 100%;
+    background-size: 420% 100%;
     background-position: 100% 0;
     -webkit-background-clip: text;
     background-clip: text;
@@ -975,21 +1003,26 @@ button:not(:disabled),
   }
   /* Without this, a browser that cannot clip a background to text paints the
      gradient as a filled rectangle and the product name becomes a black box.
-     It mattered less when this was one word on the landing page; the mark now
-     carries it on every screen, so the failure mode has to be handled rather
-     than hoped about. */
+     The mark carries this on every screen, so the failure mode is handled
+     rather than hoped about. */
   @supports not ((background-clip: text) or (-webkit-background-clip: text)) {
     .wordmark {
       background-image: none;
       color: var(--text);
     }
   }
-  /* Not the global reduced-motion reset: that only shortens durations, and a
-     shortened sweep still flashes. Here the sweep must not exist at all, so
-     the animation is only ever attached when motion is welcome. */
   @media (prefers-reduced-motion: no-preference) {
     .wordmark {
-      animation: wordmark-glint 8s var(--ease) 900ms infinite;
+      animation: wordmark-drift 18s linear infinite;
+    }
+  }
+
+  /* The mark breathes: a long, calm swell. Paired with the wordmark's drift
+     this is the brand's whole idle gesture — a stone sitting in slowly moving
+     light, not a logo doing a trick. */
+  @media (prefers-reduced-motion: no-preference) {
+    .nav-mark {
+      animation: mark-breathe 7.5s var(--ease) infinite alternate;
     }
   }
 
@@ -1016,8 +1049,8 @@ button:not(:disabled),
   /* The tab indicator, sharing the nav pill's fill so "where you are" looks
      the same whether it is a route or a view within one. */
   .seg-active {
-    background: var(--accent-soft);
-    box-shadow: inset 0 0 0 1px var(--accent-border);
+    background: linear-gradient(to bottom, #5b83f5, #3f6ae8);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 3px rgba(20, 30, 60, 0.4);
   }
 
   .skeleton {
@@ -1113,248 +1146,196 @@ button:not(:disabled),
 }
 
 /* ---- The hero stone ------------------------------------------------------
-   One event on one clock. Every animation below runs for exactly --strike, so
-   they stay in phase forever without any JavaScript coordinating them, and the
-   percentages *are* the storyboard:
+   Continuous, and slow. Nothing here has an off state.
 
-     3%   the bolt falls
-     5%   it lands, and the impact blooms
-     6%   the crown lights
-     8%   the pavilion lights, a beat later, because that is the order light
-          actually reaches it
-    12%   five beams leave through the girdle
-    45%   the last of it fades
-    100%  dark, and waiting — which is most of the cycle, on purpose
+   The previous version was an event on a 9s loop: a bolt, a flash, a fan, then
+   six seconds of nothing. Captured frame by frame in a browser, five of eight
+   frames were completely dark — which is why it read as "no animation" no
+   matter how carefully the strike itself was timed. Everything below is always
+   on and always moving, on long coprime periods that never re-align, so the
+   scene drifts forever instead of looping. */
 
-   Nothing animates during the dark stretch. The version this replaces rotated
-   two viewport-scale gradient rects with `mix-blend-mode` continuously and
-   forever; this one is idle roughly 55% of the time and animates only small
-   elements with opacity and transform. */
-.stone-bolt {
-  opacity: 0;
-  animation: bolt-fall var(--strike) var(--ease-out) infinite;
+/* The shaft rocks a couple of degrees about the point where it lands. */
+.beam-sway {
+  animation: beam-sway 19s var(--ease) infinite alternate;
 }
-.stone-bolt-halo {
-  animation-name: bolt-fall-halo;
+@keyframes beam-sway {
+  from {
+    transform: rotate(-2.2deg);
+  }
+  to {
+    transform: rotate(1.8deg);
+  }
 }
-.stone-impact {
-  opacity: 0;
+
+/* Its core swells and thins — a beam of light in air is never even. */
+.beam-core {
+  animation: beam-breathe 11s var(--ease) infinite alternate;
+}
+@keyframes beam-breathe {
+  from {
+    opacity: 0.35;
+    transform: scaleX(0.72);
+  }
+  to {
+    opacity: 0.95;
+    transform: scaleX(1.25);
+  }
+}
+
+/* Colour crossing the inside of the stone. Two passes, opposite directions,
+   different speeds — one band sliding across reads as a wiper. */
+.fire-a {
+  animation: fire-drift-a 17s linear infinite;
+  /* Tempered from 0.85. Fire is what makes a stone alive; too much of it and
+     the diamond becomes a purple crystal, which is a different object. */
+  opacity: 0.58;
+}
+.fire-b {
+  animation: fire-drift-b 23s linear infinite;
+  opacity: 0.32;
+}
+@keyframes fire-drift-a {
+  from {
+    transform: translateX(-30px);
+  }
+  to {
+    transform: translateX(270px);
+  }
+}
+@keyframes fire-drift-b {
+  from {
+    transform: translateX(260px);
+  }
+  to {
+    transform: translateX(-40px);
+  }
+}
+
+/* The hot spot where the shaft meets the table. */
+.table-hot {
   transform-box: fill-box;
   transform-origin: center;
-  animation: impact var(--strike) var(--ease-out) infinite;
+  animation: hot-breathe 13s var(--ease) infinite alternate;
 }
-.stone-flash-crown {
-  opacity: 0;
-  animation: flash-crown var(--strike) var(--ease) infinite;
-}
-.stone-flash-pavilion {
-  opacity: 0;
-  animation: flash-pavilion var(--strike) var(--ease) infinite;
-}
-.stone-beam {
-  opacity: 0;
-  animation: beam-out var(--strike) var(--ease-out) infinite;
-}
-.stone-culet {
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: culet-spark var(--strike) var(--ease-out) infinite;
-}
-
-@keyframes bolt-fall {
-  0%,
-  2% {
-    opacity: 0;
-    transform: translateY(-22px);
-  }
-  3.4% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  4.6% {
-    opacity: 0.85;
-  }
-  7% {
-    opacity: 0;
-    transform: translateY(0);
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes bolt-fall-halo {
-  0%,
-  2% {
-    opacity: 0;
-  }
-  3.4% {
-    opacity: 0.45;
-  }
-  8% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes impact {
-  0%,
-  3.6% {
-    opacity: 0;
-    transform: scale(0.2);
-  }
-  5.2% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  13% {
-    opacity: 0;
-    transform: scale(1.75);
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes flash-crown {
-  0%,
-  4.4% {
-    opacity: 0;
-  }
-  6% {
-    opacity: 1;
-  }
-  15% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes flash-pavilion {
-  0%,
-  6% {
-    opacity: 0;
-  }
-  8.4% {
-    opacity: 0.9;
-  }
-  19% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-/* The beams open outward from the girdle rather than fading in on the spot —
-   scaleX from the exit point, so it reads as light leaving the stone. */
-@keyframes beam-out {
-  0%,
-  9% {
-    opacity: 0;
-    transform: scaleX(0.05);
-  }
-  12.5% {
-    opacity: 1;
-    transform: scaleX(1);
-  }
-  34% {
-    opacity: 0.85;
-    transform: scaleX(1);
-  }
-  46% {
-    opacity: 0;
-    transform: scaleX(1);
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes culet-spark {
-  0%,
-  10% {
-    opacity: 0;
-    transform: scale(0.4);
-  }
-  13% {
-    opacity: 1;
-    transform: scale(1.3);
-  }
-  24% {
-    opacity: 0;
+@keyframes hot-breathe {
+  from {
+    opacity: 0.55;
     transform: scale(0.8);
   }
-  100% {
-    opacity: 0;
+  to {
+    opacity: 1;
+    transform: scale(1.25);
   }
 }
 
-/* ---- What the beams do to the page --------------------------------------
-   The light does not stop at the illustration. One bar per section sweeps
-   across it on the same clock, delayed by how far down the page it is, so the
-   refracted light visibly travels — the sections are lit by the stone rather
-   than merely sitting beneath it.
+/* The fan as a whole rocks; each ray also breathes on its own period, set
+   per-element in the component. Two independent motions on one object is what
+   separates "alive" from "on a timer". */
+.fan-rock {
+  animation: fan-rock 29s var(--ease) infinite alternate;
+}
+@keyframes fan-rock {
+  from {
+    transform: rotate(-3.5deg);
+  }
+  to {
+    transform: rotate(2.5deg);
+  }
+}
+.fan-ray {
+  transform-box: fill-box;
+  animation-name: ray-breathe;
+  animation-timing-function: var(--ease);
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes ray-breathe {
+  from {
+    opacity: 0.35;
+    transform: scaleX(0.82) scaleY(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1.06) scaleY(1.08);
+  }
+}
 
-   One animated element per section, transform and opacity only. A per-card
-   version of this looked better for about a second and cost sixteen animated
-   layers. */
+.pool {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pool-breathe 17s var(--ease) infinite alternate;
+}
+@keyframes pool-breathe {
+  from {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+.culet-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hot-breathe 11s var(--ease) infinite alternate reverse;
+}
+
+/* ---- What the light does to the page ------------------------------------
+   The fan does not stop at the illustration. One band per section drifts
+   across it, continuously, each on its own long period so the page is never
+   uniformly lit and never still. */
 .beam-sweep {
   position: absolute;
-  top: -20%;
-  left: -40%;
-  width: 55%;
-  height: 140%;
+  top: -25%;
+  left: -55%;
+  width: 70%;
+  height: 150%;
   pointer-events: none;
-  opacity: 0;
-  transform: translate3d(0, 0, 0) rotate(14deg);
+  transform: rotate(13deg);
   background: linear-gradient(
     100deg,
     transparent 0%,
-    rgba(150, 182, 255, 0.1) 38%,
-    rgba(214, 230, 255, 0.4) 50%,
-    rgba(150, 182, 255, 0.1) 62%,
+    rgba(122, 152, 255, 0.08) 30%,
+    rgba(139, 164, 255, 0.24) 50%,
+    rgba(122, 152, 255, 0.08) 70%,
     transparent 100%
   );
-  animation: beam-cross var(--strike) var(--ease-out) infinite;
+  animation: beam-cross 34s linear infinite;
 }
 
 @keyframes beam-cross {
-  0%,
-  10% {
-    opacity: 0;
-    transform: translate3d(0, 0, 0) rotate(14deg);
+  from {
+    transform: translate3d(0, 0, 0) rotate(13deg);
   }
-  16% {
-    opacity: 0.9;
-  }
-  40% {
-    opacity: 0.55;
-  }
-  52% {
-    opacity: 0;
-    transform: translate3d(240%, 0, 0) rotate(14deg);
-  }
-  100% {
-    opacity: 0;
-    transform: translate3d(240%, 0, 0) rotate(14deg);
+  to {
+    transform: translate3d(215%, 0, 0) rotate(13deg);
   }
 }
 
-/* The glint crosses once/* The glint crosses once, then rests for most of the cycle. A continuous
+/* The glint crosses once/* The glint crosses once/* The glint crosses once, then rests for most of the cycle. A continuous
    sweep in the corner of the eye is the thing people disable. */
-@keyframes wordmark-glint {
-  0% {
-    background-position: 100% 0;
+@keyframes wordmark-drift {
+  from {
+    background-position: 130% 0;
   }
-  20%,
-  100% {
-    background-position: -80% 0;
+  to {
+    background-position: -30% 0;
+  }
+}
+
+/* Breathing, not pulsing: the scale change is under 5% and the opacity floor
+   is high, so it reads as something alive rather than something blinking. */
+@keyframes mark-breathe {
+  from {
+    opacity: 0.82;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.045);
   }
 }
 
