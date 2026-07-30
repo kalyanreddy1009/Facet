@@ -87,6 +87,11 @@ export default function RequestLink({ defaultEmail = "" }: { defaultEmail?: stri
           placeholder="name@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          /* The field only exists once the disclosure is open, so this focuses
+             on reveal rather than on page load — the click that opened it was
+             a request to type here. */
+          autoFocus
           required
           disabled={busy}
         />

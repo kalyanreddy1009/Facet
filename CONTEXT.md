@@ -1,7 +1,7 @@
 # Facet — orientation brief
 
 For an agent that needs the full picture before writing prompts or code.
-Read alongside `README.md` (user-facing, exhaustive), `AUTONOMY.md` (how to
+Read alongside `README.md` (user-facing overview), `AUTONOMY.md` (how to
 work here), `workspace/RULES.md` (AI truthfulness contract), `CHANGELOG.md`.
 
 ## 1. What it is, in one paragraph

@@ -4,30 +4,32 @@
  *  3.0 palette, and a chart still wearing 2.0's greys next to a 3.0 panel is
  *  the most visible kind of drift there is. */
 export const CHART = {
-  accent: "#86a9ff", // --accent-text: a chart line IS ink, so it takes the ink value
-  ok: "#3fb950",
+  accent: "#2a51c6", // --accent-text: a chart line IS ink, so it takes the ink value
+  ok: "#2da44e",
   warn: "#d29922",
-  neutral: "#8b96a8",
-  grid: "rgba(233,239,248,0.1)", // --border
-  tick: { fontSize: 11, fill: "rgba(233,239,248,0.45)" },
+  neutral: "#6b7688",
+  grid: "rgba(19,24,36,0.1)", // --border
+  tick: { fontSize: 11, fill: "rgba(19,24,36,0.5)" },
   tooltip: {
     // Opaque, unlike every panel around it: a tooltip is a floating label over
     // data, and a translucent one is unreadable exactly where the data is
     // densest — which is the only place anyone opens it.
-    background: "#171d28", // --surface-2
-    border: "1px solid rgba(233,239,248,0.18)", // --border-strong
+    background: "#ffffff", // --surface-1
+    border: "1px solid rgba(19,24,36,0.16)", // --border-strong
     borderRadius: 9, // --radius
     fontSize: 13,
-    color: "#e9eff8", // --text
+    color: "#131824", // --text
   },
-  label: "#a3b0c4", // --text-dim
+  label: "#4d5872", // --text-dim
 } as const;
 
 /** The funnel is a single measure at four depths, so it reads as one accent
- *  stepping down in weight — not four unrelated hues. */
+ *  stepping up in weight — not four unrelated hues. On paper the ramp runs
+ *  light-to-dark, the opposite of the dark theme: further down the funnel is
+ *  more ink, because on white more ink is what reads as more weight. */
 export const FUNNEL_COLORS: Record<string, string> = {
-  Cut: "#33518f",
-  Set: "#4a76f0",
-  Interviewing: "#6b90f6",
-  Offer: "#9dbaff",
+  Cut: "#a9c0fa",
+  Set: "#7b9cf5",
+  Interviewing: "#4a76f0",
+  Offer: "#2a51c6",
 };

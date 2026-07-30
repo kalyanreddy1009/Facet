@@ -170,7 +170,7 @@ export default function SourcesSheet({
                   type="button"
                   onClick={() => removeFeed(feed.url)}
                   aria-label={`Remove ${feed.label}`}
-                  className="btn btn-ghost text-danger shrink-0"
+                  className="btn btn-ghost text-danger-text shrink-0"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>

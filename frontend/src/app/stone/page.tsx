@@ -12,6 +12,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { api, ApiError, type ExtractionStatus } from "@/lib/api";
+import { copyText } from "@/lib/clipboard";
 import Button from "@/components/ui/Button";
 import Panel from "@/components/ui/Panel";
 import Toaster from "@/components/ui/Toaster";
@@ -168,13 +169,13 @@ export default function StonePage() {
           </span>
 
           {extraction?.status === "running" && (
-            <span className="text-sm text-warn flex items-center gap-1.5">
+            <span className="text-sm text-warn-text flex items-center gap-1.5">
               <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
               Extracting profile…
             </span>
           )}
           {extraction?.status === "done" && (
-            <span className="text-sm text-ok flex items-center gap-1.5">
+            <span className="text-sm text-ok-text flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5" aria-hidden />
               Profile in sync
             </span>
@@ -189,12 +190,12 @@ export default function StonePage() {
       <Panel className="mt-4 p-4 flex flex-col gap-2">
         <div className="flex items-center justify-between divider pb-2.5 px-1">
           <span className="mono text-xs text-text-faint">
-            master_resume.md {dirty && <span className="text-warn">· unsaved</span>}
+            master_resume.md {dirty && <span className="text-warn-text">· unsaved</span>}
           </span>
           <button
             type="button"
-            onClick={() => {
-              navigator.clipboard.writeText(markdown);
+            onClick={async () => {
+              if (!(await copyText(markdown))) return;
               setCopied(true);
               setTimeout(() => setCopied(false), 1800);
             }}

@@ -124,7 +124,9 @@ function Reveal({
 
 export default function LandingContent() {
   const { session } = useSession();
-  const signedIn = session?.authenticated === true;
+  // single_user counts: a local checkout has no login at all, and offering
+  // "Sign in" there is a button that can only lead to a page saying so.
+  const signedIn = session?.authenticated === true || session?.single_user === true;
 
   // Where the primary action goes. `/tailor` rather than `/rough` for a
   // returning user: the thing they came back to do is cut a facet.

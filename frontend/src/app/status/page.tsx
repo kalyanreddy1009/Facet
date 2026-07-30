@@ -10,9 +10,9 @@ import { OVERALL_LABEL, type OverallStatus } from "@/lib/status";
 import { REFRESH_OPTIONS, useStatus } from "@/lib/useStatus";
 
 const OVERALL_STYLE: Record<OverallStatus, { dot: string; text: string; border: string }> = {
-  operational: { dot: "dot-ok", text: "text-ok", border: "border-ok-border" },
-  degraded: { dot: "dot-warn", text: "text-warn", border: "border-warn-border" },
-  down: { dot: "dot-danger", text: "text-danger", border: "border-danger-border" },
+  operational: { dot: "dot-ok", text: "text-ok-text", border: "border-ok-border" },
+  degraded: { dot: "dot-warn", text: "text-warn-text", border: "border-warn-border" },
+  down: { dot: "dot-danger", text: "text-danger-text", border: "border-danger-border" },
 };
 
 /** Roughly the first ~18s of retries — how long the API takes to boot. */
@@ -138,7 +138,7 @@ export default function StatusPage() {
           {error && (
             <div className="panel px-4 py-2.5 flex items-center gap-2.5 border-warn-border bg-warn-soft">
               <AlertTriangle className="w-4 h-4 text-warn shrink-0" aria-hidden />
-              <p className="text-xs text-warn flex-1">
+              <p className="text-xs text-warn-text flex-1">
                 Showing the last successful report — {error.toLowerCase()}.
               </p>
             </div>
@@ -188,8 +188,8 @@ export default function StatusPage() {
                 report.traffic.total_errors === 0
                   ? "text-text"
                   : errorRate > 0.05
-                    ? "text-danger"
-                    : "text-warn"
+                    ? "text-danger-text"
+                    : "text-warn-text"
               }
             />
           </section>

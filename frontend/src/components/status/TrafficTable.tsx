@@ -51,7 +51,7 @@ export default function TrafficTable({ rows }: { rows: RequestMetric[] }) {
               </td>
               <td
                 className={`px-3 py-2 text-right tnum ${
-                  row.errors > 0 ? "text-danger" : "text-text-ghost"
+                  row.errors > 0 ? "text-danger-text" : "text-text-ghost"
                 }`}
               >
                 {row.errors.toLocaleString()}

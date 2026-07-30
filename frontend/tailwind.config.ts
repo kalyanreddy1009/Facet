@@ -104,7 +104,7 @@ const config: Config = {
       },
       boxShadow: {
         // Neutral black only. A coloured shadow is the fastest way to look fake.
-        popover: "0 8px 24px rgba(0,0,0,0.5)",
+        popover: "0 8px 24px rgba(19,24,36,0.14)",
         raised: "var(--shadow-raised)",
         float: "var(--shadow-float)",
       },

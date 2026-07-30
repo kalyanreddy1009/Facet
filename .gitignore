@@ -46,7 +46,25 @@ __pycache__/
 *.py[cod]
 node_modules/
 .next/
+# The alternate build directories. `deploy/publish.sh` builds into
+# .next.incoming and swaps it in so the running server's own files are never
+# deleted underneath it, keeping .next.previous as the rollback; the others are
+# scratch roots used to build or serve a sandbox without touching the live one.
+.next.incoming/
+.next.previous/
+.next.qa/
+.next.build/
 *.tsbuildinfo
+
+# Scratch inputs and outputs from manual testing — real resumes go through the
+# app, not the repo.
+backend/resume_*.pdf
+backend/resume_*.docx
+workspace/dummy_*.txt
+
+# Working briefs handed to the assistant. Inputs to the work, not part of it.
+*.docx
+prompt.txt
 
 # OS noise
 .DS_Store

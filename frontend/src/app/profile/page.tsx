@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { KeyRound, Loader2, MonitorSmartphone, Shield } from "lucide-react";
 
-import { refreshSession } from "@/lib/useSession";
+import { refreshSession, useSession } from "@/lib/useSession";
 
 interface ProfileData {
   user: {
@@ -61,6 +61,8 @@ function when(seconds: number | null): string {
 }
 
 export default function ProfilePage() {
+  const { session } = useSession();
+  const singleUser = session?.single_user === true;
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,7 +70,13 @@ export default function ProfilePage() {
     try {
       const response = await fetch("/api/auth/profile", { credentials: "include" });
       if (response.status === 401) {
-        window.location.href = "/login?next=/profile";
+        // Careful: /login bounces straight back to `next` whenever
+        // /api/auth/me says authenticated — which it always does in
+        // single-user mode, where this endpoint still answers 401 because
+        // there is no account to describe. Sending someone there would loop
+        // the browser forever. There is no profile to show in that mode, so
+        // go home instead; a genuinely expired session still reaches /login.
+        window.location.href = singleUser ? "/" : "/login?next=/profile";
         return;
       }
       if (!response.ok) throw new Error(String(response.status));
@@ -76,7 +84,7 @@ export default function ProfilePage() {
     } catch {
       setError("Could not load your profile. Facet may be restarting.");
     }
-  }, []);
+  }, [singleUser]);
 
   useEffect(() => {
     load();

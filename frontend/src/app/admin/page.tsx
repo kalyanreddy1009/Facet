@@ -23,7 +23,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy, Loader2, MailQuestion, Plus, Shield, UserPlus } from "lucide-react";
 
+import Toaster from "@/components/ui/Toaster";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { copyText } from "@/lib/clipboard";
 import { useSession } from "@/lib/useSession";
+import { useToasts } from "@/lib/useToasts";
 
 interface AdminUser {
   id: number;
@@ -77,6 +81,7 @@ async function call(path: string, options: RequestInit = {}) {
 export default function AdminPage() {
   const router = useRouter();
   const { session, loading } = useSession();
+  const { toasts, push, dismiss } = useToasts();
 
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [requests, setRequests] = useState<LinkRequest[]>([]);
@@ -102,7 +107,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (loading) return;
     if (!session?.user?.is_admin) {
-      router.replace("/tailor");
+      router.replace("/");
       return;
     }
     refresh();
@@ -119,12 +124,16 @@ export default function AdminPage() {
     );
   }
 
-  async function act(id: number, path: string, body?: object) {
+  /** `done` is the confirmation. Suspend, Resume and Sign out all change
+   *  something a row away from the button, and without a word from the app the
+   *  only evidence they worked is a badge you were not looking at. */
+  async function act(id: number, path: string, body?: object, done?: string) {
     setError(null);
     setPending(id);
     try {
       const result = await call(path, { method: "POST", body: JSON.stringify(body || {}) });
       await refresh();
+      if (done) push(done, { tone: "success" });
       return result;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -256,6 +265,10 @@ export default function AdminPage() {
               placeholder="name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              /* Not "email": this field is somebody else's address, and the
+                 browser offering the administrator their own is a way to
+                 create an account for the wrong person. */
+              autoComplete="off"
               required
               disabled={busy}
             />
@@ -301,10 +314,17 @@ export default function AdminPage() {
 
       {/* --------------------------------------------------- the account list */}
       {users === null ? (
-        <p className="flex items-center gap-2 text-sm text-text-faint">
-          <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
-          Loading accounts…
-        </p>
+        /* Rows shaped like the real ones rather than a spinner: the list is
+           the page, and every other list in Facet loads this way. */
+        <div className="space-y-2.5" aria-busy>
+          <span className="sr-only">Loading accounts…</span>
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i} className="panel p-5 md:py-3.5 flex items-center gap-4">
+              <Skeleton className="h-4 w-44" />
+              <Skeleton className="h-4 w-20 ml-auto" />
+            </div>
+          ))}
+        </div>
       ) : (
         <section aria-label="Accounts" className="space-y-2.5">
           {/* Headings for the wide form only. The stacked form repeats its own
@@ -372,7 +392,14 @@ export default function AdminPage() {
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
-                  onClick={() => act(user.id, `/api/admin/users/${user.id}/revoke-sessions`)}
+                  onClick={() =>
+                    act(
+                      user.id,
+                      `/api/admin/users/${user.id}/revoke-sessions`,
+                      undefined,
+                      `Signed ${user.display_name || user.email} out everywhere`
+                    )
+                  }
                   disabled={user.sessions === 0 || pending === user.id}
                   title="Sign them out of every browser. For a lost laptop."
                 >
@@ -384,7 +411,14 @@ export default function AdminPage() {
                     type="button"
                     className="btn btn-default btn-sm"
                     disabled={pending === user.id}
-                    onClick={() => act(user.id, `/api/admin/users/${user.id}/resume`)}
+                    onClick={() =>
+                      act(
+                        user.id,
+                        `/api/admin/users/${user.id}/resume`,
+                        undefined,
+                        `${user.display_name || user.email} can sign in again`
+                      )
+                    }
                   >
                     Resume
                   </button>
@@ -392,7 +426,14 @@ export default function AdminPage() {
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm"
-                    onClick={() => act(user.id, `/api/admin/users/${user.id}/suspend`)}
+                    onClick={() =>
+                      act(
+                        user.id,
+                        `/api/admin/users/${user.id}/suspend`,
+                        undefined,
+                        `${user.display_name || user.email} is suspended — their data is untouched`
+                      )
+                    }
                     disabled={user.email === currentEmail || pending === user.id}
                     title={
                       user.email === currentEmail
@@ -409,6 +450,8 @@ export default function AdminPage() {
         </section>
       )}
 
+      <Toaster toasts={toasts} onDismiss={dismiss} />
+
       <p className="text-xs text-text-faint max-w-prose text-pretty">
         Deleting an account and restoring a backup are deliberately not here — they live in the
         control plane on port 9000, reachable over SSH. A button that destroys somebody&rsquo;s
@@ -420,6 +463,7 @@ export default function AdminPage() {
 
 function InviteLink({ email, url }: { email: string; url: string }) {
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
 
   return (
     <div className="mt-5 rounded-lg border border-accent-border bg-accent-soft p-4">
@@ -440,7 +484,13 @@ function InviteLink({ email, url }: { email: string; url: string }) {
           type="button"
           className="btn btn-default"
           onClick={async () => {
-            await navigator.clipboard.writeText(url);
+            // The link is shown once and cannot be recovered, so a copy that
+            // silently failed must not look like one that worked.
+            if (!(await copyText(url))) {
+              setFailed(true);
+              return;
+            }
+            setFailed(false);
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
           }}
@@ -458,6 +508,11 @@ function InviteLink({ email, url }: { email: string; url: string }) {
           )}
         </button>
       </div>
+      {failed && (
+        <p role="alert" className="mt-2 text-xs text-danger-text">
+          Couldn&rsquo;t reach the clipboard. Select the link above and copy it by hand.
+        </p>
+      )}
     </div>
   );
 }

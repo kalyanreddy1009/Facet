@@ -5,6 +5,7 @@ import { AlertTriangle, Check, Copy, FileDown, FileText, Mail } from "lucide-rea
 import Panel from "@/components/ui/Panel";
 import ScoreRing from "./ScoreRing";
 import { API_BASE, type TailorResponse } from "@/lib/api";
+import { copyText } from "@/lib/clipboard";
 
 interface TailorResultProps {
   result: TailorResponse;
@@ -15,8 +16,9 @@ function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) 
   return (
     <button
       type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(text);
+      onClick={async () => {
+        // Only claim success if it succeeded — see lib/clipboard.
+        if (!(await copyText(text))) return;
         setCopied(true);
         setTimeout(() => setCopied(false), 1800);
       }}

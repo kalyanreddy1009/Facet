@@ -31,7 +31,7 @@ export default function AgyHealthBanner() {
   if (!detail || dismissed) return null;
 
   return (
-    <div className="bg-warn-soft border-b border-warn-border text-warn">
+    <div className="bg-warn-soft border-b border-warn-border text-warn-text">
       <div className="max-w-shell mx-auto px-5 sm:px-8 py-2 flex items-center gap-2.5 text-sm">
         <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden />
         <p className="flex-1">

@@ -12,7 +12,9 @@
  *   1. Contrast. Every foreground token is checked against every surface it
  *      is plausibly drawn on, at the WCAG AA ratio for its size. The palette
  *      was lightened this sprint; this is what keeps the next adjustment from
- *      quietly making body text unreadable.
+ *      quietly making body text unreadable. Status inks are additionally
+ *      checked against their own soft tint, which is where a badge actually
+ *      sits and is the lightest background in the system.
  *   2. Labels. Every input, select and textarea has a <label htmlFor> that
  *      matches its id, or an aria-label.
  *   3. Button type. A <button> inside a <form> with no `type` is a submit
@@ -164,6 +166,39 @@ for (const [name, minimum] of FOREGROUNDS) {
     );
   } else {
     notes.push(`${name} ≥ ${worst.value.toFixed(2)}:1`);
+  }
+}
+
+// The tinted surfaces. A badge is not text on a neutral panel — it is text on
+// a wash of its own status colour, and that wash is the lightest background in
+// the system. The loop above never looked at these pairs, which is how the
+// light palette shipped badges at 2.2:1: every token in it passed on grey.
+const TINTED_PAIRS = [
+  ["--accent-text", "--accent-soft", 4.5],
+  ["--ok-text", "--ok-soft", 4.5],
+  ["--warn-text", "--warn-soft", 4.5],
+  ["--danger-text", "--danger-soft", 4.5],
+  // The placeholder. Real text, so it takes the real bar.
+  ["--text-ghost", "--glass-1", 4.5],
+];
+
+for (const [fgName, bgName, minimum] of TINTED_PAIRS) {
+  if (!tokens[fgName] || !tokens[bgName]) {
+    failures.push(`globals.css: contrast check references ${fgName}/${bgName}, not declared`);
+    continue;
+  }
+  // The soft tints are themselves translucent, so they composite over the
+  // lightest surface they are ever drawn on — the worst case for the ink.
+  const behind = over(tokens["--glass-1"], page);
+  const bg = over(tokens[bgName], behind);
+  const fg = over(tokens[fgName], page);
+  const value = ratio(fg, bg);
+  if (value < minimum) {
+    failures.push(
+      `contrast: ${fgName} on ${bgName} is ${value.toFixed(2)}:1, below the ${minimum}:1 it needs`
+    );
+  } else {
+    notes.push(`${fgName}/${bgName} ≥ ${value.toFixed(2)}:1`);
   }
 }
 

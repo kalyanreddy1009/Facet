@@ -13,7 +13,7 @@
  * distribute a value that stable is more machinery than the problem needs.
  */
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 export interface SessionUser {
   email: string;
@@ -43,6 +43,17 @@ async function load(): Promise<Session> {
   return session;
 }
 
+/** The answer the server already worked out for *this* request.
+ *
+ *  A context and not the module cache above: on the server that cache is
+ *  shared by every request the process handles, so seeding it would let one
+ *  visitor's session decide what another visitor's HTML says. A context value
+ *  belongs to one render tree and cannot cross that line.
+ *
+ *  Its job is only the first frame. Once mounted, the module cache and its
+ *  listeners take over, so a sign-out still updates every consumer at once. */
+export const SessionSeedContext = createContext<Session | null>(null);
+
 /** Force a re-read — after signing in, out, or changing a password. */
 export function refreshSession(): Promise<Session> {
   inflight = load();
@@ -50,11 +61,17 @@ export function refreshSession(): Promise<Session> {
 }
 
 export function useSession(): { session: Session | null; loading: boolean } {
-  const [session, setSession] = useState<Session | null>(cached);
-  const [loading, setLoading] = useState(cached === null);
+  const seed = useContext(SessionSeedContext);
+  const initial = cached ?? seed;
+  const [session, setSession] = useState<Session | null>(initial);
+  const [loading, setLoading] = useState(initial === null);
 
   useEffect(() => {
     listeners.add(setSession);
+
+    // The seed is a real answer, so adopt it rather than asking again — the
+    // request that produced it happened moments ago, server-side.
+    if (cached === null && seed !== null) cached = seed;
 
     if (cached === null) {
       // Share one request between however many components mount together,

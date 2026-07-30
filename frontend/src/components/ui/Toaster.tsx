@@ -8,7 +8,7 @@ import { ENTER, EXIT, REDUCED } from "@/lib/motion";
 const ICON = { error: AlertTriangle, success: CheckCircle2, info: Info };
 // Colour reports the outcome — a real state, so it earns its colour. "info"
 // stays neutral: nothing has gone right or wrong.
-const COLOR = { error: "text-danger", success: "text-ok", info: "text-text-faint" };
+const COLOR = { error: "text-danger-text", success: "text-ok-text", info: "text-text-faint" };
 
 interface ToasterProps {
   toasts: Toast[];

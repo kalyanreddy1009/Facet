@@ -21,25 +21,42 @@ const LINKS = [
 // /api/status from every page: that report does real work on each call.
 const STATUS_LINK = { href: "/status", label: "Status" };
 
-/** Monochrome — it inherits text colour like every other icon in the app.
- *  Sized by the caller: 17px inside the app, larger on the landing page,
- *  where the name is the page's first line rather than a way back. */
+/** The mark: a brilliant cut, seen face on.
+ *
+ *  The previous one was a pentagon with a line through it — at 17px it read as
+ *  a shield, a house, or a generic "app", and the one shape this product is
+ *  named after was the one thing it did not look like. This is the real
+ *  geometry instead: a flat table across the top, a girdle at the widest
+ *  point, and the crown and pavilion facets meeting at a culet.
+ *
+ *  Drawn on the true silhouette rather than a symmetrical diamond, because a
+ *  rotated square is a playing-card suit and a stone is wider than it is deep
+ *  above the girdle.
+ *
+ *  Monochrome — it inherits text colour like every other icon in the app.
+ *  Sized by the caller: 17px inside the app, larger on the landing page, where
+ *  the name is the page's first line rather than a way back. */
 function FacetMark({ size = 17 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      {/* Silhouette. `strokeLinejoin: round` keeps the culet from spiking into
+          a hairline point when the icon is scaled up on the landing page. */}
       <path
-        d="M12 2 22 9l-3.8 12H5.8L2 9l10-7Z"
+        d="M6.6 3.25h10.8L22 10 12 21.4 2 10l4.6-6.75Z"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.45"
         strokeLinejoin="round"
       />
-      <path d="M2 9h20" stroke="currentColor" strokeWidth="1" opacity="0.5" />
-      {/* The centre facet. Enough to read as a cut stone at 17px rather than
-          a generic pentagon. */}
+      {/* The girdle — the one line that makes it a cut stone rather than a
+          crystal, so it carries more weight than the facets. */}
+      <path d="M2 10h20" stroke="currentColor" strokeWidth="1.1" opacity="0.62" />
+      {/* Crown facets down to the girdle, pavilion facets down to the culet.
+          Light enough to survive 17px without filling in. */}
       <path
-        d="m12 2-3.4 7L12 21l3.4-12L12 2Z"
+        d="M6.6 3.25 9.1 10 12 21.4 14.9 10l2.5-6.75M9.1 10h5.8"
         stroke="currentColor"
-        strokeWidth="0.75"
+        strokeWidth="0.85"
+        strokeLinejoin="round"
         opacity="0.4"
       />
     </svg>
@@ -70,16 +87,16 @@ export default function NavBar() {
     <header className="sticky top-0 z-40 chrome border-x-0 border-t-0">
       <div className="max-w-shell mx-auto h-nav px-5 sm:px-8 flex items-center justify-between gap-6">
         <Link
-          href={inApp ? "/rough" : "/"}
+          href="/"
           className={`flex items-center shrink-0 text-text transition-opacity duration-fast hover:opacity-80 ${
             landing ? "gap-2.5" : "gap-2"
           }`}
         >
-          <FacetMark size={landing ? 26 : 17} />
+          <FacetMark size={landing ? 30 : 17} />
           <span
             className={
               landing
-                ? "wordmark text-2xl sm:text-[1.75rem] font-semibold tracking-[-0.03em] leading-none"
+                ? "wordmark text-[1.75rem] sm:text-[2rem] font-semibold tracking-[-0.035em] leading-none"
                 : "text-sm font-semibold tracking-tight"
             }
           >

@@ -34,6 +34,7 @@ import Link from "next/link";
 import { ArrowRight, CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
 
 import RequestLink from "@/components/auth/RequestLink";
+import { refreshSession } from "@/lib/useSession";
 
 const MIN_LENGTH = 12;
 
@@ -119,7 +120,8 @@ function SetPasswordForm() {
         check();
         return;
       }
-      router.replace("/tailor");
+      await refreshSession().catch(() => {});
+      router.replace("/");
     } catch {
       setError({
         error: "Could not reach Facet.",

@@ -121,7 +121,7 @@ export default function CabinetPage() {
           <EmptyState
             icon={PlugZap}
             title="Couldn't reach the backend"
-            body="The Cabinet lives in your local database, and nothing answered on port 8000. Your data is fine — this page just can't read it right now."
+            body="The Cabinet lives in your local database, and nothing answered. Your data is fine — this page just can't read it right now."
             action={
               <Button variant="primary" icon={RefreshCw} onClick={loadAll}>
                 Try again

@@ -4,6 +4,8 @@ import "./globals.css";
 import NavBar from "@/components/ui/NavBar";
 import AgyHealthBanner from "@/components/ui/AgyHealthBanner";
 import AmbientField from "@/components/ui/AmbientField";
+import SessionSeed from "@/components/ui/SessionSeed";
+import { getServerSession } from "@/lib/serverSession";
 
 // One UI typeface, one for numbers and code. A display serif reads as
 // "designed" rather than "built" — real tools don't use one.
@@ -17,11 +19,15 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#080a10",
-  colorScheme: "dark",
+  themeColor: "#eef1f7",
+  colorScheme: "light",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // Resolved here, once per request, rather than by every client component
+  // that needs it — and early enough that the first paint is already right.
+  const session = await getServerSession();
+
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <body>
@@ -31,11 +37,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         >
           Skip to content
         </a>
-        {/* Behind everything, and the reason every surface is translucent. */}
-        <AmbientField />
-        <NavBar />
-        <AgyHealthBanner />
-        <div id="main">{children}</div>
+        <SessionSeed session={session}>
+          {/* Behind everything, and the reason every surface is translucent. */}
+          <AmbientField />
+          <NavBar />
+          <AgyHealthBanner />
+          <div id="main">{children}</div>
+        </SessionSeed>
       </body>
     </html>
   );

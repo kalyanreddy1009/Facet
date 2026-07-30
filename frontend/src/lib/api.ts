@@ -170,7 +170,7 @@ async function send<T>(
     }
     throw new ApiError(
       "Can't reach the Facet backend",
-      "Is it running on :8000? Start it with `python run.py`."
+      "It may be restarting. If this persists, check that the Facet backend is running."
     );
   } finally {
     clearTimeout(timer);

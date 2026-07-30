@@ -8,7 +8,7 @@
 @config "../../tailwind.config.ts";
 
 /* ============================================================================
-   Facet 3.0 — lit graphite.
+   Facet 3.0 — lit paper.
 
    Design rules this file enforces, and every component must respect:
    1. Cool blue-slate neutrals carry the interface. Colour means something.
@@ -28,79 +28,103 @@
    ========================================================================== */
 
 :root {
-  /* Surfaces — cool blue-slate. Each step is one visible level up, and the
-     hue is carried in the surface itself rather than added later as a tint,
-     so a translucent panel over the ambient field doesn't shift colour. */
-  --bg: #080a10;
-  --surface-1: #10141d;
-  --surface-2: #171d28;
-  --surface-3: #202736;
-  --surface-4: #2a3344;
+  /* Surfaces — a nearly neutral paper with the faintest cool cast left in it.
+     The first light palette carried the dark theme's blue-slate hue straight
+     across at full strength, which is why the whites read cold and slightly
+     blue rather than as paper. The hue is still there — this is not a warm
+     interface — but at roughly a third of the saturation, which is the
+     difference between "tinted" and "chilly".
+     Light mode inverts the direction of "up": the page is a tinted paper and
+     the first level above it is plain white. Past white there is nowhere
+     lighter to go, so --surface-3/-4 step back *down* into tinted greys —
+     they are the hover and scrollbar values, i.e. separation rather than
+     elevation. */
+  --bg: #f2f2f3;
+  --surface-1: #ffffff;
+  --surface-2: #f8f8f9;
+  --surface-3: #eeeef0;
+  --surface-4: #d6d7db;
 
   /* Translucent forms of the same surfaces. These are what `.panel`, `.card`
      and `.chrome` actually paint, so the ambient field reads through the whole
      interface instead of only the nav. Alpha is deliberately high enough that
      14px body text keeps its contrast — "slightly more transparent", not
      "see-through". */
-  --glass-1: rgba(16, 20, 29, 0.72);
-  --glass-2: rgba(23, 29, 40, 0.76);
-  --glass-3: rgba(32, 39, 54, 0.8);
+  --glass-1: rgba(255, 255, 255, 0.76);
+  --glass-2: rgba(255, 255, 255, 0.84);
+  --glass-3: rgba(238, 238, 240, 0.9);
   --glass-blur: 16px;
   /* The top highlight that makes a translucent panel read as a pane of glass
-     rather than a hole. One hairline, never a gradient wash. */
-  --glass-edge: rgba(255, 255, 255, 0.06);
+     rather than a hole. One hairline, never a gradient wash. On paper the
+     light edge is nearly white — it reads against the ambient tint the panel
+     is floating over, not against the panel itself. */
+  --glass-edge: rgba(255, 255, 255, 0.95);
 
-  /* Text */
-  --text: #e9eff8;
-  --text-dim: #a3b0c4;
-  --text-muted: #8d9aae; /* alias kept because half the app already asks for it */
-  --text-faint: #8d9aae;
-  --text-ghost: #515d70;
+  /* Text. Darker across the board than the first light palette, which carried
+     the dark theme's *relationships* over — dim was 2 steps below body, faint
+     3 — without accounting for the fact that on paper those steps run toward
+     the background rather than away from it. Supporting text at 5:1 on black
+     is comfortable; at 5:1 on white it looks switched off. Body is near-black,
+     and every step below it stays well inside readable rather than sitting on
+     the WCAG line. */
+  --text: #0f1115;
+  --text-dim: #3a414d;
+  --text-muted: #545c69; /* alias kept because half the app already asks for it */
+  --text-faint: #545c69;
+  --text-ghost: #6a7280; /* also the placeholder colour, so it clears 4.5:1 */
 
   /* Borders. `--border` and `--border-strong` are the depth cue — decorative,
      so WCAG 1.4.11's 3:1 doesn't reach them. `--border-control` is the visible
      boundary of an actual control (a field, a secondary button); that one does
      have to clear 3:1 or a low-vision user can't find the input. */
-  --border: rgba(233, 239, 248, 0.1);
-  --border-strong: rgba(233, 239, 248, 0.18);
-  --border-control: rgba(233, 239, 248, 0.38); /* 3.02:1 worst surface */
+  /* Raised from 0.10/0.16: a hairline that works on a dark surface disappears
+     on paper, and with every panel translucent the border is the only thing
+     drawing the edge of a card at all. Still one pixel — the fix is contrast,
+     not weight. A 2px border is a box; this is an edge. */
+  --border: rgba(15, 17, 21, 0.16);
+  --border-strong: rgba(15, 17, 21, 0.26);
+  --border-control: rgba(15, 17, 21, 0.5); /* 3.4:1 on white */
 
   /* The one accent. Indigo dark enough for white label text is too dark to BE
      text on a dark surface, and vice versa — that is colour maths, not a
      preference, so the accent is one hue at two lightnesses: the fill and the
      ink. Do not use --accent for text, or --accent-text for a fill.
-     Raised in chroma from 2.0's #3a68d6, which read as grey-blue against the
-     new surfaces: white on this measures 4.9:1, the ink 6.8:1 on --bg. */
+     The fill is unchanged from the dark theme — white on it measures 4.9:1
+     either way, because a filled button carries its own background. The ink
+     is the half that had to move: #86a9ff on paper is 1.8:1 and unreadable,
+     so on light it darkens instead of lightening — 6.5:1 on white. */
   --accent: #4a76f0; /* fills: buttons, checkbox, nav indicator, focus ring */
-  --accent-hover: #5a83f6;
-  --accent-press: #3c63d4;
-  --accent-text: #86a9ff; /* accent AS text on a dark surface */
-  --accent-soft: rgba(74, 118, 240, 0.14);
-  --accent-border: rgba(74, 118, 240, 0.4);
+  --accent-hover: #3c66df;
+  --accent-press: #2f56c4;
+  --accent-text: #2a51c6; /* accent AS text on a light surface */
+  --accent-soft: rgba(74, 118, 240, 0.1);
+  --accent-border: rgba(74, 118, 240, 0.35);
   --on-accent: #ffffff;
 
   /* Decoration only. The second hue exists so the ambient field has somewhere
      to travel — a one-hue gradient is just a brightness ramp. It never means
      anything, so it never appears on a control. */
-  --glint: #29c7dd;
+  --glint: #17a4bb;
 
   /* Status — the only other colours in the system. `-text` variants are the
-     lightened form for status colour used AS text, same reason as the accent. */
-  --ok: #3fb950;
-  --ok-text: #62d178;
-  --ok-soft: rgba(63, 185, 80, 0.14);
-  --ok-border: rgba(63, 185, 80, 0.34);
-  --warn: #d29922;
-  --warn-text: #e3b341;
-  --warn-soft: rgba(210, 153, 34, 0.14);
-  --warn-border: rgba(210, 153, 34, 0.34);
-  --danger: #f0574f;
-  --danger-text: #ff8078;
-  --danger-soft: rgba(240, 87, 79, 0.14);
-  --danger-border: rgba(240, 87, 79, 0.34);
-  --neutral: #8b96a8;
-  --neutral-soft: rgba(139, 150, 168, 0.14);
-  --neutral-border: rgba(139, 150, 168, 0.28);
+     form for status colour used AS text: darkened here rather than lightened,
+     same reason as the accent ink. The dots and fills keep the saturated
+     value, so a green dot still reads as green at 8px. */
+  --ok: #2da44e;
+  --ok-text: #0f7130;
+  --ok-soft: rgba(45, 164, 78, 0.12);
+  --ok-border: rgba(45, 164, 78, 0.32);
+  --warn: #b8820f; /* 3.37:1 on white — a dot and an icon are graphics, WCAG 1.4.11 */
+  --warn-text: #8a5a06;
+  --warn-soft: rgba(184, 130, 15, 0.14);
+  --warn-border: rgba(184, 130, 15, 0.4);
+  --danger: #e0443c;
+  --danger-text: #c02a22;
+  --danger-soft: rgba(224, 68, 60, 0.1);
+  --danger-border: rgba(224, 68, 60, 0.32);
+  --neutral: #6b7688;
+  --neutral-soft: rgba(107, 118, 136, 0.12);
+  --neutral-border: rgba(107, 118, 136, 0.28);
 
   --radius-sm: 6px;
   --radius: 9px;
@@ -128,17 +152,21 @@
   --t-slow: 320ms;
   --t-slower: 520ms;
 
-  /* Shadows. Neutral black only — a coloured shadow is the fastest way to
-     look fake. Two levels: one for a raised surface, one for a floating one. */
-  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
-  --shadow-float: 0 2px 4px rgba(0, 0, 0, 0.3), 0 16px 48px -16px rgba(0, 0, 0, 0.7);
+  /* Shadows. Neutral, and near-black at low alpha — a coloured shadow is the
+     fastest way to look fake, and on paper the dark theme's 0.6 alpha reads as
+     a smudge rather than depth, so light mode carries the same two levels at a
+     fraction of the strength. */
+  --shadow-raised: 0 1px 2px rgba(15, 17, 21, 0.06), 0 8px 24px -12px rgba(15, 17, 21, 0.18);
+  --shadow-float: 0 2px 4px rgba(15, 17, 21, 0.07), 0 16px 48px -16px rgba(15, 17, 21, 0.24);
 
-  /* One line of the ambient lattice. At 0.028 it is below the threshold of
-     conscious notice on an OLED and still survives an 8-bit gradient ramp. */
-  --lattice-line: rgba(150, 180, 235, 0.028);
+  /* One line of the ambient lattice. Dark-on-light now, and at a higher alpha
+     than the dark theme's 0.028: a light line vanishes on paper, and the eye
+     is far less sensitive to a dark hairline on white than to a bright one on
+     black. Still below the threshold of conscious notice while reading. */
+  --lattice-line: rgba(30, 40, 60, 0.075);
 
   /* The one scrim, behind the one modal layer. */
-  --overlay: rgba(4, 6, 11, 0.66);
+  --overlay: rgba(15, 17, 21, 0.34);
 
   --nav-h: 56px;
 
@@ -150,14 +178,35 @@
   --control-h-lg: 38px;
 }
 
+/* A finger is not a cursor. 26px is a comfortable button for a mouse and a
+   coin-toss for a thumb, and the densest screens here — a Cabinet row, the
+   actions on an account — are made entirely of the small size.
+   Sizes go up on touch pointers only, so the desktop density that makes this
+   app feel like a tool is untouched. Not the full 44px: that is the target
+   including its surrounding margin, and these controls sit in flex rows with
+   6px of gap. */
+@media (pointer: coarse) {
+  :root {
+    --control-h-sm: 34px;
+    --control-h: 40px;
+    --control-h-lg: 44px;
+  }
+}
+
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 body {
-  /* The flat base. The ambient facet field paints on top of this, in its own
-     fixed layer, so a page that scrolls doesn't drag the background with it. */
-  background: var(--bg);
+  /* The base. The ambient facet field paints on top of this, in its own fixed
+     layer, so a page that scrolls doesn't drag the background with it.
+     A wash rather than one flat fill: on paper a single grey covering the
+     whole viewport is what reads as "unfinished page". The gradient is two
+     steps of the same neutral — light at the top where the nav sits, settling
+     into --bg by the first fold — so it gives the page a top without ever
+     announcing itself as a gradient. `fixed` so it belongs to the viewport,
+     not to a document that may be six screens long. */
+  background: linear-gradient(178deg, #fdfdfd 0%, var(--bg) 46%, #edeef0 100%) fixed;
   color: var(--text);
   font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-size: 14px;
@@ -208,7 +257,7 @@ button:not(:disabled),
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #333b49;
+  background: #c3c4c9;
   background-clip: padding-box;
 }
 
@@ -257,10 +306,14 @@ button:not(:disabled),
     height: 62vmax;
     top: -26vmax;
     left: -14vmax;
+    /* Alpha is up from the dark theme's, not down. A glow works on black by
+       adding light; on paper it can only work by adding colour, and 0.07 of
+       an indigo over white is invisible — which is most of why the first
+       light build read as a blank page. */
     background: radial-gradient(
       circle at center,
-      rgba(74, 118, 240, 0.2) 0%,
-      rgba(74, 118, 240, 0.07) 42%,
+      rgba(74, 118, 240, 0.22) 0%,
+      rgba(74, 118, 240, 0.09) 42%,
       transparent 68%
     );
     animation: drift-a 34s var(--ease) infinite alternate;
@@ -273,8 +326,8 @@ button:not(:disabled),
     right: -12vmax;
     background: radial-gradient(
       circle at center,
-      rgba(41, 199, 221, 0.13) 0%,
-      rgba(41, 199, 221, 0.05) 44%,
+      rgba(23, 164, 187, 0.18) 0%,
+      rgba(23, 164, 187, 0.07) 44%,
       transparent 70%
     );
     animation: drift-b 42s var(--ease) infinite alternate;
@@ -285,7 +338,7 @@ button:not(:disabled),
   .ambient-lattice {
     position: absolute;
     inset: 0;
-    opacity: 0.55;
+    opacity: 0.9;
     /* A triangular lattice — three line families at 60° apart, which is the
        pavilion pattern of a brilliant cut and also the one tiling that needs
        no image file. Line, then a long gap: a 1px rule every 92px, not a
@@ -293,17 +346,17 @@ button:not(:disabled),
     background-image: repeating-linear-gradient(
         60deg,
         var(--lattice-line) 0 1px,
-        transparent 1px 92px
+        transparent 1px 78px
       ),
       repeating-linear-gradient(
         -60deg,
         var(--lattice-line) 0 1px,
-        transparent 1px 92px
+        transparent 1px 78px
       ),
       repeating-linear-gradient(
         0deg,
         var(--lattice-line) 0 1px,
-        transparent 1px 92px
+        transparent 1px 78px
       );
     /* Fades out toward the bottom so long pages don't sit on a repeating
        texture the whole way down. */
@@ -324,7 +377,7 @@ button:not(:disabled),
   }
 
   .panel-inset {
-    background: rgba(8, 10, 16, 0.5);
+    background: rgba(15, 17, 21, 0.04);
     border: 1px solid var(--border);
     border-radius: var(--radius);
   }
@@ -378,7 +431,7 @@ button:not(:disabled),
      most opaque thing on screen: a translucent nav over a translucent panel
      over the field is three layers of haze and no legibility. */
   .chrome {
-    background: rgba(8, 10, 16, 0.72);
+    background: rgba(255, 255, 255, 0.84);
     -webkit-backdrop-filter: blur(20px) saturate(1.6);
     backdrop-filter: blur(20px) saturate(1.6);
     border: 1px solid var(--border);
@@ -505,7 +558,10 @@ button:not(:disabled),
 
   .btn-danger {
     background: transparent;
-    color: var(--danger);
+    /* The ink, not the fill. A badge and a ghost-danger button are both TEXT
+       on a pale tint, and the saturated fill value only clears 2–3.5:1 there —
+       it is legible as an 8px dot and not as 11px type. */
+    color: var(--danger-text);
     border-color: var(--danger-border);
   }
   .btn-danger:hover:not(:disabled) {
@@ -517,8 +573,10 @@ button:not(:disabled),
     width: 100%;
     height: var(--control-h);
     /* Darker than the panel it sits on — an input reads as a well, not a
-       tile. Translucent for the same reason everything else here is. */
-    background: rgba(4, 6, 11, 0.55);
+       tile. A dark tint at low alpha rather than a lighter fill: on white
+       there is nothing lighter to go to, and a well has to read as recessed.
+       Translucent for the same reason everything else here is. */
+    background: rgba(15, 17, 21, 0.032);
     border: 1px solid var(--border-control);
     border-radius: var(--radius);
     color: var(--text);
@@ -536,7 +594,7 @@ button:not(:disabled),
     color: var(--text-ghost);
   }
   .field:hover:not(:focus) {
-    border-color: rgba(230, 237, 246, 0.5);
+    border-color: rgba(15, 17, 21, 0.42);
   }
   .field:focus {
     outline: none;
@@ -564,17 +622,17 @@ button:not(:disabled),
     white-space: nowrap;
   }
   .badge-ok {
-    color: var(--ok);
+    color: var(--ok-text);
     background: var(--ok-soft);
     border-color: var(--ok-border);
   }
   .badge-warn {
-    color: var(--warn);
+    color: var(--warn-text);
     background: var(--warn-soft);
     border-color: var(--warn-border);
   }
   .badge-danger {
-    color: var(--danger);
+    color: var(--danger-text);
     background: var(--danger-soft);
     border-color: var(--danger-border);
   }
@@ -614,11 +672,17 @@ button:not(:disabled),
      so it composites — and it is the app's own metaphor rather than a
      generic shimmer, which is why it earns the pixels. */
   .wordmark {
+    /* Four stops, not three: the glint passes through the accent on its way
+       in and out, so the sweep reads as light refracting — a hue shift — where
+       a single bright stop just reads as a lighter letter. Both hues already
+       belong to the system; nothing new is introduced for decoration. */
     background-image: linear-gradient(
       100deg,
-      var(--text) 38%,
-      var(--glint) 50%,
-      var(--text) 62%
+      var(--text) 36%,
+      var(--accent) 45%,
+      var(--glint) 51%,
+      var(--accent) 57%,
+      var(--text) 66%
     );
     background-size: 280% 100%;
     background-position: 100% 0;

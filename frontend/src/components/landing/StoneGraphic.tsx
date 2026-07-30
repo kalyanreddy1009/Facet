@@ -10,7 +10,7 @@
  * animated gradient stops — the browser animates one paint, with no element
  * moving and no script running.
  *
- * Still monochrome apart from the halo: it's an illustration, not a status
+ * Still monochrome apart from the halo and the sweep: it's an illustration, not a status
  * indicator, so it carries no semantic colour.
  */
 
@@ -29,10 +29,14 @@ const FACES = [
 const OUTLINE = "110,20 170,60 190,130 140,195 80,195 30,130 50,60";
 
 /** The three stops of the sweep, as [start, end] offsets. Staggered so the
- *  band has a soft leading and trailing edge instead of a hard bar. */
+ *  band has a soft leading and trailing edge instead of a hard bar.
+ *  The band is the accent hue, not white: on paper the faces are faint dark
+ *  tints on near-white, and a white sweep across them is invisible. A tinted
+ *  band reads as light refracting through the stone, which is what a real one
+ *  does anyway. */
 const SWEEP = [
   { opacity: 0, from: "-0.5", to: "1" },
-  { opacity: 0.5, from: "-0.35", to: "1.15" },
+  { opacity: 0.4, from: "-0.35", to: "1.15" },
   { opacity: 0, from: "-0.2", to: "1.3" },
 ];
 
@@ -57,7 +61,7 @@ export default function StoneGraphic({
         className="absolute inset-[12%] rounded-full blur-3xl opacity-70"
         style={{
           background:
-            "radial-gradient(circle at 38% 30%, rgba(74,118,240,0.4), rgba(41,199,221,0.16) 46%, transparent 70%)",
+            "radial-gradient(circle at 38% 30%, rgba(74,118,240,0.34), rgba(23,164,187,0.16) 46%, transparent 70%)",
         }}
       />
 
@@ -71,7 +75,7 @@ export default function StoneGraphic({
         <defs>
           <linearGradient id="facet-sweep" x1="0" y1="0" x2="1" y2="0.35">
             {SWEEP.map((stop) => (
-              <stop key={stop.from} offset="0%" stopColor="white" stopOpacity={stop.opacity}>
+              <stop key={stop.from} offset="0%" stopColor="#4a76f0" stopOpacity={stop.opacity}>
                 <animate
                   attributeName="offset"
                   values={`${stop.from};${stop.to}`}

@@ -125,7 +125,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
             </label>
             <span
               className={`text-xs tnum ${
-                jobDescription.length > JD_MAX_CHARS * 0.9 ? "text-warn" : "text-text-faint"
+                jobDescription.length > JD_MAX_CHARS * 0.9 ? "text-warn-text" : "text-text-faint"
               }`}
             >
               {jobDescription.length.toLocaleString()} / {JD_MAX_CHARS.toLocaleString()}

@@ -13,11 +13,12 @@
  * and this screen must not undo that by being helpful.
  */
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
 
 import RequestLink from "@/components/auth/RequestLink";
+import { refreshSession } from "@/lib/useSession";
 
 function LoginForm() {
   const router = useRouter();
@@ -27,6 +28,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<{ error: string; hint?: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   // "Your session ended" is a different message from "you signed out", and
   // both arrive here. Saying which is the difference between a page that
@@ -39,7 +41,7 @@ function LoginForm() {
     fetch("/api/auth/me", { credentials: "include" })
       .then((r) => r.json())
       .then((data) => {
-        if (data.authenticated) router.replace(params.get("next") || "/tailor");
+        if (data.authenticated) router.replace(params.get("next") || "/");
       })
       .catch(() => {
         /* Offline or the server is down; the form still works to try. */
@@ -66,6 +68,10 @@ function LoginForm() {
           hint: data.hint,
         });
         setPassword("");
+        // The field the person has to fix, focused for them. Otherwise focus
+        // stays on the submit button above a form that has silently emptied
+        // itself, and the next keystroke goes nowhere.
+        passwordRef.current?.focus();
         return;
       }
 
@@ -75,7 +81,12 @@ function LoginForm() {
       }
       // replace, not push: the back button should not return to a login
       // form that will now just bounce forward again.
-      router.replace(params.get("next") || "/tailor");
+      // Repopulate the shared session cache *before* navigating. Without
+      // this the landing page mounts with session === null, renders the
+      // signed-out nav and a "Sign in" button, then swaps them a moment
+      // later — a visible flip on every single sign-in.
+      await refreshSession().catch(() => {});
+      router.replace(params.get("next") || "/");
     } catch {
       setError({
         error: "Could not reach Facet.",
@@ -117,6 +128,8 @@ function LoginForm() {
             autoFocus
             required
             disabled={busy}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "signin-error" : undefined}
           />
         </div>
 
@@ -126,6 +139,7 @@ function LoginForm() {
           </label>
           <input
             id="password"
+            ref={passwordRef}
             type="password"
             className="field w-full"
             value={password}
@@ -133,6 +147,8 @@ function LoginForm() {
             autoComplete="current-password"
             required
             disabled={busy}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "signin-error" : undefined}
           />
         </div>
 
@@ -140,12 +156,18 @@ function LoginForm() {
           /* aria-live, so a screen reader hears the failure. Without it the
              form silently clears the password and appears to do nothing. */
           <div
+            id="signin-error"
             role="alert"
             aria-live="polite"
-            className="rounded-md border border-danger-border bg-danger-soft px-3 py-2 text-sm"
+            className="flex items-start gap-2.5 rounded-md border border-danger-border bg-danger-soft px-3 py-2 text-sm"
           >
-            <p className="font-medium">{error.error}</p>
-            {error.hint && <p className="mt-1 text-text-muted">{error.hint}</p>}
+            {/* An icon as well as the colour: WCAG 1.4.1 — a red box is not a
+                message to someone who cannot see that it is red. */}
+            <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0 text-danger-text" aria-hidden />
+            <span>
+              <p className="font-medium">{error.error}</p>
+              {error.hint && <p className="mt-1 text-text-muted">{error.hint}</p>}
+            </span>
           </div>
         )}
 
