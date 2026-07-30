@@ -80,7 +80,11 @@ function Choice({
         selected ? "bg-surface-3 text-text" : "text-text-dim hover:bg-surface-2 hover:text-text"
       }`}
     >
-      <span className="truncate">{label}</span>
+      {/* Truncation without a title is a name you can neither read nor
+          recover — several source names are longer than a 240px rail. */}
+      <span className="truncate" title={label}>
+        {label}
+      </span>
       {count !== undefined && <span className="text-xs text-text-faint tnum shrink-0">{count}</span>}
     </button>
   );
@@ -187,9 +191,11 @@ export default function FilterRail({ filters, facets, onChange }: FilterRailProp
                       checked ? "bg-accent border-accent" : "border-border-strong"
                     }`}
                   >
-                    {checked && <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />}
+                    {checked && <Check className="w-2.5 h-2.5 text-on-accent" strokeWidth={3} />}
                   </span>
-                  <span className="truncate flex-1">{entry.source}</span>
+                  <span className="truncate flex-1" title={entry.source}>
+                    {entry.source}
+                  </span>
                   <span className="text-xs text-text-faint tnum shrink-0">{entry.count}</span>
                 </label>
               );

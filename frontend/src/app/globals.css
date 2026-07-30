@@ -552,15 +552,37 @@ button:not(:disabled),
      each element carrying one forces the compositor to re-sample everything
      behind it on every frame it is on screen. */
   .nav-shell {
-    padding: var(--nav-inset) max(var(--nav-inset), env(safe-area-inset-left));
+    /* Horizontal padding matches the page gutter (`px-5 sm:px-8`) rather than
+       the vertical inset, so the island's edges land on the same two vertical
+       lines as every card below it. At 1920 the island used to start 32px
+       outside the content column — close enough to look like a mistake rather
+       than a margin, which is most of what "the layout is inconsistent on a
+       large screen" was pointing at. */
+    padding: var(--nav-inset) max(20px, env(safe-area-inset-left));
     background: transparent;
     /* The header is a positioning frame, nothing else — anything real inside
        it opts back into pointer events. */
     pointer-events: none;
   }
+  /* The gutter widens with the page's at the `sm` breakpoint, for the same
+     reason: one vertical line, from the nav down through every card. */
+  @media (min-width: 640px) {
+    .nav-shell {
+      padding-left: max(32px, env(safe-area-inset-left));
+      padding-right: max(32px, env(safe-area-inset-right));
+    }
+  }
 
   .nav-island {
     pointer-events: auto;
+    /* The content measure, not the page measure. A page is `max-w-shell` and
+       *then* padded, so its cards stop 32px inside the shell; the island was
+       capped at the shell itself and so ran 32px wider on both sides once a
+       display was big enough for the cap to bite. Same number, one level in.
+       Below ~1400px neither cap is reached and the shared gutter already
+       lines the two up. */
+    max-width: calc(1120px - 64px);
+    margin-inline: auto;
     height: var(--nav-h);
     border-radius: 15px;
     /* Graphite, with the same blue bias as the stone's shadowed facets. Two
@@ -1384,7 +1406,16 @@ button:not(:disabled),
    ambient field — that request is about legibility, and a "tasteful" amount of
    glass is still glass. Every surface reverts in one place. */
 @media (prefers-reduced-transparency: reduce) {
-  .chrome,
+  /* `.chrome` used to be in the list below, which painted it `--surface-1` —
+     white. It is the dark instrument material: it scopes `--text` to near-white
+     for everything inside it, so that rule produced white type on a white
+     toast and an unreadable loading overlay for the one group of people who
+     asked for MORE legibility. It loses its blur here and nothing else. */
+  .chrome {
+    background: #171e2c;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
   .panel,
   .panel-raised,
   .card,
@@ -1407,5 +1438,13 @@ button:not(:disabled),
   }
   .ambient {
     display: none;
+  }
+  /* The landing page's surfaces were added after this block was written and
+     kept their translucency straight through the preference. `.glass` and
+     `.nav-island` are already opaque gradients, so only the card needs it. */
+  .glass-card {
+    background: var(--surface-1);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }

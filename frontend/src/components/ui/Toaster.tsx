@@ -13,17 +13,25 @@ const COLOR = { error: "text-danger-text", success: "text-ok-text", info: "text-
 interface ToasterProps {
   toasts: Toast[];
   onDismiss: (id: number) => void;
+  /** Pause/resume the auto-dismiss clock — see `useToasts`. Optional so a
+   *  caller that only wants to show messages still works. */
+  onHold?: () => void;
+  onResume?: () => void;
 }
 
 /** Backend errors land here as readable sentences — never a blank screen or a
  *  raw stack trace. `role="status"` so screen readers announce them. */
-export default function Toaster({ toasts, onDismiss }: ToasterProps) {
+export default function Toaster({ toasts, onDismiss, onHold, onResume }: ToasterProps) {
   const reduced = useReducedMotion();
 
   return (
     <div
       role="status"
       aria-live="polite"
+      onMouseEnter={onHold}
+      onMouseLeave={onResume}
+      onFocusCapture={onHold}
+      onBlurCapture={onResume}
       className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 w-[min(23rem,calc(100vw-2rem))] pointer-events-none"
     >
       <AnimatePresence initial={false}>

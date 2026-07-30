@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import LandingContent from "@/components/landing/LandingContent";
+
+/** Every route names its own tab; this one names it in full. */
+export const metadata: Metadata = {
+  // Absolute: the landing page is the product's name, not "Home · Facet".
+  title: { absolute: "Facet — one stone, a facet for every job" },
+};
 
 /**
  * The domain root is the product page, for everyone, always.

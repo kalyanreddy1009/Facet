@@ -21,6 +21,34 @@ export function parseDate(value: string | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/**
+ * A posting summary as plain text.
+ *
+ * Feeds hand back descriptions in whatever their source stored — several
+ * (Arbeitnow, Himalayas) ship raw HTML — and the Rough was rendering that as
+ * literal text, so a card's first line read `<p>At Scale AI, our mission…` or
+ * an entire `<div class="content-intro"><h2><span style=…`. That is not a
+ * rendering bug you can argue with: it is markup on the screen.
+ *
+ * Tags are removed, the handful of entities that actually appear are decoded,
+ * and whitespace is collapsed. Nothing is inserted into the DOM as HTML — the
+ * result is still rendered as text, so this cannot become an injection.
+ */
+export function plainText(value: string | null | undefined): string {
+  if (!value) return "";
+  return value
+    .replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;|&apos;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function timeAgo(value: string | null | undefined): string {
   const date = parseDate(value);
   if (!date) return "";
@@ -116,5 +144,11 @@ export function demo(): void {
   assert(formatElapsed(-5) === "0:00", formatElapsed(-5));
   assert(formatElapsed(9.9) === "0:09", formatElapsed(9.9));
   assert(timeAgo(new Date(Date.now() - 3600_000).toISOString()) === "1 hour ago", "relative time");
+  assert(plainText("<p>Hello <b>world</b></p>") === "Hello world", plainText("<p>Hello <b>world</b></p>"));
+  assert(plainText('<div class="x" style="a:b">A</div>  <p>B</p>') === "A B", "tags and runs of space");
+  assert(plainText("Ben &amp; Jerry&#39;s &lt;3") === "Ben & Jerry's <3", plainText("Ben &amp; Jerry&#39;s &lt;3"));
+  assert(plainText("<script>alert(1)</script>Safe") === "Safe", "script contents dropped whole");
+  assert(plainText(null) === "" && plainText("") === "", "empty summary");
+  assert(plainText("no markup here") === "no markup here", "plain text is untouched");
   console.log("format: all checks passed");
 }

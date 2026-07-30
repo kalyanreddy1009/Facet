@@ -3,7 +3,7 @@
 import { memo } from "react";
 import { ArrowUpRight, Scissors, X } from "lucide-react";
 import type { Job } from "@/lib/api";
-import { formatSalary, matchTone, timeAgo } from "@/lib/format";
+import { formatSalary, matchTone, plainText, timeAgo } from "@/lib/format";
 
 interface JobCardProps {
   job: Job;
@@ -75,6 +75,8 @@ function Meta({ items }: { items: string[] }) {
 function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
   const salary = formatSalary(job.salary_min, job.salary_max, job.salary_currency);
   const posted = timeAgo(job.posted_date || job.first_seen_at);
+  // Several feeds store the description as HTML; it is displayed as text.
+  const summary = plainText(job.summary);
   const remote = job.remote === 1 && !/remote/i.test(job.location || "") ? "Remote" : "";
 
   return (
@@ -82,15 +84,25 @@ function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <h3 className="text-base font-semibold text-text leading-snug">
-            <a
-              href={job.posting_url || undefined}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => onOpen(job)}
-              className="hover:text-accent-text transition-colors duration-fast focus-visible:text-accent-text"
-            >
-              {job.title || "Untitled role"}
-            </a>
+            {/* A posting without a URL is a row, not a link. `href={undefined}`
+                still renders an <a>, which drops out of the tab order and
+                reads to a screen reader as a link that goes nowhere — so the
+                title falls back to plain text instead. */}
+            {job.posting_url ? (
+              <a
+                href={job.posting_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => onOpen(job)}
+                title="Opens the posting in a new tab"
+                className="hover:text-accent-text transition-colors duration-fast focus-visible:text-accent-text"
+              >
+                {job.title || "Untitled role"}
+                <span className="sr-only"> (opens in a new tab)</span>
+              </a>
+            ) : (
+              job.title || "Untitled role"
+            )}
           </h3>
           <MatchBadge score={job.match_score} />
           {job.promoted === 1 && <span className="badge">Tailored</span>}
@@ -102,7 +114,7 @@ function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
           <Meta items={[job.location || "", remote, salary]} />
         </p>
 
-        {job.summary && <p className="clamp-2 text-sm text-text-faint mt-2">{job.summary}</p>}
+        {summary && <p className="clamp-2 text-sm text-text-faint mt-2">{summary}</p>}
 
         <MatchTerms terms={job.match_terms} />
 
@@ -149,9 +161,26 @@ function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
   );
 }
 
+/** Re-render only when something this card actually draws has changed.
+ *
+ *  The previous comparator watched `id` and `promoted` alone, which meant a
+ *  re-scored row after a Sync kept the old match percentage and the old
+ *  matching terms until the list unmounted — the numbers on screen quietly
+ *  stopped agreeing with the sort order they were driving. Everything the
+ *  card renders is compared here; `match_terms` by identity, because the API
+ *  hands back a fresh array on every fetch and comparing the contents costs
+ *  more than the render it would save. */
 const JobCard = memo(
   JobCardBase,
-  (a, b) => a.job.id === b.job.id && a.job.promoted === b.job.promoted
+  (a, b) =>
+    a.job.id === b.job.id &&
+    a.job.promoted === b.job.promoted &&
+    a.job.title === b.job.title &&
+    a.job.company === b.job.company &&
+    a.job.match_score === b.job.match_score &&
+    a.job.match_terms === b.job.match_terms &&
+    a.job.summary === b.job.summary &&
+    a.job.posting_url === b.job.posting_url
 );
 
 export default JobCard;

@@ -1,0 +1,222 @@
+"use client";
+
+/**
+ * Sign in.
+ *
+ * The first screen anyone sees, and the one most likely to be seen while
+ * something has gone wrong — an expired session, a mistyped password, an
+ * account an administrator has suspended. So every failure it can produce
+ * says what happened and what to do, rather than "invalid credentials".
+ *
+ * It deliberately does not tell you whether an address has an account here.
+ * The server answers a wrong password and an unknown address identically,
+ * and this screen must not undo that by being helpful.
+ */
+
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
+
+import RequestLink from "@/components/auth/RequestLink";
+import { refreshSession } from "@/lib/useSession";
+
+function LoginForm() {
+  const router = useRouter();
+  const params = useSearchParams();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<{ error: string; hint?: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  // "Your session ended" is a different message from "you signed out", and
+  // both arrive here. Saying which is the difference between a page that
+  // feels broken and one that feels expected.
+  const reason = params.get("reason");
+
+  useEffect(() => {
+    // Already signed in? Don't make someone log in twice because they
+    // bookmarked this page.
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.authenticated) router.replace(params.get("next") || "/");
+      })
+      .catch(() => {
+        /* Offline or the server is down; the form still works to try. */
+      });
+  }, [router, params]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        setError({
+          error: data.error || "Could not sign in.",
+          hint: data.hint,
+        });
+        setPassword("");
+        // The field the person has to fix, focused for them. Otherwise focus
+        // stays on the submit button above a form that has silently emptied
+        // itself, and the next keystroke goes nowhere.
+        passwordRef.current?.focus();
+        return;
+      }
+
+      if (data.user?.must_set_password) {
+        router.replace("/set-password");
+        return;
+      }
+      // replace, not push: the back button should not return to a login
+      // form that will now just bounce forward again.
+      // Repopulate the shared session cache *before* navigating. Without
+      // this the landing page mounts with session === null, renders the
+      // signed-out nav and a "Sign in" button, then swaps them a moment
+      // later — a visible flip on every single sign-in.
+      await refreshSession().catch(() => {});
+      router.replace(params.get("next") || "/");
+    } catch {
+      setError({
+        error: "Could not reach Facet.",
+        hint: "It may be restarting. Try again in a moment.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card p-8 sm:p-10">
+      <h1 className="text-2xl font-semibold tracking-tight text-balance">Sign in to Facet</h1>
+      <p className="mt-2 text-sm text-text-muted text-pretty">
+        Your applications, your resume, your record.
+      </p>
+
+      {reason === "expired" && !error && (
+        <p
+          role="status"
+          className="mt-6 rounded border border-border bg-surface-2 px-3 py-2.5 text-sm text-text-dim"
+        >
+          Your session ended. Sign in to pick up where you were.
+        </p>
+      )}
+
+      <form onSubmit={submit} className="mt-7 space-y-4">
+        <div>
+          <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            className="field w-full"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            autoFocus
+            required
+            disabled={busy}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "signin-error" : undefined}
+          />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="mb-1.5 block text-sm font-medium">
+            Password
+          </label>
+          <input
+            id="password"
+            ref={passwordRef}
+            type="password"
+            className="field w-full"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+            disabled={busy}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? "signin-error" : undefined}
+          />
+        </div>
+
+        {error && (
+          /* aria-live, so a screen reader hears the failure. Without it the
+             form silently clears the password and appears to do nothing. */
+          <div
+            id="signin-error"
+            role="alert"
+            aria-live="polite"
+            className="flex items-start gap-2.5 rounded-md border border-danger-border bg-danger-soft px-3 py-2 text-sm"
+          >
+            {/* An icon as well as the colour: WCAG 1.4.1 — a red box is not a
+                message to someone who cannot see that it is red. */}
+            <AlertTriangle className="mt-0.5 w-4 h-4 shrink-0 text-danger-text" aria-hidden />
+            <span>
+              <p className="font-medium">{error.error}</p>
+              {error.hint && <p className="mt-1 text-text-muted">{error.hint}</p>}
+            </span>
+          </div>
+        )}
+
+        {/* The label goes in the button. `.btn-cap` is a fixed 20px disc that
+            holds one icon — wrapping the label in it clipped the text to a
+            circle, which is the "big white dot in the Sign In button" this
+            sprint was called to fix. */}
+        <button
+          type="submit"
+          className="btn btn-primary btn-lg w-full"
+          disabled={busy}
+          aria-busy={busy || undefined}
+        >
+          {busy ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+              Signing in…
+            </>
+          ) : (
+            <>
+              Sign in
+              <span className="btn-cap" aria-hidden>
+                <ArrowRight className="w-3 h-3" />
+              </span>
+            </>
+          )}
+        </button>
+      </form>
+
+      {/* Always here, for everyone. An invited user who never set a password
+          lands on this page and fails, and until this existed there was no way
+          onward from that — which is exactly how two people got stuck. It is
+          unconditional on purpose: a control that appeared only for known
+          addresses would confirm which addresses are known. */}
+      <div className="mt-7 border-t border-border pt-6">
+        <RequestLink defaultEmail={email} />
+      </div>
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <main className="mx-auto flex min-h-[80vh] max-w-md flex-col justify-center px-6 py-16">
+      {/* useSearchParams needs a Suspense boundary, or the production build
+          fails at prerender with an error that does not name this file. */}
+      <Suspense fallback={<div className="card p-8">Loading…</div>}>
+        <LoginForm />
+      </Suspense>
+    </main>
+  );
+}

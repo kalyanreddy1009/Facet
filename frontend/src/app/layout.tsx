@@ -13,9 +13,10 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Facet",
+  // A template, so a route only has to name itself: "The Rough · Facet".
+  title: { default: "Facet", template: "%s · Facet" },
   description:
-    "Search jobs across every major board and tailor a resume, cover letter and recruiter pitch from one honest record. Runs entirely on your machine.",
+    "Search jobs across every major board and tailor a resume, cover letter and recruiter pitch from one honest record — without inventing a single thing.",
 };
 
 export const viewport: Viewport = {
@@ -42,7 +43,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           <AmbientField />
           <NavBar />
           <AgyHealthBanner />
-          <div id="main">{children}</div>
+          {/* `tabIndex={-1}` is what makes the skip link actually work. An
+              anchor to a plain <div> scrolls in every browser but moves focus
+              in none of them, so the next Tab landed back in the nav — the
+              link looked right and did nothing for the one person who needs
+              it. Not `<main>`: every page renders its own, and two main
+              landmarks is worse than none. */}
+          <div id="main" tabIndex={-1} className="outline-none">
+            {children}
+          </div>
         </SessionSeed>
       </body>
     </html>

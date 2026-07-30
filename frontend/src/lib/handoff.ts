@@ -3,6 +3,11 @@
  *  URL, and it shouldn't outlive the tab. */
 export const TAILOR_HANDOFF_KEY = "facet:tailor-job";
 
+/** Where a half-typed cut is parked between page views. Same namespace, same
+ *  storage, different lifetime: the handoff is one-shot, the draft survives
+ *  until it is submitted or emptied. */
+export const TAILOR_DRAFT_KEY = "facet:tailor-draft";
+
 export interface TailorHandoff {
   company: string;
   role_title: string;

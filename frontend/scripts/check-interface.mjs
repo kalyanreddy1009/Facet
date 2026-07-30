@@ -251,7 +251,31 @@ for (const file of walk(join(ROOT, "src"))) {
     }
   }
 
-  // 5. window.opener.
+  // 5. `.btn-cap` holds one icon and nothing else.
+  //
+  //    It is a fixed 20px disc. A label put inside it is clipped to a circle,
+  //    and the control renders as accent-coloured text spilling out of a white
+  //    dot — it stops looking like a button at all. This has now shipped
+  //    twice: once as "the white dot in the Sign In button", and again on the
+  //    Change Password button, where it read as a hyperlink. Third time is
+  //    what this rule is for.
+  for (const tag of source.matchAll(/className="btn-cap"[^>]*>([\s\S]*?)<\/span>/g)) {
+    const inner = tag[1];
+    const text = inner.replace(/<[^>]*>/g, "").replace(/\{[\s\S]*?\}/g, "").trim();
+    if (text) {
+      failures.push(
+        `${where}: text inside .btn-cap ("${text.slice(0, 40)}") — the cap is a 20px ` +
+          `icon disc; the label belongs in the button`
+      );
+    }
+    if (/\{[^}]*\?[^}]*:[^}]*\}/.test(inner) && !/<[A-Z]/.test(inner)) {
+      failures.push(
+        `${where}: an expression rather than an icon inside .btn-cap — it will be clipped`
+      );
+    }
+  }
+
+  // 6. window.opener.
   for (const tag of source.matchAll(/<(?:a|Link)\b([^>]*target="_blank"[^>]*)>/gs)) {
     if (!/rel="[^"]*noreferrer/.test(tag[1])) {
       failures.push(`${where}: target="_blank" without rel="noreferrer"`);

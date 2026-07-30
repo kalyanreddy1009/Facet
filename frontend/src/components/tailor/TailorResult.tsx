@@ -1,37 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { AlertTriangle, Check, Copy, FileDown, FileText, Mail } from "lucide-react";
+import { AlertTriangle, FileDown, FileText, Mail } from "lucide-react";
+import CopyButton from "@/components/ui/CopyButton";
 import Panel from "@/components/ui/Panel";
 import ScoreRing from "./ScoreRing";
 import { API_BASE, type TailorResponse } from "@/lib/api";
-import { copyText } from "@/lib/clipboard";
 
 interface TailorResultProps {
   result: TailorResponse;
-}
-
-function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        // Only claim success if it succeeded — see lib/clipboard.
-        if (!(await copyText(text))) return;
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1800);
-      }}
-      className="btn btn-ghost btn-sm"
-    >
-      {copied ? (
-        <Check className="w-3.5 h-3.5" aria-hidden />
-      ) : (
-        <Copy className="w-3.5 h-3.5" aria-hidden />
-      )}
-      {copied ? "Copied" : label}
-    </button>
-  );
 }
 
 function Section({

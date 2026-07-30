@@ -36,6 +36,11 @@ const config: Config = {
           soft: "var(--accent-soft)",
           border: "var(--accent-border)",
         },
+        /** The label on an accent fill. A literal `text-white` for this was
+         *  the one colour in the app that could not follow the token — which
+         *  is exactly the kind of thing that survives a theme change and
+         *  becomes an invisible label. */
+        "on-accent": "var(--on-accent)",
         ok: {
           DEFAULT: "var(--ok)",
           text: "var(--ok-text)",
@@ -109,7 +114,13 @@ const config: Config = {
         float: "var(--shadow-float)",
       },
       maxWidth: {
-        shell: "1320px",
+        /** The one content measure. The nav island and every page's <main>
+         *  share it, so on a wide display the interface has a single left and
+         *  right edge instead of five — 1320 for the nav, 896 for the Cabinet,
+         *  1024 for Admin and 768 for Profile is what read as "the layout
+         *  falls apart on a big monitor". Narrower than the old 1320 on
+         *  purpose: past this, a row of cards stops being scannable. */
+        shell: "1120px",
         prose: "66ch",
       },
       spacing: {

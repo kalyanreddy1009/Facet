@@ -1,0 +1,76 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+import { api, ApiError, type TailorRequestBody, type TailorResponse } from "@/lib/api";
+import LoadingOverlay from "@/components/ui/LoadingOverlay";
+import Toaster from "@/components/ui/Toaster";
+import TailorForm from "@/components/tailor/TailorForm";
+import TailorResult from "@/components/tailor/TailorResult";
+import { useToasts } from "@/lib/useToasts";
+
+export default function TailorPage() {
+  const { toasts, push, dismiss, hold, resume } = useToasts();
+  const [loading, setLoading] = useState(false);
+  const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const [result, setResult] = useState<TailorResponse | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  const handlePrefilled = useCallback(
+    (company: string) =>
+      push(`Filled in from ${company || "the posting"}`, {
+        tone: "info",
+        hint: "Paste the full description if the summary is thin — it makes a better facet.",
+      }),
+    [push]
+  );
+
+  const handleSubmit = async (body: TailorRequestBody) => {
+    setLoading(true);
+    setQueuePosition(null);
+    setResult(null);
+    try {
+      // The cut is queued server-side; this reports where it is while waiting
+      // so a line behind someone else reads as a queue, not a hang.
+      const response = await api.tailor(body, (job) => setQueuePosition(job.position));
+      setResult(response);
+      // Scroll to the result rather than leaving it below the fold.
+      requestAnimationFrame(() =>
+        resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+      );
+    } catch (err) {
+      if (err instanceof ApiError) push(err.message, { hint: err.hint });
+      else push(err instanceof Error ? err.message : "Cutting this facet failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <main className="max-w-shell mx-auto px-5 sm:px-8 py-8 sm:py-10">
+      {/* The page frame is the shared shell, so this page's edges line up with
+          the nav and every other screen. The work itself stays in a column:
+          a job description in a textarea 1100px wide is unreadable, and a
+          form field that long has no visible relationship to its label. */}
+      <div className="max-w-4xl">
+        <header className="mb-6">
+          <h1 className="text-2xl font-semibold text-text">Cut a facet</h1>
+          <p className="text-sm text-text-dim mt-1 max-w-prose text-pretty">
+            Your Stone doesn&apos;t change. This cuts one face of it — a resume, a cover letter and
+            a recruiter pitch aimed at this specific posting.
+          </p>
+        </header>
+
+        <TailorForm onSubmit={handleSubmit} disabled={loading} onPrefilled={handlePrefilled} />
+
+        {result && (
+          <div ref={resultRef} className="mt-8 scroll-mt-24">
+            <TailorResult result={result} />
+          </div>
+        )}
+      </div>
+
+      {loading && <LoadingOverlay queuePosition={queuePosition} />}
+      <Toaster toasts={toasts} onDismiss={dismiss} onHold={hold} onResume={resume} />
+    </main>
+  );
+}

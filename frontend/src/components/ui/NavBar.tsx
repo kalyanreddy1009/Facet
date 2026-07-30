@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Activity, Menu, X } from "lucide-react";
 import { ENTER, REDUCED } from "@/lib/motion";
@@ -28,6 +28,25 @@ export default function NavBar() {
   const { session } = useSession();
   const [open, setOpen] = useState(false);
 
+  // Escape closes the mobile menu, and so does turning the phone landscape
+  // into the desktop layout — otherwise the sheet stays mounted underneath a
+  // nav that is now showing the same four links inline, and the page below it
+  // is covered by a menu nobody can see a way out of.
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    const wide = window.matchMedia("(min-width: 768px)");
+    const onWide = () => wide.matches && setOpen(false);
+    document.addEventListener("keydown", onKeyDown);
+    wide.addEventListener("change", onWide);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      wide.removeEventListener("change", onWide);
+    };
+  }, [open]);
+
   // Single-user mode has no login at all, so the app is always reachable there.
   const inApp = session?.authenticated === true || session?.single_user === true;
 
@@ -50,7 +69,7 @@ export default function NavBar() {
           matter how wide the brand or the account control happen to be. With
           space-between it drifts, and a nav that is almost centred reads as a
           mistake rather than as a choice. */}
-      <div className="nav-island max-w-shell mx-auto px-2.5 sm:px-3 grid grid-cols-[auto_1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-3">
+      <div className="nav-island px-2.5 sm:px-3 grid grid-cols-[auto_1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center gap-3">
         <Link
           href="/"
           className={`group nav-pill shrink-0 justify-self-start text-text ${

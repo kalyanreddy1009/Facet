@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface Toast {
   id: number;
@@ -42,5 +42,39 @@ export function useToasts() {
     [dismiss]
   );
 
-  return { toasts, push, dismiss };
+  /** Hold the queue while a pointer is over it or focus is inside it.
+   *
+   *  An Undo toast that lasts 3.5s is a promise the app cannot keep: reading
+   *  "Dismissed 'Senior Backend Engineer'", deciding that was a mistake and
+   *  reaching for the mouse takes longer than that, and the undo was gone
+   *  before the cursor arrived. Timers stop while the toast is under the
+   *  pointer and resume, from the full duration, when it leaves. */
+  const hold = useCallback(() => {
+    timers.current.forEach((timer) => clearTimeout(timer));
+    timers.current.clear();
+  }, []);
+
+  const resume = useCallback(() => {
+    setToasts((current) => {
+      current.forEach((toast) => {
+        if (timers.current.has(toast.id)) return;
+        timers.current.set(
+          toast.id,
+          setTimeout(() => dismiss(toast.id), AUTO_DISMISS_MS[toast.tone])
+        );
+      });
+      return current;
+    });
+  }, [dismiss]);
+
+  // Leaving a page mid-toast fired `dismiss` into an unmounted component.
+  useEffect(() => {
+    const pending = timers.current;
+    return () => {
+      pending.forEach((timer) => clearTimeout(timer));
+      pending.clear();
+    };
+  }, []);
+
+  return { toasts, push, dismiss, hold, resume };
 }

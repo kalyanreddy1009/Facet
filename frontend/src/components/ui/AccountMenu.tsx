@@ -29,6 +29,7 @@ export default function AccountMenu() {
   const { session } = useSession();
   const [open, setOpen] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
 
   // Close on an outside click or Escape. Without both, a menu opened by
   // keyboard can only be closed by opening something else.
@@ -39,7 +40,11 @@ export default function AccountMenu() {
       if (!wrapper.current?.contains(event.target as Node)) setOpen(false);
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      // Focus was inside a menu that no longer exists; without this it falls
+      // to <body> and the next Tab restarts from the top of the document.
+      trigger.current?.focus();
     }
 
     document.addEventListener("mousedown", onPointerDown);
@@ -71,6 +76,7 @@ export default function AccountMenu() {
   return (
     <div className="relative" ref={wrapper}>
       <button
+        ref={trigger}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}

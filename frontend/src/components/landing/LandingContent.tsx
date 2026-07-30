@@ -242,9 +242,15 @@ export default function LandingContent() {
       {/* ---------------------------------------------------------- hero */}
       <section className="max-w-shell mx-auto px-5 sm:px-8 min-h-[calc(100svh-var(--nav-block))] grid lg:grid-cols-[1.02fr_0.98fr] items-center gap-10 lg:gap-14 py-16 sm:py-20">
         <div className="flex flex-col items-start gap-6">
+          {/* "Your record, your machine" was true of the single-user checkout
+              this page was written for and is not true of the deployment
+              anyone is reading it on: this Facet is shared, and the promise
+              that actually holds is isolation between accounts. The FAQ below
+              says exactly this — the badge was the one place still claiming
+              something the product had grown out of. */}
           <p className="badge badge-accent">
             <Lock className="w-3 h-3" aria-hidden />
-            Your record, your machine
+            Your record, yours alone
           </p>
           {/* The one expressive surface in the app. Leading under 1 is the
               point — it only reads at this size, and this is the only page
@@ -277,8 +283,13 @@ export default function LandingContent() {
           </p>
         </div>
 
-        <div className="hidden lg:grid place-items-center">
-          <StoneGraphic />
+        {/* The stone is the page. It was `hidden lg:grid`, so every phone and
+            every tablet — most of the traffic a landing page ever sees — got
+            the copy and none of the thing the copy is about. It now appears
+            from `sm` up, sized down so it never pushes the primary action
+            below the fold, and only a phone in portrait misses it. */}
+        <div className="hidden sm:grid place-items-center">
+          <StoneGraphic size="clamp(15rem, 40vw, 30rem)" />
         </div>
       </section>
 
