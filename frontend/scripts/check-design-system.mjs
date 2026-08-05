@@ -130,11 +130,29 @@ for (const use of css.matchAll(/var\((--[a-z0-9-]+)/g)) {
   }
 }
 
+/* Type must stay in `rem`. This was a regression waiting to happen rather than
+   a hypothetical: the whole `fontSize` scale sat in px, which meant every
+   `text-*` in the product ignored the reader's browser font-size setting — at
+   the 200% enlargement Apple's HIG asks an interface to survive, body copy did
+   not move a pixel. One `13px` added back to either file turns Dynamic Type off
+   again for everything downstream, silently, and looking perfectly correct at
+   the default setting. */
+const CONFIG = CSS.replace(/src\/app\/globals\.css$/, "tailwind.config.ts");
+for (const [where, source] of [
+  ["globals.css", css],
+  ["tailwind.config.ts", readFileSync(CONFIG, "utf8")],
+]) {
+  for (const m of source.matchAll(/font-size:\s*([\d.]+px)/g))
+    failures.push(`${where}: font-size ${m[1]} — the type scale is rem so it answers the reader's font setting`);
+  for (const m of source.matchAll(/^\s{6,}[\w"'-]+:\s*\["?([\d.]+px)/gm))
+    failures.push(`${where}: type scale entry ${m[1]} — use rem, divided by a 16px root`);
+}
+
 const unique = [...new Set(failures)];
 if (unique.length) {
-  console.error(`✗ ${unique.length} design-system reference(s) point at nothing:\n`);
+  console.error(`✗ ${unique.length} design-system problem(s):\n`);
   for (const failure of unique) console.error(`  ${failure}`);
-  console.error("\nDefine it in globals.css, or fix the name at the call site.");
+  console.error("\nDefine it in globals.css, or fix the value at the call site.");
   process.exit(1);
 }
 

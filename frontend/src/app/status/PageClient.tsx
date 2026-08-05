@@ -89,7 +89,11 @@ export default function StatusPage() {
                    choice differently — one with a grey fill, one with the
                    accent — is the kind of drift that makes an interface feel
                    assembled rather than designed. */
-                className={`px-2 h-6 text-xs rounded-sm transition-colors duration-fast ${
+                /* Same control token as `Segmented`'s small size — this strip
+                   already borrows that component's selected treatment, and a
+                   hard-coded `h-6` here meant it kept a 24px touch target and
+                   a fixed lid on its label after the shared control did not. */
+                className={`px-2 min-h-[var(--control-h-sm)] text-xs rounded-sm transition-colors duration-fast ${
                   refreshMs === option.value
                     ? "seg-active text-on-accent"
                     : "text-text-faint hover:text-text-dim"

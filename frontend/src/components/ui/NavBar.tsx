@@ -73,7 +73,7 @@ export default function NavBar() {
         <Link
           href="/"
           className={`group nav-pill shrink-0 justify-self-start text-text ${
-            landing ? "gap-2.5 !h-[42px] !px-3.5" : "gap-2"
+            landing ? "gap-2.5 !min-h-[42px] !px-3.5" : "gap-2"
           }`}
         >
           {/* The mark leans into the light on hover — a stone catching it,
@@ -156,7 +156,15 @@ export default function NavBar() {
             <button
               type="button"
               onClick={() => setOpen((o) => !o)}
-              className="nav-pill nav-pill-sm md:hidden !w-9 text-text-dim hover:text-text"
+              /* 44x44. This control only ever renders below `md`, so it is
+                 always a thumb reaching for it, and it is the only way to
+                 navigate on a phone — it was 36x26, under Apple's 28pt floor
+                 for any control and well under the 44pt a button is meant to
+                 offer. The size is unconditional rather than behind
+                 `pointer: coarse`, because a narrow window on a desktop shows
+                 this same button to a mouse and would otherwise get a
+                 44-wide, 26-tall lozenge. */
+              className="nav-pill nav-pill-sm md:hidden !w-11 !h-11 text-text-dim hover:text-text"
               aria-expanded={open}
               aria-label={open ? "Close menu" : "Open menu"}
             >
@@ -182,7 +190,7 @@ export default function NavBar() {
               // menu that stays open in that one case reads as a stuck menu.
               onClick={() => setOpen(false)}
               aria-current={pathname === link.href ? "page" : undefined}
-              className={`nav-pill !justify-start !h-10 text-sm ${
+              className={`nav-pill !justify-start !h-11 text-sm ${
                 pathname === link.href
                   ? "nav-pill-active nav-pill-on font-medium"
                   : "text-text-dim hover:text-text"

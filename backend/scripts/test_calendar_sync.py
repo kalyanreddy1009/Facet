@@ -5,8 +5,10 @@ path — not a mocked function call). Sets up its own fixtures and cleans up
 after itself; safe to re-run.
 """
 import os
+import re
 import sys
 import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -30,7 +32,35 @@ from services.paths import DB_PATH  # noqa: E402
 assert str(_TMP) in str(DB_PATH), f"pointed at {DB_PATH}, which is not a scratch database"
 
 ICS_PATH = Path(__file__).resolve().parent / "test_calendar.ics"
-ICS_URL = f"file:///{ICS_PATH.as_posix()}"
+
+# The fixture's dates are anchored, not absolute. It was written with its
+# "upcoming" interviews on 2026-08-01..04, and calendar sync only suggests
+# events in the future — so on 2026-08-05 the whole fixture aged into the past
+# and the test began asserting 3 suggestions against 0. That is a fixture with
+# an expiry date, and it fails on every machine from that morning on.
+#
+# Every timestamp shifts by the same delta, chosen to put the first one
+# tomorrow. One delta rather than per-event dates keeps the fixture's internal
+# spacing intact — including the deliberately-past event a month before it,
+# which stays a month in the past and goes on testing the exclusion it was
+# written for.
+_ANCHOR = datetime(2026, 8, 1, tzinfo=timezone.utc)
+_SHIFT = (datetime.now(timezone.utc) + timedelta(days=1)).replace(
+    hour=0, minute=0, second=0, microsecond=0
+) - _ANCHOR.replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def _shift(match: "re.Match[str]") -> str:
+    stamp = datetime.strptime(match.group(2), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+    return match.group(1) + (stamp + _SHIFT).strftime("%Y%m%dT%H%M%SZ")
+
+
+_DATED = re.sub(
+    r"(DTSTART:|DTEND:|DTSTAMP:)(\d{8}T\d{6}Z)", _shift, ICS_PATH.read_text()
+)
+_LIVE_ICS = _TMP / "test_calendar.ics"
+_LIVE_ICS.write_text(_DATED)
+ICS_URL = f"file:///{_LIVE_ICS.as_posix()}"
 
 init_db()
 

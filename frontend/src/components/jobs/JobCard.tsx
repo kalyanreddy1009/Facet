@@ -95,7 +95,13 @@ function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
                 rel="noopener noreferrer"
                 onClick={() => onOpen(job)}
                 title="Opens the posting in a new tab"
-                className="hover:text-accent-text transition-colors duration-fast focus-visible:text-accent-text"
+                /* `py-2` on an *inline* element extends the hit region
+                   without touching the line box, so the tap target clears
+                   28pt on a phone — it was 17px tall — and the title still
+                   wraps mid-link the way a heading has to. An `inline-block`
+                   here would size the target correctly and stop long titles
+                   wrapping at all. */
+                className="py-2 hover:text-accent-text transition-colors duration-fast focus-visible:text-accent-text"
               >
                 {job.title || "Untitled role"}
                 <span className="sr-only"> (opens in a new tab)</span>

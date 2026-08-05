@@ -64,7 +64,12 @@ export default function RequestLink({ defaultEmail = "" }: { defaultEmail?: stri
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-sm text-accent-text hover:underline focus-visible:underline underline-offset-2"
+        /* `py-3 -my-3` is 44px of hit region around a 20px line of text, with
+           the negative margin handing the extra height back to the layout so
+           nothing moves. The recovery link on a sign-in screen is the one
+           control someone reaches for when they are already stuck, and it was
+           a 20px-tall target — Apple's floor for any control is 28pt. */
+        className="text-sm text-accent-text hover:underline focus-visible:underline underline-offset-2 inline-block py-3 -my-3"
       >
         No link, or yours has stopped working?
       </button>

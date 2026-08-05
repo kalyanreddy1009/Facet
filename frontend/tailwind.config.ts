@@ -74,16 +74,28 @@ const config: Config = {
       },
       fontSize: {
         // Tight product scale. Hierarchy is weight and size, never decoration.
-        "2xs": ["11px", { lineHeight: "1.35" }],
-        xs: ["12px", { lineHeight: "1.4" }],
-        sm: ["13px", { lineHeight: "1.5" }],
-        base: ["14px", { lineHeight: "1.55" }],
-        md: ["15px", { lineHeight: "1.55" }],
-        lg: ["17px", { lineHeight: "1.45", letterSpacing: "-0.008em" }],
-        xl: ["20px", { lineHeight: "1.35", letterSpacing: "-0.012em" }],
-        "2xl": ["24px", { lineHeight: "1.3", letterSpacing: "-0.016em" }],
-        "3xl": ["30px", { lineHeight: "1.22", letterSpacing: "-0.02em" }],
-        "4xl": ["38px", { lineHeight: "1.15", letterSpacing: "-0.024em" }],
+        //
+        // In `rem`, not `px`, and that is an accessibility requirement rather
+        // than a style preference. This scale is where every `text-*` in the
+        // app resolves, so when it was in px the entire interface ignored the
+        // reader's browser font-size setting: at a 32px root — the 200%
+        // enlargement Apple's HIG asks every interface to survive — body copy
+        // measured 14px, buttons 13px and captions 11.5px, exactly as they do
+        // at 100%. Nothing moved. One px scale in one config file quietly
+        // opted the whole product out of Dynamic Type.
+        //
+        // The values below are the same sizes divided by a 16px root, so at
+        // the default setting every screen renders to the identical pixel.
+        "2xs": ["0.6875rem", { lineHeight: "1.35" }], // 11px
+        xs: ["0.75rem", { lineHeight: "1.4" }], // 12px
+        sm: ["0.8125rem", { lineHeight: "1.5" }], // 13px
+        base: ["0.875rem", { lineHeight: "1.55" }], // 14px
+        md: ["0.9375rem", { lineHeight: "1.55" }], // 15px
+        lg: ["1.0625rem", { lineHeight: "1.45", letterSpacing: "-0.008em" }], // 17px
+        xl: ["1.25rem", { lineHeight: "1.35", letterSpacing: "-0.012em" }], // 20px
+        "2xl": ["1.5rem", { lineHeight: "1.3", letterSpacing: "-0.016em" }], // 24px
+        "3xl": ["1.875rem", { lineHeight: "1.22", letterSpacing: "-0.02em" }], // 30px
+        "4xl": ["2.375rem", { lineHeight: "1.15", letterSpacing: "-0.024em" }], // 38px
         // The landing page only — the one page where expressiveness is
         // earned. Leading under 1 is the whole point; it only reads at this
         // size, and the size is the reason the page has any presence at all.

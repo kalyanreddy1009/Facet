@@ -50,8 +50,18 @@ export default function Segmented<T extends string>({
             // One tab stop for the strip; arrows move between the tabs.
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(segment.value)}
+            /* The shared control tokens rather than `h-6`/`h-7`. A hard-coded
+               height here sat outside the one place control sizing is decided,
+               so this strip missed both things that place does: it stayed 24px
+               on a touch screen — under Apple's 28pt floor for any control,
+               and these are the tabs the Cabinet is navigated with — and it
+               kept its lid when the reader raised their font size, clipping
+               its own labels. `min-h` for that second reason: the number is a
+               floor, not a lid. */
             className={`relative rounded-sm font-medium transition-colors duration-fast flex items-center gap-1.5 ${
-              size === "sm" ? "h-6 px-2 text-xs" : "h-7 px-3 text-sm"
+              size === "sm"
+                ? "min-h-[var(--control-h-sm)] px-2 text-xs"
+                : "min-h-[var(--control-h)] px-3 text-sm"
             } ${active ? "text-on-accent" : "text-text-faint hover:text-text-dim"}`}
           >
             {active && (

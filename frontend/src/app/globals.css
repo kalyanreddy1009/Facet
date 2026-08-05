@@ -189,7 +189,7 @@
   /* The one scrim, behind the one modal layer. */
   --overlay: rgba(15, 17, 21, 0.34);
 
-  --nav-h: 56px;
+  --nav-h: 3.5rem;
   /* The nav floats rather than sitting on the edge, so the space it occupies
      is taller than the bar. Anything anchoring below it uses --nav-block;
      --nav-h is the bar itself. */
@@ -198,10 +198,16 @@
 
   /* Control heights. Buttons, fields and anything that has to line up with
      one share these — the numbers were already duplicated across `.btn` and
-     `.field`, which is how a 26px and a 27px control end up side by side. */
-  --control-h-sm: 26px;
-  --control-h: 32px;
-  --control-h-lg: 38px;
+     `.field`, which is how a 26px and a 27px control end up side by side.
+
+     In `rem` so that a control grows with the label inside it. The type scale
+     now answers the reader's font-size setting, and a button that answered it
+     with a fixed 32px box would simply clip the larger word. Everything that
+     consumes these uses `min-height` rather than `height` for the same
+     reason: the number is the floor a control may not go below, not a lid. */
+  --control-h-sm: 1.625rem;
+  --control-h: 2rem;
+  --control-h-lg: 2.375rem;
 }
 
 /* A finger is not a cursor. 26px is a comfortable button for a mouse and a
@@ -213,9 +219,9 @@
    6px of gap. */
 @media (pointer: coarse) {
   :root {
-    --control-h-sm: 34px;
-    --control-h: 40px;
-    --control-h-lg: 44px;
+    --control-h-sm: 2.125rem;
+    --control-h: 2.5rem;
+    --control-h-lg: 2.75rem;
   }
 }
 
@@ -235,7 +241,7 @@ body {
   background: linear-gradient(178deg, #fdfdfd 0%, var(--bg) 46%, #edeef0 100%) fixed;
   color: var(--text);
   font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.5;
   /* cv11 = single-storey g/l, ss01 = tighter punctuation. Reads as a product
      typeface rather than default Inter. */
@@ -583,7 +589,7 @@ button:not(:disabled),
        lines the two up. */
     max-width: calc(1120px - 64px);
     margin-inline: auto;
-    height: var(--nav-h);
+    min-height: var(--nav-h);
     border-radius: 15px;
     /* Graphite, with the same blue bias as the stone's shadowed facets. Two
        stops, because a flat dark rectangle reads as a hole rather than as an
@@ -636,7 +642,7 @@ button:not(:disabled),
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 30px;
+    min-height: 30px;
     padding: 0 12px;
     border-radius: 9px;
     white-space: nowrap;
@@ -644,7 +650,7 @@ button:not(:disabled),
     transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
   }
   .nav-pill-sm {
-    height: 26px;
+    min-height: 26px;
     padding: 0 9px;
     border-radius: 8px;
   }
@@ -738,7 +744,7 @@ button:not(:disabled),
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font-size: 11.5px;
+    font-size: 0.71875rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -773,9 +779,9 @@ button:not(:disabled),
     align-items: center;
     justify-content: center;
     gap: 6px;
-    height: var(--control-h);
+    min-height: var(--control-h);
     padding: 0 12px;
-    font-size: 13px;
+    font-size: 0.8125rem;
     font-weight: 500;
     line-height: 1;
     white-space: nowrap;
@@ -798,14 +804,14 @@ button:not(:disabled),
     cursor: not-allowed;
   }
   .btn-lg {
-    height: var(--control-h-lg);
+    min-height: var(--control-h-lg);
     padding: 0 16px;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
   .btn-sm {
-    height: var(--control-h-sm);
+    min-height: var(--control-h-sm);
     padding: 0 8px;
-    font-size: 12px;
+    font-size: 0.75rem;
   }
 
   .btn-primary {
@@ -902,7 +908,7 @@ button:not(:disabled),
   /* ---- Inputs ------------------------------------------------------ */
   .field {
     width: 100%;
-    height: var(--control-h);
+    min-height: var(--control-h);
     /* Darker than the panel it sits on — an input reads as a well, not a
        tile. A dark tint at low alpha rather than a lighter fill: on white
        there is nothing lighter to go to, and a well has to read as recessed.
@@ -911,7 +917,7 @@ button:not(:disabled),
     border: 1px solid var(--border-control);
     border-radius: var(--radius);
     color: var(--text);
-    font-size: 13px;
+    font-size: 0.8125rem;
     padding: 0 10px;
     transition: border-color var(--t-fast) var(--ease),
       box-shadow var(--t-fast) var(--ease);
@@ -933,8 +939,8 @@ button:not(:disabled),
     box-shadow: 0 0 0 3.5px var(--accent-soft);
   }
   .field-lg {
-    height: var(--control-h-lg);
-    font-size: 14px;
+    min-height: var(--control-h-lg);
+    font-size: 0.875rem;
   }
 
   /* ---- Badges ------------------------------------------------------ */
@@ -942,9 +948,13 @@ button:not(:disabled),
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    height: 20px;
+    /* `min-height`, like every other text container here: a badge with a
+       fixed lid clipped its own label the moment the reader raised their
+       font size. The two `height`s left in this file are `.btn-cap`'s discs,
+       which hold an icon and are meant to be exactly round. */
+    min-height: 20px;
     padding: 0 7px;
-    font-size: 11.5px;
+    font-size: 0.71875rem;
     font-weight: 500;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
@@ -1049,7 +1059,7 @@ button:not(:disabled),
   }
 
   .label {
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 500;
     letter-spacing: 0.03em;
     text-transform: uppercase;
