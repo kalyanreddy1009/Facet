@@ -1,0 +1,37 @@
+{# MERIDIAN — the executive one.
+   The name is the largest thing on the page and the whole header sits above a
+   single full-width rule, so the document opens with a masthead. Company reads
+   before title, which is the order a senior reader scans in, and the dates are
+   held right against a tabular column edge. #}
+{% extends "resumes/_base.html" %}
+{% block styles %}
+  @page { margin: 0.6in 0.7in; }
+  body { font-family: Calibri, "Segoe UI", Helvetica, Arial, sans-serif; color: #17191d; font-size: 10.5pt; line-height: 1.36; }
+  .name { font-size: 25pt; font-weight: 300; letter-spacing: -0.6pt; }
+  .contact { font-size: 9pt; color: #4a4e55; margin-top: 5pt; padding-bottom: 8pt; border-bottom: 2pt solid #17191d; margin-bottom: 12pt; }
+  h2 { font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7pt; margin-bottom: 6pt; }
+  .section + .section { margin-top: 11pt; }
+  .role-line { display: flex; justify-content: space-between; gap: 12pt; }
+  .role-company { font-weight: 700; font-size: 11pt; }
+  .role-dates { font-size: 9.5pt; color: #4a4e55; white-space: nowrap; }
+  .role-title, .edu-degree { font-weight: 600; }
+  .role-sub { font-size: 10pt; color: #33363c; margin-bottom: 4pt; }
+  .role + .role, .edu-entry + .edu-entry { margin-top: 9pt; }
+  .bullets { padding-left: 13pt; }
+  .bullets li { margin-bottom: 2.5pt; }
+  .certs { padding-left: 13pt; }
+  .project + .project { margin-top: 6pt; }
+  .project-name { font-weight: 700; }
+{% endblock %}
+{# Company on the headline, title beneath — the inversion is the whole point of
+   the skin, and it stays one column so nothing about it troubles a parser. #}
+{% block role_entry scoped %}
+  <div class="role-line">
+    <span class="role-company">{{ role.company }}</span>
+    <span class="role-dates">{{ role.start | when }} – {{ role.end | when }}</span>
+  </div>
+  <div class="role-line role-sub">
+    <span class="role-title">{{ role.title }}</span>
+    {% if role.location %}<span class="role-location">{{ role.location }}</span>{% endif %}
+  </div>
+{% endblock %}

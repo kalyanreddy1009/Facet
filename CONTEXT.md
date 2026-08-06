@@ -22,7 +22,7 @@ copy: **Stone** = profile, **Rough** = the raw pool of gathered postings,
 | `backend/` | FastAPI + uvicorn, Python **3.12** (venv at `backend/.venv`; interpreter at `bin/python` on Linux, `python.exe` at the venv root on the old Windows conda layout). Port 8000. |
 | `data/` | `tracker.db` (SQLite, WAL), `settings.json` (API keys), `feeds.json`, `logs/facet.log`, `exports/`. Gitignored. Relocatable via `FACET_DATA_DIR`. |
 | `workspace/` | `profile.json`, `master_resume.md`, `RULES.md`, and the agy file-handoff scratch (`job_description.md`, `tailored_fields.json`). Gitignored. Relocatable via `FACET_WORKSPACE_DIR`. |
-| `templates/` | `resume_template.html`, `cover_letter_template.html`, `resume_template.docx`. |
+| `templates/` | `resumes/` — the seven resume templates, HTML + DOCX, and `_base.html` which owns every ATS-critical decision. Plus `cover_letter_template.html` and the superseded `resume_template.*`. |
 | `extension/` | Chrome MV3 "Apply Assist" — fills forms, never submits. Selector maps for greenhouse/lever/workday/linkedin. |
 | Launch | `python run.py` builds and serves production; `--dev` for dev servers, `--build` to force a rebuild, `--setup` to install only. Docker compose also supported. |
 
@@ -251,10 +251,11 @@ backend/.venv/bin/python -m control.cloudflare       # ingress + Access config
 backend/.venv/bin/python -m control.backup           # the restore drill
 backend/.venv/bin/python -m services.job_sources     # parsing, offline
 backend/.venv/bin/python -m services.matching        # scoring
+backend/.venv/bin/python -m services.resume_templates # renders all 7, reads the text back out
 backend/.venv/bin/python -m services.logging_setup   # ring buffer + metrics
 backend/.venv/bin/python -m services.health          # every status check
 backend/.venv/bin/python scripts/check_all.py        # every suite + self-check, one command
-cd frontend && npm run check                         # formatting, api cache, clipboard, design system, interface
+cd frontend && npm run check                         # formatting, api cache, clipboard, match, jdTrim, design system, interface
 cd frontend && npx tsc --noEmit && npm run lint && npm run build
 node extension/check.mjs                             # manifest, permissions, no-submit gate
 ```

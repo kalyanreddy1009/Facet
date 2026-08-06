@@ -11,6 +11,11 @@ import os
 from services import paths
 
 DEFAULTS = {
+    # Which of the seven resume templates the last cut used. Stored here rather
+    # than in the browser because it is a property of the person's documents,
+    # not of the tab they happened to be in — a cut queued from one device and
+    # collected on another must produce the same resume either way.
+    "resume_template": "chicago",
     "adzuna_app_id": "",
     "adzuna_app_key": "",
     "adzuna_country": "in",

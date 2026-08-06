@@ -1,0 +1,25 @@
+{# COMPACT — for a long history that has to fit on one page.
+   Narrower margins, smaller type, tighter leading, and the section heading set
+   on the same optical line as the content it introduces. Nothing is removed —
+   this is the same document at a higher density, for the person with fifteen
+   years to account for and one page to do it in. #}
+{% extends "resumes/_base.html" %}
+{% block styles %}
+  @page { margin: 0.45in 0.55in; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; color: #1a1c20; font-size: 9.5pt; line-height: 1.32; }
+  .name { font-size: 16pt; font-weight: 700; letter-spacing: -0.3pt; }
+  .contact { font-size: 8.5pt; color: #43464c; margin-top: 2pt; margin-bottom: 10pt; }
+  h2 { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.55pt; color: #43464c;
+       border-bottom: 0.5pt solid #c6c9ce; padding-bottom: 1.5pt; margin-bottom: 4pt; }
+  .section + .section { margin-top: 9pt; }
+  .role-line { display: flex; justify-content: space-between; gap: 10pt; }
+  .role-title, .edu-degree { font-weight: 700; }
+  .role-dates { font-size: 8.5pt; color: #43464c; white-space: nowrap; }
+  .role-sub { font-size: 9pt; color: #33363c; margin-bottom: 2pt; }
+  .role + .role, .edu-entry + .edu-entry { margin-top: 7pt; }
+  .bullets { padding-left: 11pt; }
+  .bullets li { margin-bottom: 1pt; }
+  .certs { padding-left: 11pt; }
+  .project + .project { margin-top: 4pt; }
+  .project-name { font-weight: 700; }
+{% endblock %}

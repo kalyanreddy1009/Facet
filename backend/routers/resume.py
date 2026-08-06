@@ -5,7 +5,7 @@ import json
 from fastapi import APIRouter, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from services import jobs
+from services import jobs, resume_templates, settings_store
 from services.agy_runner import (
     cleanup_job_dir,
     parse_json_output,
@@ -39,6 +39,54 @@ Rules:
 - `summary_base` is a short professional summary drawn from the resume, or reasonably synthesized from its actual content if no explicit summary section exists.
 - Output raw valid JSON only in the output file — no code fences, no commentary.
 """
+
+
+@router.get("/api/profile/keywords")
+async def profile_keywords():
+    """The terms the Cut page's live match pre-check scores against.
+
+    Not `GET /api/profile`: that carries the whole Stone — employers, dates,
+    every bullet — and the pre-check needs a list of skill words. Sending the
+    smaller thing is both faster and less to leak into a browser tab that may
+    be open on a shared machine.
+
+    Scoring happens in the browser rather than here because it runs on every
+    keystroke of a 15,000-character paste, and a round trip per keystroke is a
+    worse answer than shipping the vocabulary once. `frontend/src/lib/match.ts`
+    holds the same algorithm as `services.matching`, and both have a check
+    asserting they agree.
+    """
+    if not paths.PROFILE_PATH.exists():
+        return {"keywords": []}
+    try:
+        profile = json.loads(paths.PROFILE_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"keywords": []}
+    terms = list(profile.get("skills", [])) + list(profile.get("keywords", []))
+    # Deduplicated case-insensitively but keeping the first spelling, so the
+    # evidence line shows "PostgreSQL" rather than "postgresql".
+    seen, out = set(), []
+    for term in terms:
+        key = str(term).strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            out.append(str(term).strip())
+    return {"keywords": out}
+
+
+@router.get("/api/resume/templates")
+async def resume_template_catalog():
+    """The seven templates, and which one the next cut will use.
+
+    Served rather than hardcoded in the frontend so the picker cannot drift out
+    of step with what the renderer will actually do — a card promising a layout
+    the backend no longer has is worse than no card.
+    """
+    return {
+        "templates": resume_templates.catalog(),
+        "selected": settings_store.load_settings().get("resume_template")
+        or resume_templates.DEFAULT_ID,
+    }
 
 
 @router.get("/api/profile")

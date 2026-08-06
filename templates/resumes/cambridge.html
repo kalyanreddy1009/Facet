@@ -1,0 +1,36 @@
+{# CAMBRIDGE — the academic one.
+   Garamond at a generous measure and leading, small-caps headings, and the
+   date set above the role rather than beside it, which is the convention in a
+   CV. Reads as a document rather than as a form. #}
+{% extends "resumes/_base.html" %}
+{% block styles %}
+  @page { margin: 0.75in 0.85in; }
+  body { font-family: Garamond, Georgia, "Times New Roman", serif; color: #111; font-size: 11pt; line-height: 1.5; }
+  .name { font-size: 21pt; font-weight: 400; letter-spacing: 1.2pt; text-transform: uppercase; }
+  .contact { font-size: 9.5pt; color: #333; margin-top: 5pt; margin-bottom: 16pt; }
+  /* Normal case, not small-caps. WeasyPrint synthesises small-caps as
+     separate glyph runs and the extractor reads "P rofessional s ummary" —
+     the heading stops being recognisable to a parser. A serif heading with a
+     hairline under it is the older academic convention regardless. */
+  h2 { font-size: 11.5pt; font-weight: 700; letter-spacing: 0.2pt;
+       border-bottom: 0.5pt solid #9a9a9a; padding-bottom: 2.5pt; margin-bottom: 6pt; }
+  .section + .section { margin-top: 14pt; }
+  .role-dates { display: block; font-size: 9.5pt; font-style: italic; color: #444; }
+  .role-title, .edu-degree { font-weight: 700; }
+  .role-sub { font-size: 10.5pt; margin-bottom: 3pt; }
+  .role + .role, .edu-entry + .edu-entry { margin-top: 11pt; }
+  .bullets { padding-left: 16pt; }
+  .bullets li { margin-bottom: 3pt; }
+  .certs { padding-left: 16pt; }
+  .project + .project { margin-top: 6pt; }
+  .project-name { font-weight: 700; }
+{% endblock %}
+{# Dates first, on their own line — the CV convention, and it also gives the
+   eye a left-hand rhythm to scan without needing a second column. #}
+{% block role_entry scoped %}
+  <div class="role-dates">{{ role.start | when }} – {{ role.end | when }}</div>
+  <div class="role-line"><span class="role-title">{{ role.title }}</span></div>
+  <div class="role-line role-sub">
+    <span class="role-company">{{ role.company }}</span>{% if role.location %} — <span class="role-location">{{ role.location }}</span>{% endif %}
+  </div>
+{% endblock %}

@@ -438,10 +438,37 @@ def _check_weasyprint() -> dict:
 
 def _check_templates() -> list[dict]:
     checks = []
+
+    # The seven resume templates, reported as one line rather than fourteen —
+    # /status is meant to be read, and a wall of green rows for files that are
+    # either all present or all missing together tells nobody anything. The
+    # detail names whichever ones are actually absent.
+    from services import resume_templates
+
+    missing = [
+        f"{t.id}{ext}"
+        for t in resume_templates.TEMPLATES
+        for ext, name in ((".html", t.html), (".docx", f"{resume_templates.TEMPLATE_DIR_NAME}/{t.docx}"))
+        if not (TEMPLATES_DIR / name).exists()
+    ]
+    checks.append(
+        {
+            "key": "template.resumes",
+            "label": "Resume templates",
+            "status": "ok" if not missing else "error",
+            "detail": (
+                f"{len(resume_templates.TEMPLATES)} templates, HTML and DOCX"
+                if not missing
+                else f"missing: {', '.join(missing)}"
+            ),
+            "hint": None if not missing else "restore templates/resumes/, then run templates/build_resume_docx_templates.py",
+        }
+    )
+
     for filename, label in (
-        ("resume_template.html", "Resume template (PDF)"),
+        ("resume_template.html", "Resume template (PDF, legacy)"),
         ("cover_letter_template.html", "Cover letter template (PDF)"),
-        ("resume_template.docx", "Resume template (DOCX)"),
+        ("resume_template.docx", "Resume template (DOCX, legacy)"),
     ):
         path = TEMPLATES_DIR / filename
         exists = path.exists() and path.stat().st_size > 0

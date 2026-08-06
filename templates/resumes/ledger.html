@@ -1,0 +1,30 @@
+{# LEDGER — the record.
+   A rule between every role turns the experience section into a register you
+   read down. Serif for the text, a sans for the dates and labels, so the two
+   kinds of information separate without needing a second column to do it. #}
+{% extends "resumes/_base.html" %}
+{% block styles %}
+  @page { margin: 0.6in 0.75in; }
+  body { font-family: Cambria, Georgia, serif; color: #15171b; font-size: 10.5pt; line-height: 1.36; }
+  .name { font-size: 18pt; font-weight: 700; }
+  .contact { font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; letter-spacing: 0.3pt;
+             color: #4a4e55; margin-top: 4pt; margin-bottom: 12pt; }
+  h2 { font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; font-weight: 700;
+       text-transform: uppercase; letter-spacing: 0.6pt; color: #15171b; margin-bottom: 7pt; }
+  .section + .section { margin-top: 11pt; }
+  .role-line { display: flex; justify-content: space-between; gap: 12pt; }
+  .role-title, .edu-degree { font-weight: 700; }
+  .role-dates { font-family: Arial, Helvetica, sans-serif; font-size: 8.5pt; letter-spacing: 0.3pt;
+                color: #4a4e55; white-space: nowrap; }
+  .role-sub { font-size: 10pt; font-style: italic; color: #33363c; margin-bottom: 4pt; }
+  /* The register rule. Above each role but the first, so it separates rather
+     than decorating — a rule under the last entry would close a list that the
+     next section heading is about to close anyway. */
+  .role + .role { margin-top: 8pt; padding-top: 8pt; border-top: 0.5pt solid #d2d5da; }
+  .edu-entry + .edu-entry { margin-top: 8pt; }
+  .bullets { padding-left: 14pt; }
+  .bullets li { margin-bottom: 2pt; }
+  .certs { padding-left: 14pt; }
+  .project + .project { margin-top: 6pt; }
+  .project-name { font-weight: 700; }
+{% endblock %}

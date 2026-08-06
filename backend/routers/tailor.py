@@ -7,7 +7,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from services import db, jobs
+from services import db, jobs, resume_templates, settings_store
 from services.agy_runner import (
     cleanup_job_dir,
     parse_json_output,
@@ -51,6 +51,19 @@ class TailorRequest(BaseModel):
     target_role: Optional[str] = None
     job_url: Optional[str] = None
     application_id: Optional[int] = None
+    #: Which of the seven resume templates to render. Omitted means "whatever
+    #: was used last", which is resolved at enqueue time rather than at render
+    #: time so the queued job records the decision that was actually on screen.
+    resume_template: Optional[str] = None
+
+
+def _remembered_template() -> str:
+    """The template the last cut used. Falls back to the default if settings
+    are unreadable — a corrupt preferences file must not cost someone a cut."""
+    try:
+        return settings_store.load_settings().get("resume_template") or resume_templates.DEFAULT_ID
+    except Exception:
+        return resume_templates.DEFAULT_ID
 
 
 def _slugify(text: str) -> str:
@@ -98,7 +111,18 @@ async def tailor(body: TailorRequest):
     if not paths.PROFILE_PATH.exists():
         raise HTTPException(status_code=404, detail="No profile yet — import a resume first")
 
-    job_id = await jobs.enqueue("tailor", body.model_dump())
+    # Resolve the template here, not in the worker. The user picked it in this
+    # request; if they change the default a minute later while this job is
+    # still queued, the resume they are waiting for should be the one they
+    # asked for, not the one they asked for next.
+    chosen = resume_templates.resolve(body.resume_template or _remembered_template())
+    payload = body.model_dump()
+    payload["resume_template"] = chosen.id
+    # Remembered for next time, so the picker opens where they left it.
+    if chosen.id != _remembered_template():
+        settings_store.save_settings({"resume_template": chosen.id})
+
+    job_id = await jobs.enqueue("tailor", payload)
     return {"job_id": job_id}
 
 
@@ -140,8 +164,9 @@ async def run_tailor_job(job: dict) -> dict:
         tailored_fields["inferred_skills"] = []
 
     resume_context = build_resume_context(profile, tailored_fields)
-    pdf_bytes = render_resume_pdf(resume_context)
-    docx_bytes = render_resume_docx(resume_context)
+    template_id = body.resume_template
+    pdf_bytes = render_resume_pdf(resume_context, template_id)
+    docx_bytes = render_resume_docx(resume_context, template_id)
 
     letter_context = build_cover_letter_context(profile, tailored_fields)
     letter_pdf_bytes = render_cover_letter_pdf(letter_context)

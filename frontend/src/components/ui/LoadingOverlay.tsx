@@ -19,7 +19,17 @@ const TIMEOUT_S = 300;
  *  up to five minutes left, and a still panel reads as a frozen page. A
  *  ticking number is the honest signal that the call is still alive — we
  *  genuinely don't know the progress, so we don't draw a progress bar. */
-export default function LoadingOverlay({ queuePosition }: { queuePosition?: number | null }) {
+export default function LoadingOverlay({
+  queuePosition,
+  onCancel,
+}: {
+  queuePosition?: number | null;
+  /** Offered only where the caller can actually stop the work. A cut can sit
+   *  behind someone else's and then take five minutes of its own, and the only
+   *  previous way out was closing the tab — which left the job running and the
+   *  agy lock held for whoever was next in the queue. */
+  onCancel?: () => void;
+}) {
   const reduced = useReducedMotion();
   const [elapsed, setElapsed] = useState(0);
 
@@ -75,6 +85,15 @@ export default function LoadingOverlay({ queuePosition }: { queuePosition?: numb
             {waiting ? "" : `, gives up at ${formatElapsed(TIMEOUT_S)}`}
           </span>
         </p>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="btn btn-ghost btn-sm mt-1"
+          >
+            Cancel this cut
+          </button>
+        )}
       </div>
     </div>
   );

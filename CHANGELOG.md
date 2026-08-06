@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026-08-06 — Cut a Facet revamp and the resume template system
+
+Seven ATS-friendly resume templates, chosen from current parser guidance and
+built as one skeleton with seven skins: `templates/resumes/_base.html` owns
+every structural decision a parser cares about (single column, contact in the
+body, standard headings, no tables or images), and a skin may only change what
+a parser never reads. Registry, date normaliser and check in
+`services/resume_templates.py`; Word shells from
+`templates/build_resume_docx_templates.py`. The choice persists in
+`settings.json` and is resolved at enqueue time.
+
+The check renders all seven and reads the text back out with `pdftotext` — the
+same kind of extractor an ATS uses. It found four things invisible to reading:
+letter-spacing at ≥10% of font size destroys a heading (`P R O F E SS I O N A L`),
+`font-variant: small-caps` does the same, `text-transform` changes what is
+stored in the PDF, and the DOCX template had been emitting `edu.school` against
+a context carrying `institution` — so every Word export ever downloaded had a
+blank university line.
+
+Cut a Facet revamped: three numbered steps, a header naming the three outputs,
+a sticky action bar, and eight improvements — live match pre-check with
+evidence, ⌘/Ctrl+Enter, visible and reversible draft restore, a boilerplate
+trimmer that is offered and never automatic, the sticky bar, a requirements
+count, the step grouping, and the template picker. Plus cancellation, which the
+queue always supported and no page had ever offered.
+
+Left out deliberately: fixing `matching.py`'s blank-keyword quirk. The browser
+mirror found it, but the backend is the authority and its weak-match threshold
+is calibrated against its own behaviour — changing it one-sidedly would put a
+number on screen that disagrees with the server.
+
+
 Newest first. One entry per autonomous pass (see `AUTONOMY.md`).
 
 ## 2026-07-29 — Deploying stopped taking the site down

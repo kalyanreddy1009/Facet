@@ -1,0 +1,148 @@
+{#
+  The shared skeleton every resume template extends.
+
+  WHY THERE IS A BASE AT ALL. Applicant tracking systems fail on a short,
+  well-documented list of things: multiple columns, tables, graphics, text in
+  the page header or footer, and section headings they do not recognise. That
+  list is the same for all seven templates, so it is defined once, here, and no
+  skin can accidentally opt out of it. What the skins are allowed to change is
+  everything a parser does not read — typeface, weight, rules, spacing, the
+  arrangement of a role's title and dates. The result is seven resumes that
+  look genuinely different to a person and identical to a machine.
+
+  Concretely, this file guarantees:
+
+    · One column. No <table>, no float, no grid with more than one track.
+    · Contact details in the document body. Parsers routinely skip the page
+      header region, so a name in @page margin content is a name that never
+      arrives.
+    · Standard section headings — "Work Experience", "Education", "Skills".
+      A parser categorises by matching these strings; "Where I've Been" lands
+      the whole section in the void.
+    · Real text. No icons, no bar charts for skill levels, no images. A phone
+      glyph parses as a random character, so the label is the word.
+    · Reverse-chronological order, which is what every parser assumes.
+
+  A skin overrides {% block styles %} and, if its layout calls for it,
+  {% block role_entry %} and {% block header %}. Nothing else.
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>{{ name }} — Resume</title>
+<style>
+  /* Rules that hold for every template, because they are the ones a parser
+     cares about. A skin may restyle these; it may not reintroduce columns. */
+  @page { size: {{ page_size | default("Letter") }}; }
+  * { box-sizing: border-box; }
+  body { background: #ffffff; margin: 0; }
+  /* Keeping a role and its bullets together is a print concern, not a parsing
+     one, but a role whose heading is stranded at the foot of page one reads as
+     carelessness to the human who gets there first. */
+  .role, .project, .edu-entry { page-break-inside: avoid; }
+  ul { list-style-type: disc; }
+  h1, h2, h3, p, ul { margin: 0; }
+{% block styles %}{% endblock %}
+</style>
+</head>
+<body>
+
+{% block header %}
+  <h1 class="name">{{ name }}</h1>
+  {#  Plain text separated by a middot, and every part labelled by its own
+      content rather than by an icon. "✉ ada@example.com" reaches a parser as
+      one unrecognised glyph followed by an address it may or may not attach to
+      anything.  #}
+  <p class="contact">
+    {%- set bits = [] -%}
+    {%- if contact.email %}{% set _ = bits.append(contact.email) %}{% endif -%}
+    {%- if contact.phone %}{% set _ = bits.append(contact.phone) %}{% endif -%}
+    {%- if contact.location %}{% set _ = bits.append(contact.location) %}{% endif -%}
+    {%- if contact.linkedin %}{% set _ = bits.append(contact.linkedin) %}{% endif -%}
+    {{ bits | join(" · ") }}
+  </p>
+{% endblock %}
+
+{% if summary %}
+<section class="section section-summary">
+  <h2>Professional Summary</h2>
+  <p class="summary">{{ summary }}</p>
+</section>
+{% endif %}
+
+{% if skills %}
+<section class="section section-skills">
+  <h2>Skills</h2>
+  {#  One flowing line, not a grid and not a set of pills. A skills *table* is
+      the single most common reason a strong candidate's keywords never reach
+      the search index.  #}
+  <p class="skills">{{ skills | join(" · ") }}</p>
+</section>
+{% endif %}
+
+{% if roles %}
+<section class="section section-experience">
+  <h2>Work Experience</h2>
+  {% for role in roles %}
+  <div class="role">
+    {% block role_entry scoped %}
+    <div class="role-line">
+      <span class="role-title">{{ role.title }}</span>
+      <span class="role-dates">{{ role.start | when }} – {{ role.end | when }}</span>
+    </div>
+    <div class="role-line role-sub">
+      <span class="role-company">{{ role.company }}</span>
+      {% if role.location %}<span class="role-location">{{ role.location }}</span>{% endif %}
+    </div>
+    {% endblock %}
+    {% if role.bullets %}
+    <ul class="bullets">
+      {% for bullet in role.bullets %}<li>{{ bullet }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if projects %}
+<section class="section section-projects">
+  <h2>Projects</h2>
+  {% for project in projects %}
+  <div class="project">
+    <p class="project-name">{{ project.name }}{% if project.stack %} — {{ project.stack }}{% endif %}</p>
+    {% if project.description %}<p class="project-desc">{{ project.description }}</p>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if education %}
+<section class="section section-education">
+  <h2>Education</h2>
+  {% for entry in education %}
+  <div class="edu-entry">
+    <div class="role-line">
+      <span class="edu-degree">{{ entry.degree }}</span>
+      <span class="role-dates">{{ entry.year | when }}</span>
+    </div>
+    {% if entry.institution %}<div class="role-line role-sub"><span>{{ entry.institution }}</span></div>{% endif %}
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if certifications %}
+<section class="section section-certifications">
+  <h2>Certifications</h2>
+  <ul class="certs">
+    {% for cert in certifications %}
+    <li>{{ cert.name if cert is mapping else cert }}{% if cert is mapping and cert.year %} ({{ cert.year | when }}){% endif %}</li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+</body>
+</html>

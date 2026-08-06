@@ -30,6 +30,11 @@ SELF_CHECKS = [
     "services.paths",
     "services.health",
     "services.jobs",
+    # Renders all seven resume templates and reads the text back out with the
+    # same kind of extractor an ATS uses. Slower than the rest because it is
+    # doing real work, and worth it: this is the check that caught tracked
+    # capitals silently destroying section headings.
+    "services.resume_templates",
     "control.store",
 ]
 

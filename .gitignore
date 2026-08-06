@@ -66,6 +66,13 @@ workspace/dummy_*.txt
 *.docx
 prompt.txt
 
+# ...except the resume template shells, which are part of the product rather
+# than an input to it. Without this the seven Word templates are absent from a
+# fresh clone, `render_resume_docx` silently falls back to the legacy shell for
+# every template, and the Education bug that shell carries comes back with it.
+!templates/resumes/*.docx
+!templates/resume_template.docx
+
 # OS noise
 .DS_Store
 Thumbs.db

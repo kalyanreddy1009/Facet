@@ -1230,6 +1230,142 @@ body::before {
   }
 }
 
+/* ---- The Cut a Facet page ------------------------------------------------
+   The helpers that appear beside the job description as you fill it in, and
+   the action bar that keeps the primary control reachable on a long form. */
+
+/* A quiet advisory attached to a field: the match pre-check, the draft notice,
+   the boilerplate offer. Inset rather than raised — it is a note about the
+   input above it, not a card of its own, and giving it a panel's weight made
+   the form read as six competing boxes. */
+.preflight {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.preflight-weak {
+  border-color: var(--warn-border);
+  background: var(--warn-soft);
+}
+.preflight-strong {
+  border-color: var(--ok-border);
+  background: var(--ok-soft);
+}
+
+/* The action bar. Sticks to the bottom of the viewport so "Cut a facet" is
+   always one glance away on a form that is now three panels tall, and stops
+   sticking once the page has been scrolled to its end — a bar that floats over
+   the footer of a finished page is just something in the way. */
+.cut-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  padding: 12px 14px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  /* `--glass-2` and no blur. A sticky bar is composited on every scroll
+     frame, and `backdrop-filter` is the most expensive property in this file —
+     it was deliberately removed from the nav and from the landing cards for
+     exactly this reason. At 96% opaque the bar already separates from whatever
+     passes under it, and it costs nothing to move. */
+  background: var(--glass-2);
+  box-shadow: 0 -1px 0 rgba(15, 17, 21, 0.03), 0 12px 28px -20px rgba(15, 17, 21, 0.3);
+}
+
+/* A keycap. Real dimensions rather than a styled span: the shortcut hint is
+   only useful if it reads as a key at a glance. */
+.kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  padding: 0 0.25rem;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--surface-1);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--text-dim);
+}
+
+/* ---- The resume template picker ------------------------------------------
+   Each card draws a miniature of its template from the traits the backend
+   publishes, so a preview can never claim a layout the renderer does not have.
+   Bars stand in for text: at this size real words are unreadable noise, and a
+   bar reads instantly as "this is the shape of a page". */
+
+.tpl-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  text-align: left;
+  transition: border-color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
+}
+.tpl-card:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.tpl-card-on {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+.tpl-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The page itself: a real aspect ratio, so the miniature is a page and not a
+   swatch. */
+.tpl-page {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  aspect-ratio: 8.5 / 11;
+  padding: 9px 8px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #ffffff;
+  overflow: hidden;
+}
+.tpl-name {
+  height: 5px;
+  border-radius: 1px;
+  background: #2b3038;
+}
+.tpl-head {
+  width: 34%;
+  height: 3px;
+  border-radius: 1px;
+  background: #5b626d;
+}
+.tpl-band {
+  width: 100%;
+  height: 7px;
+  border-radius: 1px;
+  background: #e6eaf0;
+}
+.tpl-line {
+  border-radius: 1px;
+  background: #c3c8d0;
+}
+.tpl-line-strong {
+  background: #7d848f;
+}
+.tpl-rule {
+  width: 100%;
+  height: 1px;
+  background: #b9bfc8;
+}
+
 /* Hairline-ruled data row: one rule under each, none above the first, because
    the container supplies that. Used anywhere the content is a definition or a
    measurement rather than a card's worth of prose. */

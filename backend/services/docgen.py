@@ -12,9 +12,14 @@ from io import BytesIO
 from docxtpl import DocxTemplate
 from jinja2 import Environment, FileSystemLoader
 
+from services import resume_templates
 from services.paths import TEMPLATES_DIR
 
 _jinja_env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)))
+# Date normalisation lives in the template layer because it is a presentation
+# concern — profile.json keeps whatever the user typed, and only the rendered
+# document says "Mar 2021". See resume_templates.when().
+_jinja_env.filters["when"] = resume_templates.when
 
 
 def _weasyprint_html():
@@ -64,18 +69,43 @@ def build_resume_context(profile: dict, tailored_fields: dict) -> dict:
     }
 
 
-def render_resume_pdf(context: dict) -> bytes:
+def render_resume_pdf(context: dict, template_id: str | None = None) -> bytes:
+    """Render the resume through one of the seven templates.
+
+    `template_id` is resolved rather than validated: an unknown or retired id
+    falls back to the default. This request has already been accepted and
+    queued, and failing it thirty seconds later over a stale preference would
+    cost the user a cut and tell them nothing useful.
+    """
     HTML = _weasyprint_html()
-    template = _jinja_env.get_template("resume_template.html")
+    template = _jinja_env.get_template(resume_templates.resolve(template_id).html)
     html_string = template.render(**context)
     buffer = BytesIO()
     HTML(string=html_string, base_url=str(TEMPLATES_DIR)).write_pdf(buffer)
     return buffer.getvalue()
 
 
-def render_resume_docx(context: dict) -> bytes:
-    doc = DocxTemplate(str(TEMPLATES_DIR / "resume_template.docx"))
-    doc.render(context)
+def render_resume_docx(context: dict, template_id: str | None = None) -> bytes:
+    """The same resume as an editable Word document.
+
+    DOCX carries the template's typography — family, sizes, heading treatment —
+    but not every one of its layout refinements: Word has no equivalent of a
+    tinted heading band that reflows, and forcing one in would produce exactly
+    the kind of shape a parser dislikes. The section order, headings and
+    content are identical to the PDF, which is what an ATS reads either way.
+
+    A template whose DOCX has not been built falls back to the shared one, so
+    adding a template can never break the Word export.
+    """
+    chosen = resume_templates.resolve(template_id)
+    path = TEMPLATES_DIR / resume_templates.TEMPLATE_DIR_NAME / chosen.docx
+    if not path.exists():
+        path = TEMPLATES_DIR / "resume_template.docx"
+    doc = DocxTemplate(str(path))
+    # docxtpl builds its own Jinja environment, so the date normaliser has to
+    # be handed over explicitly — otherwise the DOCX renders "{{ role.start |
+    # when }}" as an error while the PDF beside it is perfectly correct.
+    doc.render(context, jinja_env=_jinja_env)
     buffer = BytesIO()
     doc.save(buffer)
     return buffer.getvalue()

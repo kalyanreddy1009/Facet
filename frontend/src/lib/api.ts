@@ -290,6 +290,31 @@ export interface TailorRequestBody {
   target_role?: string;
   job_url?: string;
   application_id?: number;
+  /** Which of the seven resume templates to render. Omitted means "the one
+   *  the last cut used", which the server resolves — so a request from a
+   *  device that has never seen the picker still gets the right document. */
+  resume_template?: string;
+}
+
+/** One resume template, as the picker draws it.
+ *
+ *  Served rather than hardcoded in the frontend: a card that promises a layout
+ *  the renderer no longer has is worse than no card, and this way the two
+ *  cannot drift. `traits` drives the miniature preview, so the preview is
+ *  described by the same source that describes the template. */
+export interface ResumeTemplate {
+  id: string;
+  name: string;
+  blurb: string;
+  best_for: string;
+  traits: {
+    family?: "serif" | "sans" | "mixed";
+    align?: "left" | "center";
+    rules?: "heading" | "header" | "between" | "band" | "none";
+    density?: "dense" | "regular" | "airy";
+    dates?: "above";
+    lead?: "company";
+  };
 }
 
 export interface Feed {
@@ -504,6 +529,12 @@ export const api = {
     });
     return waitForJob<TailorResponse>(job_id, onProgress, signal);
   },
+  /** Just the Stone's skill vocabulary, for the Cut page's live pre-check.
+   *  Not the whole profile: that carries employers, dates and every bullet,
+   *  and the pre-check needs a word list. */
+  profileKeywords: () => request<{ keywords: string[] }>("/api/profile/keywords"),
+  resumeTemplates: () =>
+    request<{ templates: ResumeTemplate[]; selected: string }>("/api/resume/templates"),
   agyHealth: () => request<{ available: boolean; detail: string }>("/api/agy/health"),
 
   /* jobs */
