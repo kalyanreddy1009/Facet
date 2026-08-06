@@ -1,0 +1,30 @@
+{
+  "chicago": {
+    "hash": "5aba483cd11a94ba",
+    "bytes": 42950
+  },
+  "zurich": {
+    "hash": "4f7ee8bac14a4c10",
+    "bytes": 36264
+  },
+  "cambridge": {
+    "hash": "c702d906b98f0e78",
+    "bytes": 35688
+  },
+  "meridian": {
+    "hash": "95e3303a6230afca",
+    "bytes": 41158
+  },
+  "compact": {
+    "hash": "8842e3ba13a6740f",
+    "bytes": 34368
+  },
+  "ledger": {
+    "hash": "2a990e89e65abd00",
+    "bytes": 38750
+  },
+  "bulletin": {
+    "hash": "b5b3d8cb81509e60",
+    "bytes": 35226
+  }
+}

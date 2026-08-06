@@ -28,111 +28,38 @@ import { useEffect, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { api, type ResumeTemplate } from "@/lib/api";
 
-/* The miniature, in three pieces hoisted to module scope.
-   Declaring these inside Preview would recreate them on every render, which
-   resets their identity each time — React's `static-components` rule catches
-   it, and it is a real cost here because seven previews redraw whenever the
-   picker opens. */
-
-/** A hairline, standing in for a rule under a heading or between roles. */
-function Rule() {
-  return <div className="tpl-rule" />;
-}
-
-/** A line of body text. Bars rather than lorem ipsum: at 96px wide real words
- *  are unreadable noise, and a bar reads instantly as "this is a page". */
-function Line({ w, h }: { w: number; h: number }) {
-  return <div className="tpl-line" style={{ width: `${w}%`, height: h }} />;
-}
-
-/** A section: whatever heading treatment the template uses, then body lines. */
-function Section({
-  traits,
-  widths,
-  gap,
-  lineH,
-  serif,
-}: {
-  traits: ResumeTemplate["traits"];
-  widths: number[];
-  gap: number;
-  lineH: number;
-  serif: boolean;
-}) {
+/** The preview: a real render of the real template.
+ *
+ *  This replaced a miniature drawn from each template's declared `traits` —
+ *  bars standing in for text. The drawn version could not go stale, which was
+ *  the point, but it also could not answer the only question the picker exists
+ *  to answer: would you send this? A bar diagram shows the shape of a page.
+ *  Choosing a resume template without seeing the resume is choosing blind.
+ *
+ *  Staleness is handled rather than avoided. `build_template_previews.py`
+ *  records the hash of each template's HTML beside its image, and the backend
+ *  check fails by name if a template changes without the preview following —
+ *  verified by editing one line of CSS and watching it fire.
+ *
+ *  `loading="lazy"` matters: the ordinary path through this control is to
+ *  arrive, accept the remembered template and never open the picker, and that
+ *  path should fetch none of the 258 KB.
+ */
+function Preview({ id, name }: { id: string; name: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap }}>
-      {traits.rules === "band" ? (
-        <div className="tpl-band" />
-      ) : (
-        <div className="tpl-head" style={{ fontFamily: serif ? "Georgia, serif" : undefined }} />
-      )}
-      {traits.rules === "heading" && <Rule />}
-      {widths.map((w, i) => (
-        <Line key={i} w={w} h={lineH} />
-      ))}
-    </div>
-  );
-}
-
-/** The whole page, drawn from the traits the backend publishes for this
- *  template — so a preview can never claim a layout the renderer lacks. */
-function Preview({ traits }: { traits: ResumeTemplate["traits"] }) {
-  const serif = traits.family === "serif" || traits.family === "mixed";
-  const dense = traits.density === "dense";
-  const airy = traits.density === "airy";
-  const gap = dense ? 2.5 : airy ? 5 : 3.5;
-  const lineH = dense ? 1.5 : 2;
-
-  return (
-    <div className="tpl-page" aria-hidden>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap,
-          alignItems: traits.align === "center" ? "center" : "stretch",
-        }}
-      >
-        {/* The name block. Centred templates centre it; everything else ranges
-            left, which is the most visible difference between Chicago and the
-            rest at thumbnail size. */}
-        <div
-          className="tpl-name"
-          style={{
-            width: traits.align === "center" ? "58%" : "44%",
-            fontFamily: serif ? "Georgia, serif" : undefined,
-          }}
-        />
-        <Line w={traits.align === "center" ? 76 : 62} h={1.5} />
-      </div>
-      {traits.rules === "header" && <Rule />}
-      <div style={{ display: "flex", flexDirection: "column", gap: gap * 2 }}>
-        <Section traits={traits} widths={[100, 88]} gap={gap} lineH={lineH} serif={serif} />
-        <Section traits={traits} widths={[100, 72]} gap={gap} lineH={lineH} serif={serif} />
-        {/* The experience block, where the templates differ most: dates above
-            the role, company leading, or a rule between entries. */}
-        <div style={{ display: "flex", flexDirection: "column", gap }}>
-          {traits.rules === "band" ? <div className="tpl-band" /> : <div className="tpl-head" />}
-          {traits.rules === "heading" && <Rule />}
-          {[0, 1].map((role) => (
-            <div key={role} style={{ display: "flex", flexDirection: "column", gap: gap * 0.7 }}>
-              {role > 0 && traits.rules === "between" && <Rule />}
-              {traits.dates === "above" && <Line w={26} h={lineH} />}
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 4 }}>
-                <div
-                  className="tpl-line tpl-line-strong"
-                  style={{ width: "46%", height: lineH + 0.5 }}
-                />
-                {traits.dates !== "above" && <Line w={28} h={lineH} />}
-              </div>
-              <Line w={34} h={lineH} />
-              <Line w={96} h={lineH} />
-              <Line w={dense ? 90 : 78} h={lineH} />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+    <img
+      src={`/resume-templates/${id}.webp`}
+      // The page IS the preview, so the alt text says what it is rather than
+      // describing a picture of it. The name and "best for" line sit beside
+      // this; "screenshot of" would be noise.
+      alt={`${name} template, one page`}
+      className="tpl-page"
+      width={560}
+      height={725}
+      loading="lazy"
+      decoding="async"
+      draggable={false}
+    />
   );
 }
 
@@ -231,7 +158,7 @@ export default function TemplatePicker({
                 onClick={() => onChange(template.id)}
                 className={`tpl-card ${selected ? "tpl-card-on" : ""}`}
               >
-                <Preview traits={template.traits} />
+                <Preview id={template.id} name={template.name} />
                 <span className="flex items-center gap-1.5 mt-2.5">
                   <span className="text-sm font-medium text-text">{template.name}</span>
                   {selected && <Check className="w-3.5 h-3.5 text-accent-text shrink-0" aria-hidden />}

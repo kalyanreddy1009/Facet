@@ -33,6 +33,7 @@ date extractors, so `when()` below normalises what it recognises into
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 
@@ -412,6 +413,46 @@ def demo() -> None:
             assert needle in body, f"{template.id}: DOCX is missing '{needle}'"
         assert "work experience" in body.lower(), f"{template.id}: DOCX lost its Experience heading"
         assert "{{" not in body, f"{template.id}: DOCX left an unrendered Jinja tag"
+
+    # 8. Every template has a current preview image.
+    #
+    #    The picker shows real renders now rather than drawn miniatures, which
+    #    is the only way to actually choose between them — but a screenshot is
+    #    a copy of the truth and copies rot. This compares the hash the
+    #    generator recorded against the template on disk, so a skin edited
+    #    without re-running the generator fails here by name instead of
+    #    quietly advertising the old design.
+    #
+    #    The base is folded into the hash because a change there reshapes all
+    #    seven, and a preview tracking only its own file would go stale on
+    #    exactly the edit that affects every template.
+    import hashlib
+
+    previews = TEMPLATES_DIR.parent / "frontend" / "public" / "resume-templates"
+    manifest_path = previews / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        base_bytes = (TEMPLATES_DIR / TEMPLATE_DIR_NAME / "_base.html").read_bytes()
+        stale = []
+        for template in TEMPLATES:
+            image = previews / f"{template.id}.webp"
+            assert image.exists(), (
+                f"{template.id}: preview image is missing — run "
+                f"templates/build_template_previews.py"
+            )
+            source = TEMPLATES_DIR / TEMPLATE_DIR_NAME / f"{template.id}.html"
+            current = hashlib.sha256(base_bytes + source.read_bytes()).hexdigest()[:16]
+            if manifest.get(template.id, {}).get("hash") != current:
+                stale.append(template.id)
+        assert not stale, (
+            f"preview images are out of date for: {', '.join(stale)}. The picker would show "
+            f"the old design. Run templates/build_template_previews.py"
+        )
+    else:
+        print(
+            "resume_templates: no preview manifest — run templates/build_template_previews.py",
+            flush=True,
+        )
 
     assert len(TEMPLATES) == 7, f"the sprint calls for seven templates, found {len(TEMPLATES)}"
     assert len(BY_ID) == 7, "two templates share an id"

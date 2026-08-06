@@ -1368,46 +1368,26 @@ body::before {
 
 /* The page itself: a real aspect ratio, so the miniature is a page and not a
    swatch. */
+/* The rendered page. `object-position: top` because the header and the first
+   section heading are what distinguish these seven, and the foot of a page is
+   where they all look alike — if a card has to crop, crop the bottom. */
 .tpl-page {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: block;
+  width: 100%;
+  height: auto;
   aspect-ratio: 8.5 / 11;
-  padding: 9px 8px;
+  object-fit: cover;
+  object-position: top center;
   border: 1px solid var(--border);
   border-radius: 3px;
   background: #ffffff;
-  overflow: hidden;
 }
-.tpl-name {
-  height: 5px;
-  border-radius: 1px;
-  background: #2b3038;
-}
-.tpl-head {
-  width: 34%;
-  height: 3px;
-  border-radius: 1px;
-  background: #5b626d;
-}
-.tpl-band {
-  width: 100%;
-  height: 7px;
-  border-radius: 1px;
-  background: #e6eaf0;
-}
-.tpl-line {
-  border-radius: 1px;
-  background: #c3c8d0;
-}
-.tpl-line-strong {
-  background: #7d848f;
-}
-.tpl-rule {
-  width: 100%;
-  height: 1px;
-  background: #b9bfc8;
-}
+
+
+
+
+
+
 
 /* The sending-trend bars. A week with nothing sent gets a 2px rule rather
    than nothing at all — an absent bar reads as missing data, and "you sent
