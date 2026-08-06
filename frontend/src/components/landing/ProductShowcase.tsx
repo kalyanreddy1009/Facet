@@ -45,14 +45,17 @@
  */
 
 import { useEffect, useRef, useState } from "react";
-import { CalendarCheck, Check, FileText, Gem, Lock, Search, Sparkles } from "lucide-react";
+import { CalendarCheck, Check, FileText, Lock } from "lucide-react";
+// The four nouns are drawn from the app's own gem geometry rather than taken
+// from a general icon set — see FacetIcons. Lucide keeps the ordinary verbs.
+import { CabinetIcon, FacetIcon, RoughIcon, StoneIcon } from "@/components/ui/FacetIcons";
 
 interface Beat {
   eyebrow: string;
   title: string;
   body: string;
   route: string;
-  icon: typeof Search;
+  icon: (props: { className?: string }) => React.ReactElement;
 }
 
 const BEATS: Beat[] = [
@@ -61,28 +64,28 @@ const BEATS: Beat[] = [
     title: "One honest record, imported once.",
     body: "Your resume becomes the fixed set of facts every application is built from — and the ceiling on what anything Facet writes is allowed to claim. You review it and correct it. Nothing else ever edits it.",
     route: "/stone",
-    icon: Gem,
+    icon: StoneIcon,
   },
   {
     eyebrow: "The Rough",
     title: "Every posting, ranked against your Stone.",
     body: "Public job APIs and the alert feeds you subscribed to, deduplicated into one list and scored on the skills you actually have. The terms that matched sit next to the score, so a number you would otherwise have to trust is one you can check.",
     route: "/rough",
-    icon: Search,
+    icon: RoughIcon,
   },
   {
     eyebrow: "The cut",
     title: "One posting in. Three documents out.",
     body: "A tailored resume, a cover letter and a short recruiter pitch, as PDF or Word. The layout is fixed and identical every time — only the emphasis moves, and it can only move within what your Stone already says.",
     route: "/tailor",
-    icon: Sparkles,
+    icon: FacetIcon,
   },
   {
     eyebrow: "The Cabinet",
     title: "And what came of it.",
     body: "Everything you have sent, what has gone quiet and needs a nudge, and the interviews on the other side of it. Point it at your calendar feed and it spots the invitations itself — then asks before filing them.",
     route: "/cabinet",
-    icon: CalendarCheck,
+    icon: CabinetIcon,
   },
 ];
 

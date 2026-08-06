@@ -227,9 +227,19 @@ export default function RoughPage() {
                   : "Try a broader search, widen the date range, or fetch fresh postings from the boards."
               }
               action={
-                <Button variant="primary" icon={RefreshCw} onClick={runLiveSearch} loading={searching}>
-                  Search all boards
-                </Button>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Button variant="primary" icon={RefreshCw} onClick={runLiveSearch} loading={searching}>
+                    Search all boards
+                  </Button>
+                  {/* The second route, and on a first run the likelier one:
+                      an empty Rough usually means no feeds are configured
+                      rather than that the boards returned nothing. */}
+                  {total === 0 && !filters.q && (
+                    <Button icon={Settings2} onClick={() => setSourcesOpen(true)}>
+                      Check sources
+                    </Button>
+                  )}
+                </div>
               }
             />
           ) : (

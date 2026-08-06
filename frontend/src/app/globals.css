@@ -1409,6 +1409,16 @@ body::before {
   background: #b9bfc8;
 }
 
+/* The sending-trend bars. A week with nothing sent gets a 2px rule rather
+   than nothing at all — an absent bar reads as missing data, and "you sent
+   nothing that week" is data. */
+.trend-bar {
+  background: linear-gradient(to top, #3f6ae8, #5b83f5);
+}
+.trend-bar-empty {
+  background: var(--border-strong);
+}
+
 /* ---- The Rough: density and the keyboard cursor -------------------------
 
    Compact is not "the same card, smaller". It removes the two lines that are

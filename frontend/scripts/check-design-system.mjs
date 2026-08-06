@@ -62,6 +62,7 @@ const OWNED = [
   "skeleton",
   "tpl-",
   "tnum",
+  "trend-",
 ];
 
 /** Custom properties supplied by the caller at the call site rather than
