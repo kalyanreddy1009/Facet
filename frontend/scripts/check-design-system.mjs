@@ -38,6 +38,7 @@ const CSS = join(ROOT, "src/app/globals.css");
 const OWNED = [
   "ambient",
   "badge",
+  "bracket",
   "btn",
   "card",
   "chrome",
@@ -51,6 +52,7 @@ const OWNED = [
   "panel",
   "rise",
   "row-hover",
+  "ruled",
   "skeleton",
   "tnum",
 ];

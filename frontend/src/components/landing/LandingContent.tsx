@@ -29,14 +29,14 @@ import {
   CalendarCheck,
   Check,
   FileDown,
-  Layers,
   Lock,
   Search,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import { useSession } from "@/lib/useSession";
-import StoneGraphic from "./StoneGraphic";
+import OpticsStudy from "./OpticsStudy";
+import StoneBracket from "./StoneBracket";
 
 const FAQ = [
   {
@@ -297,16 +297,18 @@ export default function LandingContent() {
           </p>
         </div>
 
-        {/* The stone is the page, so it now renders on every width including a
+        {/* The stone is the page, so it renders on every width including a
             phone in portrait — which was the last viewport still getting the
             copy and none of the thing the copy is about, and is most of the
             traffic a landing page ever sees.
             It sits *after* the text in the source, so on a single column it
             lands below the buttons: the primary action keeps its place above
             the fold and the stone rewards the first scroll instead of pushing
-            the page down. `z-0` pairs with the copy's `z-10` above. */}
+            the page down. `z-0` pairs with the copy's `z-10` above, which is
+            what keeps the whole bracket — type and light both — from ever
+            painting over the headline. */}
         <div className="relative z-0 grid place-items-center">
-          <StoneGraphic size="clamp(13rem, 40vw, 30rem)" />
+          <StoneBracket />
         </div>
       </section>
 
@@ -392,22 +394,43 @@ export default function LandingContent() {
             body="Facet borrows its language from gemcutting and uses it consistently everywhere. These are all of it."
           />
         </Reveal>
-        <dl className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Four ruled rows rather than four cards.
+
+            These are definitions — a term, its meaning, and its place in the
+            sequence. A card is a container for something you might act on, and
+            four of them side by side turned a glossary into a feature grid you
+            had to read twice to realise wasn't one. Hairlines and a monospaced
+            term put the vocabulary in the register it belongs to: reference
+            material, scannable in one pass, and quiet enough that the sections
+            with an action in them keep their weight. */}
+        <dl className="mt-10 border-t border-border">
           {VOCABULARY.map(([term, meaning], i) => (
             <Reveal key={term} delay={i * 70}>
-              <div className="glass-card glass-card-lift h-full p-6">
-                <dt className="flex items-center gap-2 text-base font-semibold text-text">
-                  <Layers className="w-4 h-4 text-accent-text" aria-hidden />
+              <div className="ruled-row grid grid-cols-[auto_1fr] sm:grid-cols-[10rem_1fr_auto] items-baseline gap-x-5 gap-y-1 py-5">
+                <dt className="mono text-sm font-semibold uppercase tracking-[0.14em] text-accent-text">
                   {term}
                 </dt>
-                <dd className="mt-2 text-sm text-text-dim text-pretty leading-relaxed">
+                <dd className="col-span-1 max-sm:col-start-1 max-sm:row-start-2 text-md text-text-dim text-pretty leading-relaxed">
                   {meaning}
                 </dd>
+                {/* The index, right-aligned. It is the reading order of the
+                    four, which is genuinely the thing a newcomer needs and is
+                    otherwise only implied by where they sit on the page. */}
+                <span className="mono tnum text-xs text-text-ghost max-sm:hidden" aria-hidden>
+                  0{i + 1}
+                </span>
               </div>
             </Reveal>
           ))}
         </dl>
       </LitSection>
+
+      {/* ------------------------------------------------------- the study */}
+      {/* Sits after the vocabulary because it is the payoff for it: the four
+          words are borrowed from gemcutting, and this is the section that
+          shows the borrowing was not decorative. Everything in it is traced
+          against the real facet coordinates — see lib/optics.ts. */}
+      <OpticsStudy />
 
       {/* -------------------------------------------------------------- FAQ */}
       <LitSection index={3} className="max-w-3xl mx-auto px-5 sm:px-8 py-20">
