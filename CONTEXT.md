@@ -193,21 +193,35 @@ a faint facet lattice, pure CSS, no JS. Every surface (`.panel`, `.card`,
 if a component uses a class or `--custom-property` that globals.css never
 defines — the failure mode that shipped four unstyled screens in July 2026.
 
-**Design system — "lit graphite", enforced by tokens in `app/globals.css`:**
-four cool blue-slate surface steps, each with a translucent `--glass-*` form;
-**one** accent (indigo `--accent` `#4a76f0` as a fill, `--accent-text`
-`#86a9ff` as ink — the same hue at two lightnesses, because neither value
-clears AA in both roles) for the primary action and current state only;
-green/amber/red reserved strictly for status. If it isn't reporting state, it
-isn't coloured. The single exception is `--glint` (cyan), allowed only in the
-ambient background and the hero, never on a control. Depth = 1px border +
-translucent surface + one neutral shadow — no glows, no coloured shadows, no
-gradient text. Inter for UI, JetBrains Mono for numbers. Metadata is
-middot-separated plain text, not a wall of pills; badges are rare and mean
-something. 32px controls, 8px grid, 13–14px body. Four motion durations
-(120/200/320/520ms) and four curves, matched to how far the thing actually
-moves; everything collapses under `prefers-reduced-motion`, and all
-translucency reverts under `prefers-reduced-transparency`.
+**Design system — enforced by tokens in `app/globals.css`. Light-first**: the
+`:root` values *are* the light theme, and dark is a `prefers-color-scheme`
+variant, so read a token from `:root` before assuming a value. Four neutral
+surface steps (`#ffffff` → `#d6d7db`), each with a translucent `--glass-*` form;
+**one** accent (indigo `--accent` `#4a76f0` as a fill, `--accent-text` `#2a51c6`
+as ink on light / `#9fbaff` on dark — the same hue at two lightnesses, because
+neither value clears AA in both roles) for the primary action and current state
+only; green/amber/red reserved strictly for status. If it isn't reporting state,
+it isn't coloured. `--glint` (cyan) is the single exception, allowed in the
+ambient background, the hero, and the travelling `.wordmark` gradient — never on
+a control. Depth = 1px border + translucent surface + one neutral shadow — no
+glows, no coloured shadows, and no gradient text outside that wordmark. Inter for
+UI, JetBrains Mono for numbers. Metadata is middot-separated plain text, not a
+wall of pills; badges are rare and mean something.
+
+**Sizing is rem, and that is load-bearing** — it is how the app answers the
+reader's browser font setting (Dynamic Type). `--control-h` is `2rem`
+(`1.625`/`2.375` for sm/lg), lifting to `2.5rem` under `pointer: coarse`; the
+Tailwind type scale runs `0.6875rem`–`2.375rem` against a 16px root. Text
+containers take `min-height`, never `height`, so a grown glyph pushes the box
+instead of being clipped. `check-design-system.mjs` fails the build on a px
+`font-size` or a px entry in the type scale.
+
+Four motion durations (120/200/320/520ms) and four curves, matched to how far the
+thing actually moves. All three relevant system settings are answered:
+`prefers-reduced-motion` collapses every animation, `prefers-reduced-transparency`
+reverts translucency, and `prefers-contrast: more` darkens supporting text to body
+ink and takes control borders to full strength — with no layout movement in any of
+the three.
 
 Two rules that exist because breaking them shipped bugs: `.btn-cap` is a fixed
 20px disc for **one icon**, never a label; and any `backdrop-filter` writes
@@ -240,7 +254,7 @@ backend/.venv/bin/python -m services.matching        # scoring
 backend/.venv/bin/python -m services.logging_setup   # ring buffer + metrics
 backend/.venv/bin/python -m services.health          # every status check
 backend/.venv/bin/python scripts/check_all.py        # every suite + self-check, one command
-cd frontend && npm run check                         # formatting, api cache, design system, interface
+cd frontend && npm run check                         # formatting, api cache, clipboard, design system, interface
 cd frontend && npx tsc --noEmit && npm run lint && npm run build
 node extension/check.mjs                             # manifest, permissions, no-submit gate
 ```
@@ -262,7 +276,13 @@ The frontend has three static checks beyond formatting, all in `npm run check`:
 `check-interface.mjs` (WCAG contrast of every text token against every surface,
 form labels, explicit button `type`, icon-button names, `rel` on `_blank`), and
 `src/lib/api.check.ts` (the response cache: reuse, invalidation, poll bypass,
-dedupe).
+dedupe). `check-design-system.mjs` also guards the rem type scale — a px
+`font-size` in `globals.css`, or a px entry in `tailwind.config.ts`, fails it.
+
+A fourth, `scripts/check-layout.mjs`, is deliberately *outside* `npm run check`:
+it drives Playwright over every route at six widths looking for horizontal
+overflow, clipped or misaligned content and page errors, so it needs a server to
+point at. Run it against a local port or against production after deploying.
 
 New non-trivial logic adds one `demo()`/`assert` check in the same style.
 Don't introduce pytest/jest/vitest without being asked.
@@ -271,8 +291,10 @@ Don't introduce pytest/jest/vitest without being asked.
 
 1. **Use `backend/.venv/bin/python`** — bare `python` on this machine is a
    3.8-era interpreter and dies on `set[str]` subscripting.
-2. Port 8000/3000 may already hold a running instance; `bind` fails with
-   WinError 10048. Check before launching another.
+2. Port 8000/3000 may already hold a **running production instance**. Check
+   with `ss -ltnp` before launching another. And never `pkill -f <name>` to
+   clear one — `pkill -f "next-server"` killed the live frontend and 502'd the
+   public site for four minutes. Kill by port PID: `lsof -ti:PORT`.
 3. `agy` may be absent/unauthenticated. Everything except tailoring and
    extraction must still work; `/status` reports it.
 4. Migrations are additive-only via `_POSTING_COLUMNS`. Never rewrite the
