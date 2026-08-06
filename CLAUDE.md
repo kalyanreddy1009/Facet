@@ -27,18 +27,25 @@ Verified against **v1.60.1.0** (`a325940`). `/gstack-upgrade` moves it forward.
 **Use `/browse` for all web browsing. Never use the `mcp__claude-in-chrome__*`
 tools.** `/browse` is the supported path here; the Chrome MCP tools are not.
 
-Available:
+Available — 53 skills, more than the suite's own README lists. Grouped by what
+you would actually reach for:
 
 | | |
 |---|---|
-| **Planning & review** | `/autoplan` · `/plan-ceo-review` · `/plan-eng-review` · `/plan-design-review` · `/plan-devex-review` · `/review` · `/devex-review` · `/design-review` |
-| **Design** | `/design-consultation` · `/design-shotgun` · `/design-html` |
-| **Ship & deploy** | `/ship` · `/land-and-deploy` · `/canary` · `/freeze` · `/unfreeze` · `/guard` · `/careful` |
-| **Quality** | `/qa` · `/qa-only` · `/benchmark` · `/investigate` |
-| **Browser** | `/browse` · `/connect-chrome` · `/setup-browser-cookies` |
-| **Docs** | `/document-release` · `/document-generate` · `/retro` · `/learn` |
-| **Setup** | `/setup-deploy` · `/setup-gbrain` · `/gstack-upgrade` |
-| **Other** | `/office-hours` · `/codex` · `/cso` |
+| **Planning** | `/spec` · `/autoplan` · `/plan-ceo-review` · `/plan-eng-review` · `/plan-design-review` · `/plan-devex-review` · `/plan-tune` · `/office-hours` |
+| **Review** | `/review` · `/design-review` · `/devex-review` · `/health` · `/retro` |
+| **Design** | `/design-consultation` · `/design-shotgun` · `/design-html` · `/diagram` |
+| **Ship & deploy** | `/ship` · `/land-and-deploy` · `/canary` · `/landing-report` · `/setup-deploy` |
+| **Safety** | `/careful` · `/guard` · `/freeze` · `/unfreeze` · `/cso` |
+| **Quality** | `/qa` · `/qa-only` · `/benchmark` · `/benchmark-models` · `/investigate` |
+| **Browser** | `/browse` · `/connect-chrome` · `/open-gstack-browser` · `/scrape` · `/skillify` · `/setup-browser-cookies` · `/pair-agent` |
+| **Docs** | `/document-release` · `/document-generate` · `/make-pdf` · `/learn` |
+| **Context** | `/context-save` · `/context-restore` |
+| **gbrain** | `/setup-gbrain` · `/sync-gbrain` |
+| **Other** | `/codex` · `/gstack-upgrade` |
+
+Also installed and **not applicable to this project** — Facet has no iOS app:
+`/ios-qa` · `/ios-design-review` · `/ios-fix` · `/ios-clean` · `/ios-sync`.
 
 ## Commands
 
