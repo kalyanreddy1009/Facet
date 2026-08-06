@@ -6,6 +6,7 @@ import { api, ApiError, type ExtractionStatus } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import CopyButton from "@/components/ui/CopyButton";
 import Panel from "@/components/ui/Panel";
+import ExtractedStone from "@/components/stone/ExtractedStone";
 import Toaster from "@/components/ui/Toaster";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToasts } from "@/lib/useToasts";
@@ -227,6 +228,11 @@ export default function StonePage() {
           placeholder="Write your full resume in Markdown here, or import a file above…"
         />
       </Panel>
+
+      {/* What the extraction understood, read back. The editor above is the
+          source; this is the ceiling on every claim in every application, and
+          before this there was no screen in the product that showed it. */}
+      <ExtractedStone />
 
       <div className="flex flex-wrap items-center gap-3 mt-4">
         <Button

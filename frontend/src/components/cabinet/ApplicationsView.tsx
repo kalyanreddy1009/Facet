@@ -2,6 +2,7 @@
 
 import type { Application, DashboardSummary } from "@/lib/api";
 import Panel from "@/components/ui/Panel";
+import SendingTrend from "@/components/cabinet/SendingTrend";
 import Button from "@/components/ui/Button";
 import StatNumber from "./StatNumber";
 import PipelineView from "./PipelineView";
@@ -42,10 +43,18 @@ export default function ApplicationsView({ summary, onUpdateStatus }: Applicatio
         </Panel>
       </div>
 
+      {/* The trajectory question, which the pipeline above cannot answer:
+          a snapshot on a bad week and a good week look identical. */}
+      <SendingTrend summary={summary} />
+
       <Panel className="p-5">
         <p className="label mb-2">Needs a follow-up — set 5+ days ago, still silent</p>
         {summary.needs_followup.length === 0 ? (
-          <p className="text-sm text-text-faint">Nothing waiting on you.</p>
+          <p className="text-sm text-text-faint text-pretty">
+            {summary.funnel.Set > 0
+              ? "Nothing waiting on you — everything you've sent is still inside the five-day window."
+              : "Nothing waiting on you. Nothing has been marked Set yet, so nothing can be overdue."}
+          </p>
         ) : (
           <ul className="flex flex-col">
             {summary.needs_followup.map((application) => (

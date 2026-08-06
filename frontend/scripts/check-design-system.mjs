@@ -47,6 +47,7 @@ const OWNED = [
   "divider",
   "dot",
   "field",
+  "job-",
   "kbd",
   "label",
   "list-row",
@@ -54,12 +55,14 @@ const OWNED = [
   "panel",
   "preflight",
   "rise",
+  "rough-",
   "row-hover",
   "ruled",
   "showcase",
   "skeleton",
   "tpl-",
   "tnum",
+  "trend-",
 ];
 
 /** Custom properties supplied by the caller at the call site rather than

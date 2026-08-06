@@ -339,7 +339,10 @@ export default function LandingContent() {
                     +
                   </span>
                 </summary>
-                <p className="text-sm text-text-dim mt-4 text-pretty leading-relaxed">{item.a}</p>
+                {/* 15px, not 13. The app can sit at 13px — that is the convention
+                    for dense UI — but this is marketing copy a stranger reads once,
+                    and the rule that body text clears 15px applies to them. */}
+                <p className="text-md text-text-dim mt-4 text-pretty leading-relaxed">{item.a}</p>
               </details>
             </Reveal>
           ))}

@@ -4,6 +4,7 @@ import { CalendarPlus, CalendarX } from "lucide-react";
 import type { Application, Contact, Interview } from "@/lib/api";
 import Panel from "@/components/ui/Panel";
 import Button from "@/components/ui/Button";
+import Link from "next/link";
 import EmptyState from "@/components/ui/EmptyState";
 import { parseDate } from "@/lib/format";
 
@@ -64,7 +65,12 @@ export default function InterviewsView({
       <EmptyState
         icon={CalendarX}
         title="No interviews yet"
-        body="Interviews appear here once you add them, or when calendar sync spots one and you confirm it."
+        body="Two ways one lands here: add it yourself against an application, or point Facet at your calendar feed and confirm the ones it spots. It never files an interview without asking."
+        action={
+          <Link href="/status" className="btn btn-default">
+            Connect a calendar feed
+          </Link>
+        }
       />
     );
   }
