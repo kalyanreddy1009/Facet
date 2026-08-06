@@ -217,11 +217,54 @@
    app feel like a tool is untouched. Not the full 44px: that is the target
    including its surrounding margin, and these controls sit in flex rows with
    6px of gap. */
+/* Touch. Every control clears 44px — Apple's *default*, not the 28pt floor.
+   The floor is what a control must never go below; the default is what a
+   thumb actually wants, and a job hunt happens on a phone on a commute. The
+   audit found 27 of 27 controls on The Rough under 44px, which is the single
+   biggest ergonomic gap in the product. `--control-h-sm` exists so dense rows
+   can be compact on a mouse; on a touch screen there is no such thing as a
+   compact target, so all three collapse to the same 44px. */
 @media (pointer: coarse) {
   :root {
-    --control-h-sm: 2.125rem;
-    --control-h: 2.5rem;
-    --control-h-lg: 2.75rem;
+    --control-h-sm: 2.75rem;
+    --control-h: 2.75rem;
+    --control-h-lg: 3rem;
+  }
+
+  /* Anything that is a target gets the floor, whether or not it opted into a
+     control token. Scoped to real interactive elements so it can never
+     inflate a layout container. */
+  a[href],
+  button:not(.btn-cap),
+  [role="button"],
+  [role="radio"],
+  [role="tab"],
+  summary,
+  select,
+  input:not([type="hidden"]),
+  textarea {
+    min-height: 2.75rem;
+  }
+
+  /* Inline links are the exception, and they include headings — a job title
+     in The Rough is an <a> inside an <h3>, and it is the primary action of
+     that row. A 44px `min-height` on an inline element breaks the line box
+     and pushes the text apart; padding grows the hit region without touching
+     the line, and the negative margin keeps the layout where it was.
+
+     0.9375rem is measured, not guessed: it takes the 17px job title to 47px
+     and 13px body links to 43px, and it is the largest value that does not
+     make a two-line title's halves overlap. */
+  p a[href],
+  li a[href],
+  label a[href],
+  h1 a[href],
+  h2 a[href],
+  h3 a[href],
+  h4 a[href] {
+    min-height: 0;
+    padding-block: 0.9375rem;
+    margin-block: -0.9375rem;
   }
 }
 

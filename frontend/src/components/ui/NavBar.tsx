@@ -73,7 +73,7 @@ export default function NavBar() {
         <Link
           href="/"
           className={`group nav-pill shrink-0 justify-self-start text-text ${
-            landing ? "gap-2.5 !min-h-[42px] !px-3.5" : "gap-2"
+            landing ? "gap-2.5 !min-h-[44px] !px-3.5" : "gap-2"
           }`}
         >
           {/* The mark leans into the light on hover — a stone catching it,
