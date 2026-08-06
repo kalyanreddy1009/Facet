@@ -152,3 +152,32 @@ export function demo(): void {
   assert(plainText("no markup here") === "no markup here", "plain text is untouched");
   console.log("format: all checks passed");
 }
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * A role date, in the form ATS date extractors read most reliably.
+ *
+ * The mirror of `resume_templates.when()` on the backend, and it exists for
+ * the same reason the browser has its own copy of the match scorer: the Stone
+ * panel shows the dates that will appear on a rendered resume, and showing
+ * `2021-03` on screen next to `Mar 2021` in the PDF is the app disagreeing
+ * with itself about the user's own history.
+ *
+ * Anything it does not recognise passes through untouched — "Present",
+ * "Summer 2019", an already-formatted date. Rewriting a date that was already
+ * correct is worse than leaving an odd one alone.
+ */
+export function formatRoleDate(value: string | null | undefined): string {
+  if (!value) return "";
+  const text = String(value).trim();
+  const iso = /^(\d{4})[-/](\d{1,2})$/.exec(text);
+  const slash = /^(\d{1,2})[-/](\d{4})$/.exec(text);
+  const [year, month] = iso
+    ? [iso[1], Number(iso[2])]
+    : slash
+      ? [slash[2], Number(slash[1])]
+      : [null, 0];
+  if (!year || month < 1 || month > 12) return text;
+  return `${MONTHS[month - 1]} ${year}`;
+}
