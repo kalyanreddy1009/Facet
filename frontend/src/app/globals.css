@@ -1230,58 +1230,263 @@ body::before {
   }
 }
 
-/* ---- The hero bracket ----------------------------------------------------
-   The word FACET split across two lines with the stone standing in the gap.
-
-   The z-indexes are the entire effect and are not interchangeable: the upper
-   half paints above the stone, the lower half beneath it, so the object is
-   bracketed by the type instead of laid over it. Give both halves the same
-   layer and this becomes big text behind a graphic, which reads as nothing.
-
-   Ghosted rather than ink-strength on purpose — at this size a black wordmark
-   out-shouts the headline beside it and the hero ends up with two things
-   competing to be read first. See StoneBracket.tsx. */
-
-.bracket-word {
-  position: absolute;
-  right: 0;
-  /* Not 50%. Meeting exactly at the centre put both halves entirely inside the
-     stone's span, so the word was buried rather than bracketing anything and
-     grey letters over a saturated gem went to mud. Held out to 58% each, only
-     the inner edge of each half is overlapped — which is the whole read: the
-     object is standing in the gap, not pasted over the type. */
-  bottom: 58%;
-  z-index: 20;
-  /* Right-aligned to the same edge, at a leading under 1, is what makes two
-     fragments read as one interrupted word rather than as a mistake. */
-  line-height: 0.82;
-  font-size: clamp(4.5rem, 13vw, 12rem);
-  font-weight: 600;
-  letter-spacing: -0.045em;
-  /* A watermark, not a second headline. At this size the ghost token is still
-     enough ink to fight the h1 across the hero, so it is thinned further
-     against the page — present, unmistakable, and never read first. */
-  color: color-mix(in srgb, var(--text-ghost) 42%, transparent);
-  pointer-events: none;
-  /* It only ever moves by transform, so it gets its own layer and the parting
-     costs no layout. */
-  will-change: transform;
-}
-.bracket-word-lower {
-  z-index: 0;
-  top: 58%;
-  bottom: auto;
-  /* The half behind the stone carries a little more ink than the one in front.
-     Reversed, the front half reads as the far one and the depth inverts. */
-  color: color-mix(in srgb, var(--text-ghost) 58%, transparent);
-}
-
 /* Hairline-ruled data row: one rule under each, none above the first, because
-   the container supplies that. Used for the vocabulary and for the study's
-   readout — anywhere the content is a measurement or a definition rather than
-   a card's worth of prose. */
+   the container supplies that. Used anywhere the content is a definition or a
+   measurement rather than a card's worth of prose. */
 .ruled-row {
   border-bottom: 1px solid var(--border);
+}
+
+/* ---- The product showcase ------------------------------------------------
+   The sticky three-beat sequence. Every value that moves is written inline by
+   ProductShowcase from one scroll position; everything static is here.
+
+   The window is a *quieter* surface than a real panel on purpose. It is a
+   depiction of the app inside a page about the app, and if it carries the same
+   weight as the interface around it the eye cannot tell which one it is
+   looking at. */
+
+.showcase-window {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(15, 17, 21, 0.04), 0 24px 48px -32px rgba(15, 17, 21, 0.22);
+}
+
+.showcase-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.showcase-body {
+  /* A grid with one child, so that child fills the window's whole height and
+     a beat can push its last row to the bottom with `mt-auto` instead of
+     leaving a hole under it. */
+  display: grid;
+  padding: 16px;
+}
+/* A grid item's automatic minimum size is its min-content width, and the rows
+   inside use `truncate` — which is `white-space: nowrap`, so their min-content
+   is the *untruncated* line. The stage therefore grew to 383px inside a 348px
+   window on a phone and the actions were clipped away by the overflow rule
+   below. Declaring the floor here fixes every beat at once, rather than each
+   stage remembering to. */
+.showcase-body > * {
+  min-width: 0;
+  /* A floor, not a lid: the four beats hold different amounts of content and
+     a fixed height would either clip the tallest or leave the shortest
+     hollow. Equal *minimums* keep the window from resizing between beats,
+     which is the thing that would actually read as broken. */
+  min-height: 20rem;
+}
+
+.showcase-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+}
+/* The best match carries the accent border it would carry in the app. */
+.showcase-row-lead {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.showcase-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(to bottom, #5b83f5, #3f6ae8);
+}
+.showcase-chip-out {
+  color: var(--text-dim);
+  background: var(--surface-3);
+  font-weight: 500;
+}
+
+.showcase-cut {
+  padding: 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+
+/* The marked clause — the added phrase, drawn in as the sentence is read.
+
+   This was first built as an absolutely-positioned fill scaled on X, which is
+   the compositor-friendly way to do it and was wrong here for a reason worth
+   recording: a `position: relative` INLINE element does not establish a
+   reliable containing block, because when the text wraps the inline is several
+   fragments rather than one box. The fill collapsed to a sliver at the wrap
+   point. A background on the inline itself has no such problem — it is painted
+   per fragment by definition, which is exactly the behaviour wanted — and
+   `box-decoration-break: clone` gives every fragment its own rounded ends.
+
+   The cost is that `background-size` is a paint, not a composite. Over a
+   three-word run inside one paragraph that is a few hundred pixels of repaint
+   on a layer that is already painting, which is nothing; correctness across a
+   line break is worth far more here than the purity of the property. */
+.showcase-mark {
+  padding: 1px 3px;
+  /* Cancels the padding's effect on the line so the words do not shift as the
+     highlight arrives. */
+  margin: 0 -3px;
+  border-radius: 3px;
+  background-image: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--accent) 26%, transparent) 0 100%
+  );
+  background-repeat: no-repeat;
+  /* Rests undrawn; the `mark-draw` keyframes below fill it when the beat that
+     contains it becomes active. */
+  background-size: 0% 100%;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.showcase-suggest {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border: 1px dashed var(--accent-border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+/* Progress through the three beats. A rule that fills says how far into this
+   beat you are; a dot would only say which one it is. */
+.showcase-tick {
+  position: relative;
+  flex: 1;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.showcase-tick-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: left center;
+}
+
+/* Reduced motion: neutralise every scroll-driven value in one place.
+   The component still computes them — it has no way to know the preference at
+   render time on the server — so the stylesheet takes them back. `!important`
+   is load-bearing here and is the reason this works at all: a stylesheet
+   declaration marked important is the one thing that outranks an inline
+   style. Without it the fallback would render three invisible beats. */
+/* ---- The beat choreography -----------------------------------------------
+   Scroll picks which beat is active; everything below is how it arrives.
+
+   Doing it here rather than by scrubbing inline styles from the scroll handler
+   is what makes the sequence hold together when someone flicks the wheel: an
+   animation with its own duration plays properly no matter how fast the reader
+   got here, where a scroll-scrubbed one would compress into three frames and
+   never be seen. It also means the per-frame cost is a compositor job rather
+   than four React subtrees. */
+
+.beat-cell {
+  opacity: 0;
+  /* Waiting below, because that is the direction the page is travelling. */
+  transform: translate3d(0, 30px, 0);
+  transition: opacity var(--t-slower) var(--ease-out),
+    transform var(--t-slower) var(--ease-emph);
+  /* An invisible beat is stacked on top of the visible one and would otherwise
+     swallow its clicks and its text selection. */
+  pointer-events: none;
+}
+.beat-cell.is-active {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+/* Finished, and leaving upward — the opposite direction from the one waiting,
+   so the two never look like the same element sliding back and forth. */
+.beat-cell.is-past {
+  transform: translate3d(0, -26px, 0);
+}
+
+/* Everything inside a beat arrives on its own delay. `--i` is set at the call
+   site so the order of arrival is stated in the markup that has it, and the
+   0.055s step is slow enough to read as a sequence, fast enough that the last
+   element is not still arriving after the reader has moved on. */
+.beat-rise {
+  opacity: 0;
+  transform: translate3d(0, 14px, 0);
+}
+.beat-cell.is-active .beat-rise {
+  animation: beat-rise var(--t-slower) var(--ease-emph) both;
+  animation-delay: calc(var(--i, 0) * 0.055s);
+}
+@keyframes beat-rise {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The marked clause draws itself once the sentence it is in has arrived. */
+.beat-cell.is-active .showcase-mark {
+  animation: mark-draw 0.9s var(--ease-out) 0.5s both;
+}
+@keyframes mark-draw {
+  from {
+    background-size: 0% 100%;
+  }
+  to {
+    background-size: 100% 100%;
+  }
+}
+
+/* Two conditions, one fallback. The sequence is pinned only where there is
+   room to put a paragraph beside a screenshot, so below `lg` the beats become
+   an ordinary stack — which is exactly what reduced motion already asked for.
+   Both need the choreography taken back in full, so they share one rule
+   instead of each growing a copy that can drift out of step. */
+@media (prefers-reduced-motion: reduce), (max-width: 1023.98px) {
+  /* The selectors above are compound — `.beat-cell.is-active .beat-rise` is
+     three classes deep — so a bare `.beat-rise` here loses the cascade and the
+     stagger kept running under reduced motion. Seventeen animations were still
+     on the page. Matching the same shapes, and marking them, is what actually
+     turns the choreography off; this is a preference the user has stated, so
+     overriding it back is not a style opinion to be out-specified later. */
+  .beat-cell,
+  .beat-cell.is-past,
+  .beat-cell.is-next,
+  .beat-rise,
+  .beat-cell.is-active .beat-rise {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    animation: none !important;
+    pointer-events: auto;
+  }
+  /* The highlight is drawn by `background-size`, which neither opacity nor
+     transform reaches — without this the marked clause renders blank, and it
+     is the one thing that beat exists to show. */
+  .showcase-mark,
+  .beat-cell.is-active .showcase-mark {
+    background-size: 100% 100% !important;
+    animation: none !important;
+  }
 }
 
 /* ---- The hero stone ------------------------------------------------------

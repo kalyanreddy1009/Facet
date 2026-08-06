@@ -24,19 +24,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  ArrowRight,
-  CalendarCheck,
-  Check,
-  FileDown,
-  Lock,
-  Search,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, Check, Lock } from "lucide-react";
 import { useSession } from "@/lib/useSession";
-import OpticsStudy from "./OpticsStudy";
-import StoneBracket from "./StoneBracket";
+import ProductShowcase from "./ProductShowcase";
+import StoneGraphic from "./StoneGraphic";
 
 const FAQ = [
   {
@@ -66,37 +57,6 @@ const FAQ = [
   {
     q: "What does it cost?",
     a: "Nothing. This is a self-hosted install — there is no Facet company on the other end of it to bill you.",
-  },
-];
-
-/** The four things the app does, in the order you meet them. Two of them are
- *  marked wide: importing happens exactly once and everything depends on it,
- *  and the Cabinet is where the work ends up. The grid should say that before
- *  the copy does. */
-const STEPS = [
-  {
-    icon: Sparkles,
-    title: "One honest record",
-    body: "Import your resume once. It becomes your Stone — the fixed set of facts every application is built from, and the ceiling on what anything Facet writes is allowed to claim.",
-    wide: true,
-  },
-  {
-    icon: Search,
-    title: "Every board, one search",
-    body: "Postings from public job APIs and the alerts you've subscribed to, deduplicated and ranked against your Stone.",
-    wide: false,
-  },
-  {
-    icon: FileDown,
-    title: "A facet per job",
-    body: "A tailored resume, cover letter and recruiter pitch for one posting — as PDF or Word.",
-    wide: false,
-  },
-  {
-    icon: CalendarCheck,
-    title: "And what came of it",
-    body: "The Cabinet holds what you've sent, what has gone quiet, and the interviews that followed. Connect a calendar feed and it files those itself.",
-    wide: true,
   },
 ];
 
@@ -308,85 +268,21 @@ export default function LandingContent() {
             what keeps the whole bracket — type and light both — from ever
             painting over the headline. */}
         <div className="relative z-0 grid place-items-center">
-          <StoneBracket />
+          <StoneGraphic size="clamp(13rem, 40vw, 30rem)" />
         </div>
       </section>
 
-      {/* ------------------------------------------------------- how it works */}
-      <LitSection index={0} id="how" className="max-w-shell mx-auto px-5 sm:px-8 py-20 scroll-mt-nav-block">
-        <Reveal>
-          <SectionHead
-            eyebrow="How it works"
-            title="Four steps, and the first happens once"
-            body="Everything after the import is repetition — which is the point. Applying is the same work every time, and Facet is what makes it the same work."
-          />
-        </Reveal>
-
-        {/* Bento rather than four equal tiles: the two that carry the product
-            get the width, and the grid stops reading as a feature list. */}
-        <ol className="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {STEPS.map((step, i) => (
-            <Reveal
-              key={step.title}
-              delay={i * 70}
-              className={step.wide ? "lg:col-span-2" : "lg:col-span-1"}
-            >
-              <li className="glass-card glass-card-lift h-full p-7 flex flex-col gap-3.5 list-none">
-                <div className="flex items-center gap-3">
-                  <span
-                    className="grid place-items-center w-9 h-9 rounded-xl bg-accent-soft text-accent-text ring-1 ring-accent-border"
-                    aria-hidden
-                  >
-                    <step.icon className="w-4 h-4" />
-                  </span>
-                  <span className="mono text-xs text-text-ghost tnum">0{i + 1}</span>
-                </div>
-                <h3 className="text-lg font-semibold text-text tracking-[-0.01em]">{step.title}</h3>
-                <p className="text-sm text-text-dim text-pretty leading-relaxed">{step.body}</p>
-              </li>
-            </Reveal>
-          ))}
-        </ol>
-      </LitSection>
-
-      {/* ------------------------------------------------- the honesty proof */}
-      <LitSection index={1} className="max-w-shell mx-auto px-5 sm:px-8 py-20">
-        <Reveal className="max-w-2xl">
-          <SectionHead
-            eyebrow="The constraint"
-            title="What it actually writes"
-            body="The difference between tailoring and fabricating, on one line of your resume."
-          />
-        </Reveal>
-
-        <Reveal delay={80} className="mt-10">
-          <div className="glass-card p-7 sm:p-9 grid md:grid-cols-2 gap-7">
-            <div className="flex flex-col gap-2.5">
-              <p className="eyebrow !text-text-faint">From your stone, unchanged</p>
-              <p className="text-md text-text-dim leading-relaxed">
-                &ldquo;Worked on backend services for the payments team.&rdquo;
-              </p>
-            </div>
-            {/* The rule falls between the two on a wide screen and above the
-                second on a narrow one — the comparison has to read as a pair
-                either way, not as two unrelated quotes. */}
-            <div className="flex flex-col gap-2.5 border-t md:border-t-0 md:border-l border-border pt-7 md:pt-0 md:pl-7">
-              <p className="eyebrow">Cut for a posting asking for event-driven work</p>
-              <p className="text-md text-text leading-relaxed">
-                &ldquo;Built backend services for the payments team, including the event-driven
-                reconciliation pipeline the posting calls out.&rdquo;
-              </p>
-            </div>
-          </div>
-          <p className="text-sm text-text-faint mt-4 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-ok-text shrink-0" aria-hidden />
-            Re-emphasized and re-worded — never a claim your Stone doesn&apos;t support.
-          </p>
-        </Reveal>
-      </LitSection>
+      {/* ---------------------------------------------------- the product */}
+      {/* This one section replaced two: a bento of four cards describing the
+          flow, and a static before/after card demonstrating the constraint.
+          Both were the page telling you about the product in prose. The
+          showcase is the product, on the real screens, doing the same four
+          things in the order you meet them — including the cut, which is now
+          demonstrated rather than quoted. */}
+      <ProductShowcase />
 
       {/* ------------------------------------------------------- vocabulary */}
-      <LitSection index={2} className="max-w-shell mx-auto px-5 sm:px-8 py-20">
+      <LitSection index={0} className="max-w-shell mx-auto px-5 sm:px-8 py-20">
         <Reveal className="max-w-2xl">
           <SectionHead
             eyebrow="Vocabulary"
@@ -425,15 +321,8 @@ export default function LandingContent() {
         </dl>
       </LitSection>
 
-      {/* ------------------------------------------------------- the study */}
-      {/* Sits after the vocabulary because it is the payoff for it: the four
-          words are borrowed from gemcutting, and this is the section that
-          shows the borrowing was not decorative. Everything in it is traced
-          against the real facet coordinates — see lib/optics.ts. */}
-      <OpticsStudy />
-
       {/* -------------------------------------------------------------- FAQ */}
-      <LitSection index={3} className="max-w-3xl mx-auto px-5 sm:px-8 py-20">
+      <LitSection index={1} className="max-w-3xl mx-auto px-5 sm:px-8 py-20">
         <Reveal>
           <SectionHead eyebrow="Questions" title="The ones worth asking first" />
         </Reveal>
@@ -458,7 +347,7 @@ export default function LandingContent() {
       </LitSection>
 
       {/* --------------------------------------------------------------- CTA */}
-      <LitSection index={4} className="max-w-shell mx-auto px-5 sm:px-8 pb-28 pt-4">
+      <LitSection index={2} className="max-w-shell mx-auto px-5 sm:px-8 pb-28 pt-4">
         <Reveal>
           <div className="glass-card relative overflow-hidden p-10 sm:p-16 flex flex-col items-center gap-4 text-center">
             {/* One glint behind the closing card, echoing the hero stone. The

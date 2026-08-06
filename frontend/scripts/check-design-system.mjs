@@ -38,7 +38,7 @@ const CSS = join(ROOT, "src/app/globals.css");
 const OWNED = [
   "ambient",
   "badge",
-  "bracket",
+  "beat",
   "btn",
   "card",
   "chrome",
@@ -53,13 +53,15 @@ const OWNED = [
   "rise",
   "row-hover",
   "ruled",
+  "showcase",
   "skeleton",
   "tnum",
 ];
 
 /** Custom properties supplied by the caller at the call site rather than
- *  declared globally — `--i` is the stagger index each `.rise` child sets
- *  inline. They are correctly absent from `:root`. */
+ *  declared globally — `--i` is the stagger index that `.rise` and the
+ *  showcase's `.beat-rise` children each set inline. It is correctly absent
+ *  from `:root`. */
 const CALLER_SET = new Set(["--i"]);
 
 function walk(dir) {
