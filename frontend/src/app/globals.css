@@ -230,15 +230,9 @@ html {
 }
 
 body {
-  /* The base. The ambient facet field paints on top of this, in its own fixed
-     layer, so a page that scrolls doesn't drag the background with it.
-     A wash rather than one flat fill: on paper a single grey covering the
-     whole viewport is what reads as "unfinished page". The gradient is two
-     steps of the same neutral — light at the top where the nav sits, settling
-     into --bg by the first fold — so it gives the page a top without ever
-     announcing itself as a gradient. `fixed` so it belongs to the viewport,
-     not to a document that may be six screens long. */
-  background: linear-gradient(178deg, #fdfdfd 0%, var(--bg) 46%, #edeef0 100%) fixed;
+  /* The flat base. The wash itself is `body::before` below, and the ambient
+     facet field paints on top of that in its own fixed layer. */
+  background: var(--bg);
   color: var(--text);
   font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   font-size: 0.875rem;
@@ -305,6 +299,37 @@ button:not(:disabled),
 }
 
 @layer components {
+/* The wash, on its own compositor layer.
+
+   A gradient two steps of the same neutral — light at the top where the nav
+   sits, settling into --bg by the first fold — so the page has a top without
+   ever announcing itself as a gradient. It belongs to the viewport, not to a
+   document that may be six screens long.
+
+   It used to get that with `background-attachment: fixed` on the body, which
+   buys the right *look* at the worst possible price: the browser cannot scroll
+   such a background, so it repaints the full viewport on every frame of every
+   scroll. Measured on the landing page that put the 95th-percentile frame at
+   46ms — a third of a second of visible stutter across a flick — while the
+   median frame was fine, which is exactly the signature of "the animations
+   aren't smooth enough" even though not one animation was at fault.
+
+   A fixed *element* is the same picture and a different mechanism: it gets its
+   own layer, the compositor moves it for free, and nothing repaints. p95 falls
+   to 28ms. `contain: strict` and the negative z-index match `.ambient`, which
+   has always been done this way — this is the one layer that had been left
+   behind. Not inside `.ambient`: that layer is removed for anyone who asks for
+   reduced transparency, and the page still needs a background. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  contain: strict;
+  background: linear-gradient(178deg, #fdfdfd 0%, var(--bg) 46%, #edeef0 100%);
+}
+
   /* ---- The ambient field ------------------------------------------- */
   /* Facet's subject is a cut stone, so the background is the light a cut
      stone sits in: two slow radial glints and a faint faceted lattice. It is
@@ -569,6 +594,34 @@ button:not(:disabled),
     /* The header is a positioning frame, nothing else — anything real inside
        it opts back into pointer events. */
     pointer-events: none;
+  }
+
+  /* The scroll edge.
+
+     The island floats, so the page runs underneath it and out through the
+     gutters either side — and a line of body copy was being guillotined by the
+     top of the viewport at full contrast, which is the one moment this
+     interface looked like a document in a frame rather than a surface with
+     depth. Apple's scroll edge effect is the fix, and every system bar gets it
+     free; a custom bar like this one has to draw it.
+
+     A short scrim, the colour the page already is at its top, fading out over
+     the height of the nav block. Content dissolves as it reaches the edge
+     instead of being cut. Behind the island (`z-index: -1`) so it never
+     touches the instrument itself, and inert like the rest of the shell. */
+  .nav-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: calc(var(--nav-block) + 12px);
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      #fdfdfd 0%,
+      rgba(253, 253, 253, 0.86) 42%,
+      rgba(253, 253, 253, 0) 100%
+    );
   }
   /* The gutter widens with the page's at the `sm` breakpoint, for the same
      reason: one vertical line, from the nav down through every card. */
@@ -1409,6 +1462,55 @@ button:not(:disabled),
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Increase Contrast.
+
+   Apple treats this as one of the three settings a custom component has to be
+   tested against — the system adapts its own controls automatically and
+   anything hand-built, which is everything here, simply ignores it. Facet had
+   no answer to it at all: someone who had asked the OS for more contrast got
+   the identical interface.
+
+   This is not the reduced-transparency block with a different name. That
+   request is about what is *behind* a surface; this one is about the surface's
+   own edges and its quieter type. Supporting text stops being a step below
+   body and becomes body, and every border that draws the boundary of a control
+   goes to full strength — the hairline is the thing that disappears first for
+   anyone who needs this. Layout is untouched: nothing moves, nothing reflows,
+   only the ink and the edges change. */
+@media (prefers-contrast: more) {
+  :root {
+    --text-dim: #1b2029;
+    --text-muted: #262c37;
+    --text-faint: #262c37;
+    --text-ghost: #3a414d;
+    --border: rgba(15, 17, 21, 0.34);
+    --border-strong: rgba(15, 17, 21, 0.5);
+    --border-control: rgba(15, 17, 21, 0.78);
+    --accent-text: #1b3ba8;
+    --ok-text: #0a5624;
+    --warn-text: #6b4504;
+    --danger-text: #96190f;
+    /* The focus ring is the keyboard user's cursor. At 3.5px of a 10%-alpha
+       tint it is a suggestion; here it is a ring. */
+    --accent-soft: rgba(74, 118, 240, 0.26);
+  }
+  /* The instrument scopes its own ink, so the tokens above do not reach it. */
+  .chrome,
+  .glass {
+    --text-dim: #dbe3f2;
+    --text-faint: #c3cde0;
+    --border: rgba(255, 255, 255, 0.3);
+  }
+  .field,
+  .btn-default {
+    border-width: 1px;
+    border-color: var(--border-control);
+  }
+  .field:focus {
+    box-shadow: 0 0 0 3.5px var(--accent-soft);
   }
 }
 

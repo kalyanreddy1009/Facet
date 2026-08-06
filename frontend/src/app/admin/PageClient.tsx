@@ -63,7 +63,19 @@ function inviteLabel(user: AdminUser): { text: string; tone: string } {
 
 /** The column template, written once. Header and rows drifting apart is the
  *  classic way a "table" made of grids ends up misaligned. */
-const COLUMNS = "md:grid-cols-[minmax(0,1fr)_10rem_5rem_auto]";
+/* The column headings and every account row are separate grids that happen to
+   share this template, so every track in it has to resolve to the same width
+   in all of them. `auto` cannot: it sizes to its own cell's content, which in
+   the heading row is the word "Actions" and in an account row is a cluster of
+   three buttons. The last track therefore came out ~150px narrower in the
+   heading, `1fr` absorbed the difference, and "Status" and "Sessions" sat a
+   long way right of the values they label — the column headings pointed at
+   nothing. A fixed track resolves identically everywhere; in `rem` so it grows
+   with the buttons when the reader's font size does. 15rem because the widest
+   cluster — three buttons and their gaps — measures 14.5rem; at 14 it fitted
+   the heading and wrapped every row onto two lines, which is the same bug
+   wearing the opposite face. */
+const COLUMNS = "md:grid-cols-[minmax(0,1fr)_10rem_5rem_15rem]";
 
 async function call(path: string, options: RequestInit = {}) {
   const response = await fetch(path, {

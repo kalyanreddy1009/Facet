@@ -241,7 +241,14 @@ export default function LandingContent() {
     <main>
       {/* ---------------------------------------------------------- hero */}
       <section className="max-w-shell mx-auto px-5 sm:px-8 min-h-[calc(100svh-var(--nav-block))] grid lg:grid-cols-[1.02fr_0.98fr] items-center gap-10 lg:gap-14 py-16 sm:py-20">
-        <div className="flex flex-col items-start gap-6">
+        {/* `z-10`, and that is the whole fix for the headline. The stone's fan
+            is drawn with `overflow-visible` so the light genuinely crosses the
+            page — which is the best thing on this screen and worth keeping —
+            but it was painting *over* the type, and "A facet for" sat under a
+            violet wash that read as a rendering fault rather than as light.
+            Raising the copy above the beam keeps the crossing and gives the
+            words back their contrast. Decoration never wins against text. */}
+        <div className="relative z-10 flex flex-col items-start gap-6">
           {/* "Your record, your machine" was true of the single-user checkout
               this page was written for and is not true of the deployment
               anyone is reading it on: this Facet is shared, and the promise
@@ -261,9 +268,16 @@ export default function LandingContent() {
             A facet for every job.
           </h1>
           <p className="text-lg text-text-dim max-w-prose text-pretty">
-            Facet keeps one honest record of your real background, searches every major job board
-            from a single bar, and cuts a tailored resume, cover letter and recruiter pitch for each
-            posting — then tracks what came of it. Without inventing a single thing.
+            {/* "searches every major job board" was the one sentence on this
+                page making a claim the product does not keep: what it actually
+                queries is a set of public job APIs plus whatever feeds you have
+                subscribed to — which is what the "Every board, one search" card
+                below has always said. A page whose closing promise is "without
+                inventing a single thing" cannot open by inventing something. */}
+            Facet keeps one honest record of your real background, searches the public job boards
+            and your own subscribed feeds from a single bar, and cuts a tailored resume, cover letter
+            and recruiter pitch for each posting — then tracks what came of it. Without inventing a
+            single thing.
           </p>
           <div className="flex flex-wrap items-center gap-2.5 mt-1">
             <Link href={primary.href} className="btn btn-lg btn-primary">
@@ -283,13 +297,16 @@ export default function LandingContent() {
           </p>
         </div>
 
-        {/* The stone is the page. It was `hidden lg:grid`, so every phone and
-            every tablet — most of the traffic a landing page ever sees — got
-            the copy and none of the thing the copy is about. It now appears
-            from `sm` up, sized down so it never pushes the primary action
-            below the fold, and only a phone in portrait misses it. */}
-        <div className="hidden sm:grid place-items-center">
-          <StoneGraphic size="clamp(15rem, 40vw, 30rem)" />
+        {/* The stone is the page, so it now renders on every width including a
+            phone in portrait — which was the last viewport still getting the
+            copy and none of the thing the copy is about, and is most of the
+            traffic a landing page ever sees.
+            It sits *after* the text in the source, so on a single column it
+            lands below the buttons: the primary action keeps its place above
+            the fold and the stone rewards the first scroll instead of pushing
+            the page down. `z-0` pairs with the copy's `z-10` above. */}
+        <div className="relative z-0 grid place-items-center">
+          <StoneGraphic size="clamp(13rem, 40vw, 30rem)" />
         </div>
       </section>
 
