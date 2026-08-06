@@ -1409,6 +1409,35 @@ body::before {
   background: #b9bfc8;
 }
 
+/* ---- The Rough: density and the keyboard cursor -------------------------
+
+   Compact is not "the same card, smaller". It removes the two lines that are
+   context rather than content — the summary and the source strip — and keeps
+   the title, the company, the score and its evidence. A density toggle that
+   only shrank the padding would make a list you can fit more of and read
+   less of. */
+
+.rough-dense .list-row {
+  padding: 0.5rem 0.75rem;
+  contain-intrinsic-size: auto 74px;
+}
+.rough-dense .job-summary,
+.rough-dense .job-source {
+  display: none;
+}
+.rough-dense .job-terms {
+  margin-top: 0.25rem;
+}
+
+/* The keyboard cursor. A ring, not a fill: a filled row would compete with the
+   match badge, which is the only element on the card allowed to carry colour.
+   `outline` rather than `border` so the row does not shift by a pixel as the
+   cursor passes over it — the classic jitter in a keyboard-navigable list. */
+.job-card-active {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
 /* Hairline-ruled data row: one rule under each, none above the first, because
    the container supplies that. Used anywhere the content is a definition or a
    measurement rather than a card's worth of prose. */

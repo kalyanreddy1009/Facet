@@ -7,6 +7,10 @@ import { formatSalary, matchTone, plainText, timeAgo } from "@/lib/format";
 
 interface JobCardProps {
   job: Job;
+  /** The keyboard cursor is on this row. Drawn as a ring rather than a fill:
+   *  a filled row would compete with the match badge, which is the only thing
+   *  on the card that is allowed to carry colour. */
+  active?: boolean;
   onDismiss: (job: Job) => void;
   onTailor: (job: Job) => void;
   onOpen: (job: Job) => void;
@@ -47,7 +51,7 @@ function MatchTerms({ terms }: { terms: string[] }) {
   const shown = terms.slice(0, MATCH_TERMS_SHOWN);
   const rest = terms.length - shown.length;
   return (
-    <p className="mt-2 text-xs text-text-faint">
+    <p className="job-terms mt-2 text-xs text-text-faint">
       <span className="label">Matches</span>{" "}
       <span className="text-text-dim">{shown.join(" · ")}</span>
       {rest > 0 && (
@@ -72,7 +76,7 @@ function Meta({ items }: { items: string[] }) {
  * One row of the results list. Memoized on the fields it renders: dismissing
  * one card must not re-render the other 29.
  */
-function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
+function JobCardBase({ job, active, onDismiss, onTailor, onOpen }: JobCardProps) {
   const salary = formatSalary(job.salary_min, job.salary_max, job.salary_currency);
   const posted = timeAgo(job.posted_date || job.first_seen_at);
   // Several feeds store the description as HTML; it is displayed as text.
@@ -80,7 +84,12 @@ function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
   const remote = job.remote === 1 && !/remote/i.test(job.location || "") ? "Remote" : "";
 
   return (
-    <article className="list-row panel row-hover p-4 flex flex-col sm:flex-row gap-4">
+    <article
+      className={`list-row panel row-hover p-4 flex flex-col sm:flex-row gap-4 ${
+        active ? "job-card-active" : ""
+      }`}
+      aria-current={active ? "true" : undefined}
+    >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <h3 className="text-base font-semibold text-text leading-snug">
@@ -120,11 +129,11 @@ function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
           <Meta items={[job.location || "", remote, salary]} />
         </p>
 
-        {summary && <p className="clamp-2 text-sm text-text-faint mt-2">{summary}</p>}
+        {summary && <p className="job-summary clamp-2 text-sm text-text-faint mt-2">{summary}</p>}
 
         <MatchTerms terms={job.match_terms} />
 
-        <p className="text-xs text-text-faint mt-2">
+        <p className="job-source text-xs text-text-faint mt-2">
           <Meta
             items={[
               job.source || "Feed",
@@ -179,6 +188,9 @@ function JobCardBase({ job, onDismiss, onTailor, onOpen }: JobCardProps) {
 const JobCard = memo(
   JobCardBase,
   (a, b) =>
+    // `active` first: without it the memo blocks the re-render that moves the
+    // keyboard ring, and the cursor appears frozen.
+    a.active === b.active &&
     a.job.id === b.job.id &&
     a.job.promoted === b.job.promoted &&
     a.job.title === b.job.title &&

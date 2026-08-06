@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw, SearchX, Settings2, X } from "lucide-react";
+import { RefreshCw, Rows2, Rows3, SearchX, Settings2, X } from "lucide-react";
 import { api, type Job } from "@/lib/api";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
@@ -10,6 +10,7 @@ import { JobListSkeleton } from "@/components/ui/Skeleton";
 import Toaster from "@/components/ui/Toaster";
 import FilterRail from "@/components/jobs/FilterRail";
 import JobCard from "@/components/jobs/JobCard";
+import { useListKeyboard } from "@/lib/useListKeyboard";
 import SearchBar from "@/components/jobs/SearchBar";
 import SourcesSheet from "@/components/jobs/SourcesSheet";
 import { plainText, pluralize } from "@/lib/format";
@@ -25,6 +26,26 @@ export default function RoughPage() {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [searching, setSearching] = useState(false);
+  // Density is a reading preference, so it lives in localStorage rather than
+  // sessionStorage — it belongs to the person, not to this tab.
+  const [dense, setDense] = useState(false);
+  useEffect(() => {
+    try {
+      setDense(localStorage.getItem("facet.rough.dense") === "1");
+    } catch {
+      // Private mode. Comfortable is the right default to fall back to.
+    }
+  }, []);
+  const toggleDense = useCallback(() => {
+    setDense((on) => {
+      try {
+        localStorage.setItem("facet.rough.dense", on ? "0" : "1");
+      } catch {
+        // Not worth a message; the toggle still works for this sitting.
+      }
+      return !on;
+    });
+  }, []);
 
   // Full-screen and modal, so it owes the keyboard the same contract Sheet
   // does — Escape, focus in, Tab trap, scroll lock, focus restore.
@@ -34,6 +55,7 @@ export default function RoughPage() {
 
   const { jobs, facets, total, loading, loadingMore, error, hasMore, loadMore, hide, unhide, reload } =
     useJobs(filters);
+
 
   const notify = useCallback(
     (text: string, tone: "error" | "info" | "success", hint?: string) => push(text, { tone, hint }),
@@ -120,6 +142,17 @@ export default function RoughPage() {
     api.promoteJob(job.id).catch(() => {});
   };
 
+  // Keyboard control. It calls the same handlers the buttons do, so "tailor
+  // this posting" has one implementation rather than two that can drift.
+  const { index: cursor, containerRef } = useListKeyboard<Job>(jobs, {
+    onOpen: (job) => {
+      handleOpen(job);
+      if (job.posting_url) window.open(job.posting_url, "_blank", "noopener,noreferrer");
+    },
+    onPrimary: handleTailor,
+    onDismiss: handleDismiss,
+  });
+
   const activeFilters = activeFilterCount(filters);
 
   return (
@@ -133,6 +166,13 @@ export default function RoughPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          {/* Density. Not an icon-only toggle: "compact" and "comfortable" are
+              not concepts a glyph conveys, and this control is used once and
+              then forgotten, so it can afford a word. */}
+          <Button icon={dense ? Rows3 : Rows2} onClick={toggleDense}>
+            <span className="sr-only">Row density: </span>
+            {dense ? "Compact" : "Comfortable"}
+          </Button>
           <Button icon={Settings2} onClick={() => setSourcesOpen(true)}>
             Sources
           </Button>
@@ -194,11 +234,15 @@ export default function RoughPage() {
             />
           ) : (
             <>
-              <div className="flex flex-col gap-2">
-                {jobs.map((job) => (
+              <div
+                ref={containerRef}
+                className={`flex flex-col gap-2 ${dense ? "rough-dense" : ""}`}
+              >
+                {jobs.map((job, i) => (
                   <JobCard
                     key={job.id}
                     job={job}
+                    active={i === cursor}
                     onDismiss={handleDismiss}
                     onTailor={handleTailor}
                     onOpen={handleOpen}
