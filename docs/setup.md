@@ -557,3 +557,43 @@ More failure modes, by symptom: `docs/runbook.md`.
 You are now a data controller for other people's resumes. Deletion must
 actually delete — it does, after a 30-day recoverable grace period — and
 `RULES.md`'s truthfulness contract is a promise you are making to strangers.
+
+## Appendix — Agent skills (optional, for contributors)
+
+Not needed to run Facet. This is for anyone doing development on it with
+Claude Code.
+
+The repo carries its own skill at `.claude/skills/facet/` — the whole
+application in one read, and it loads automatically. Nothing to install.
+
+[gstack](https://github.com/garrytan/gstack) is the second half and is *not*
+vendored here. It is ~1.6 GB installed, its browser binary is compiled per
+platform, and its installer registers skills in your home directory rather than
+in a project — so a copy committed to this repo would be unregistered files
+that still required every one of the steps below. One command instead:
+
+```bash
+# bun first — gstack builds a browser binary with it.
+# ~/.local avoids needing root; it is already on PATH on most systems.
+npm install -g --prefix ~/.local bun
+
+git clone --single-branch --depth 1 https://github.com/garrytan/gstack.git \
+  ~/.claude/skills/gstack
+cd ~/.claude/skills/gstack && ./setup
+```
+
+Verified against **v1.60.1.0** (`a325940`). Run `/gstack-upgrade` to move
+forward from there.
+
+Two options `./setup` leaves off by default and this project has a use for:
+
+```bash
+./setup --plan-tune-hooks                        # logs planning questions to tune later ones
+gstack-config set redact_prepush_hook true       # blocks a push containing credentials
+```
+
+The second is worth it here: `data/settings.json` holds provider API keys and
+this repo deploys to a public host.
+
+Once installed, `/browse` is the browsing tool for this project — see the
+gstack section of `CLAUDE.md`.

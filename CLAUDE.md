@@ -13,6 +13,33 @@ the `agy` file-handoff trap) · `workspace/RULES.md` (truthfulness contract) ·
 `AUTONOMY.md` (how to work here) · `docs/runbook.md` (production) · `PLAN.md`
 (multi-user host).
 
+## gstack
+
+Skills from [gstack](https://github.com/garrytan/gstack), installed per-developer
+at `~/.claude/skills/gstack` — **not vendored into this repo**. It is ~1.6 GB
+installed with a platform-specific browser binary, and its installer registers
+skills in your home directory rather than in a project, so a committed copy
+would be unregistered files that still needed the same install. Install command
+and the two options worth enabling here: `docs/setup.md`, appendix.
+
+Verified against **v1.60.1.0** (`a325940`). `/gstack-upgrade` moves it forward.
+
+**Use `/browse` for all web browsing. Never use the `mcp__claude-in-chrome__*`
+tools.** `/browse` is the supported path here; the Chrome MCP tools are not.
+
+Available:
+
+| | |
+|---|---|
+| **Planning & review** | `/autoplan` · `/plan-ceo-review` · `/plan-eng-review` · `/plan-design-review` · `/plan-devex-review` · `/review` · `/devex-review` · `/design-review` |
+| **Design** | `/design-consultation` · `/design-shotgun` · `/design-html` |
+| **Ship & deploy** | `/ship` · `/land-and-deploy` · `/canary` · `/freeze` · `/unfreeze` · `/guard` · `/careful` |
+| **Quality** | `/qa` · `/qa-only` · `/benchmark` · `/investigate` |
+| **Browser** | `/browse` · `/connect-chrome` · `/setup-browser-cookies` |
+| **Docs** | `/document-release` · `/document-generate` · `/retro` · `/learn` |
+| **Setup** | `/setup-deploy` · `/setup-gbrain` · `/gstack-upgrade` |
+| **Other** | `/office-hours` · `/codex` · `/cso` |
+
 ## Commands
 
 ```bash
