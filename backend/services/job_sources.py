@@ -266,6 +266,27 @@ def _get_json(client: httpx.Client, url: str, **kwargs):
     return response.json()
 
 
+def _as_list(value) -> list:
+    """A JSON field that is *supposed* to be a list, coerced into one.
+
+    PHP serializes a sparse array as an object, so a field that is a list in
+    174 rows arrives as `{"1": "manager"}` in the 175th. `job_types[0]` then
+    raises KeyError(0) and — because a provider is all-or-nothing — one odd row
+    cost the entire Arbeitnow batch, every sync, silently: the failure is a
+    WARNING in the log and an empty provider in the report.
+
+    Order is the insertion order the server sent, which is the only ordering
+    information there is; the numeric keys are indices, not a ranking.
+    """
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        return list(value.values())
+    if isinstance(value, str):
+        return [value]  # a single tag sent bare rather than wrapped
+    return []
+
+
 # ---------------------------------------------------------------- providers
 # Each takes (client, query, location, settings) and returns normalized dicts.
 # Raising is fine — fetch_all() isolates every provider.
@@ -301,7 +322,7 @@ def _arbeitnow(client, query, location, settings):
     data = _get_json(client, "https://www.arbeitnow.com/api/job-board-api")
     out = []
     for row in data.get("data", []):
-        job_types = row.get("job_types") or []
+        job_types = _as_list(row.get("job_types"))
         out.append(
             normalize(
                 source="Arbeitnow",
@@ -312,7 +333,7 @@ def _arbeitnow(client, query, location, settings):
                 summary=row.get("description"),
                 posted_at=row.get("created_at"),
                 employment_type=job_types[0] if job_types else None,
-                tags=(row.get("tags") or []) + job_types,
+                tags=_as_list(row.get("tags")) + job_types,
                 remote=bool(row.get("remote")),
             )
         )
@@ -326,7 +347,7 @@ def _jobicy(client, query, location, settings):
     data = _get_json(client, url)
     out = []
     for row in data.get("jobs", []):
-        job_types = row.get("jobType") or []
+        job_types = _as_list(row.get("jobType"))
         out.append(
             normalize(
                 source="Jobicy",
@@ -340,7 +361,7 @@ def _jobicy(client, query, location, settings):
                 salary_min=row.get("annualSalaryMin"),
                 salary_max=row.get("annualSalaryMax"),
                 salary_currency=row.get("salaryCurrency"),
-                tags=(row.get("jobIndustry") or []) + job_types,
+                tags=_as_list(row.get("jobIndustry")) + job_types,
                 remote=True,
             )
         )
@@ -787,6 +808,21 @@ def demo() -> None:
     assert health["status"] == "error" and health["error"] == "boom" and health["label"] == "X"
     assert health["at"] and isinstance(health["ms"], int)
     FEED_HEALTH.clear()
+
+    # A list-shaped field that arrived as an object. This is not hypothetical:
+    # Arbeitnow served exactly `{"1": "manager"}` for one row in 175 on
+    # 2026-08-07, and `job_types[0]` raising KeyError(0) cost the whole batch —
+    # all 175 postings — on every sync.
+    assert _as_list({"1": "manager"}) == ["manager"]
+    assert _as_list({"1": "a", "0": "b"}) == ["a", "b"], "server order, not key order"
+    assert _as_list(["a", "b"]) == ["a", "b"]
+    assert _as_list("manager") == ["manager"], "a bare tag is one tag"
+    assert _as_list(None) == [] and _as_list(0) == [] and _as_list({}) == []
+    # The two lines that actually broke, in the shape the providers use them.
+    for shape in ({"1": "manager"}, ["manager"], "manager"):
+        types = _as_list(shape)
+        assert types[0] == "manager"
+        assert _as_list(["Remote"]) + types == ["Remote", "manager"]
 
     print("job_sources: all checks passed")
 

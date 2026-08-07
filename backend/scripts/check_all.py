@@ -34,6 +34,7 @@ SELF_CHECKS = [
     # same kind of extractor an ATS uses. Slower than the rest because it is
     # doing real work, and worth it: this is the check that caught tracked
     # capitals silently destroying section headings.
+    "services.job_sources",
     "services.resume_templates",
     "control.store",
 ]
