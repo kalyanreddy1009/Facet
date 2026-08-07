@@ -18,9 +18,12 @@ import type { DashboardSummary } from "@/lib/api";
  * 10% conversion at one specific step, and knowing which step is the whole
  * point.
  *
- * The backend already reports the funnel cumulatively ("reached this stage or
- * later"), which is exactly what makes stage-to-stage conversion meaningful
- * rather than double-counted. No API change: the same payload, read properly.
+ * The backend reports the funnel cumulatively ("reached this stage or later"),
+ * which is exactly what makes stage-to-stage conversion meaningful rather than
+ * double-counted. It now derives that from recorded status history rather than
+ * from the current status alone, which is what lets a rejection be counted at
+ * the stage it actually reached — so these conversion rates finally include
+ * the outcomes they were previously computed without.
  *
  * It is also plain DOM. The chart it replaces pulled in ~150KB of recharts
  * behind a dynamic import for two SVG shapes.
@@ -29,6 +32,10 @@ import type { DashboardSummary } from "@/lib/api";
 interface PipelineViewProps {
   funnel: DashboardSummary["funnel"];
   rejected: number;
+  /** Where the rejections happened, keyed by the furthest stage reached.
+   *  `unknown` is a real key — applications rejected before status history
+   *  existed cannot say where they died. */
+  rejectedFrom: DashboardSummary["rejected_from"];
 }
 
 const STAGES = [
@@ -38,7 +45,7 @@ const STAGES = [
   { key: "Offer", label: "Offer", hint: "they said yes" },
 ] as const;
 
-export default function PipelineView({ funnel, rejected }: PipelineViewProps) {
+export default function PipelineView({ funnel, rejected, rejectedFrom }: PipelineViewProps) {
   const top = funnel.Cut || 1;
 
   const rows = STAGES.map((stage, i) => {
@@ -112,10 +119,41 @@ export default function PipelineView({ funnel, rejected }: PipelineViewProps) {
       ))}
 
       {rejected > 0 && (
-        <p className="mt-4 pt-3 border-t border-border text-xs text-text-faint">
-          <span className="tnum text-text-dim">{rejected}</span> rejected, and not counted above —
-          a stage nobody reaches on purpose.
-        </p>
+        /* This used to read "rejected, and not counted above". That was true,
+           and it was the problem: the backend had no status history, so a
+           rejected row could not say which stage it died at and had to be
+           dropped from the funnel entirely — which quietly removed the worst
+           outcomes from every conversion rate. `application_events` fixed
+           that, so rejections now sit inside the numbers above and this line
+           says where they happened instead of apologising for their absence. */
+        <div className="mt-4 pt-3 border-t border-border">
+          <p className="text-xs text-text-faint">
+            <span className="tnum text-text-dim">{rejected}</span>{" "}
+            {rejected === 1 ? "rejection" : "rejections"}, counted at the stage each one reached
+          </p>
+          <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+            {/* Ordered by the pipeline, not by count: "where do they die"
+                reads along the process, and sorting by size would reshuffle
+                the list every time a single application moved. */}
+            {[...STAGES.map((s) => s.label), "unknown"]
+              .filter((stage) => rejectedFrom[stage] > 0)
+              .map((stage) => (
+                <li key={stage} className="text-xs text-text-faint">
+                  <span className="tnum text-text-dim">{rejectedFrom[stage]}</span>{" "}
+                  {stage === "unknown" ? (
+                    /* Not a stage — the honest name for a row that was already
+                       rejected before any of this was recorded. Saying "Cut"
+                       here would be inventing a fact to avoid a gap. */
+                    <span title="Rejected before status history was recorded">
+                      stage not recorded
+                    </span>
+                  ) : (
+                    `at ${stage}`
+                  )}
+                </li>
+              ))}
+          </ul>
+        </div>
       )}
     </div>
   );

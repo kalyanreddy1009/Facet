@@ -39,7 +39,11 @@ export default function ApplicationsView({ summary, onUpdateStatus }: Applicatio
 
         <Panel className="p-5">
           <p className="label mb-4">Pipeline</p>
-          <PipelineView funnel={summary.funnel} rejected={summary.rejected_count} />
+          <PipelineView
+            funnel={summary.funnel}
+            rejected={summary.rejected_count}
+            rejectedFrom={summary.rejected_from ?? {}}
+          />
         </Panel>
       </div>
 
