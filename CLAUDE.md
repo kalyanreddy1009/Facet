@@ -3,15 +3,17 @@
 Local-only job-search assistant. Next.js 16 + Tailwind 4 frontend (`frontend/`),
 FastAPI backend (`backend/`), SQLite at `data/tracker.db`, `agy` CLI for AI.
 
-**Start with the `facet` skill** (`.claude/skills/facet/SKILL.md`). It carries
-the whole picture — architecture, the cutting pipeline, the resume template
-system, the design system, the sandbox recipes — in one read, and exists so a
-session does not spend its budget rediscovering the same ground.
+**Start with `OVERVIEW.md`.** One file, deliberately dense: architecture, the
+two flows, the data model, matching, the `agy` trap, the API, the design
+system, the resume templates, the commands, and the things that bite in the
+first ten minutes. It exists so a session does not spend its budget
+rediscovering the same ground, and it is the file kept current — where anything
+else disagrees with it, OVERVIEW is newer.
 
-Deeper context after that: `CONTEXT.md` (architecture, API surface, data model,
-the `agy` file-handoff trap) · `workspace/RULES.md` (truthfulness contract) ·
-`AUTONOMY.md` (how to work here) · `docs/runbook.md` (production) · `PLAN.md`
-(multi-user host).
+Deeper after that: `.claude/skills/facet/SKILL.md` (design system and pipeline
+at length) · `CONTEXT.md` (services, API surface, data model) ·
+`workspace/RULES.md` (truthfulness contract) · `AUTONOMY.md` (how to work
+here) · `docs/runbook.md` (production) · `PLAN.md` (multi-user host).
 
 ## gstack
 

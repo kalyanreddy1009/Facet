@@ -26,8 +26,10 @@ and copy:
 | **Facet** | one tailored application | `/tailor` |
 | **Cabinet** | the tracker | `/cabinet` |
 
-Read `CLAUDE.md` first (short, the rules), then `CONTEXT.md` (long, the map).
-This skill is the compressed form of both plus what is not written down.
+Read `OVERVIEW.md` first — one dense file covering the whole app, and the one
+kept current; where anything here disagrees with it, OVERVIEW is newer. Then
+`CLAUDE.md` (short, the rules). This skill goes deeper than OVERVIEW on the
+design system, the cutting pipeline and the sandbox recipes.
 
 ---
 

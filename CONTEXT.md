@@ -1,6 +1,10 @@
 # Facet — orientation brief
 
-For an agent that needs the full picture before writing prompts or code.
+**Read `OVERVIEW.md` first** — it is the single dense picture of the whole app
+and it is kept current. This file expands its §3–§5 (services, API, data model)
+for an agent that needs more than the brief. Where the two disagree, OVERVIEW
+is newer; fix this file rather than trusting it.
+
 Read alongside `README.md` (user-facing overview), `AUTONOMY.md` (how to
 work here), `workspace/RULES.md` (AI truthfulness contract), `CHANGELOG.md`.
 
@@ -42,9 +46,11 @@ features — and WeasyPrint's native Pango/Cairo libs — PDF/DOCX export only.
   `tracker.db` must keep working without a rebuild. All DB calls are async
   wrappers around a lock + threadpool.
 - `matching.py` — cheap local keyword-overlap scoring, no embeddings, no agy.
-  `posting_match_score` (0–100, ranks The Rough, ceiling `MATCH_CEILING=12`),
+  `posting_match_score` (0–100, ranks The Rough, ceiling `MATCH_CEILING=8`),
   `posting_match_terms` (the evidence behind it), `keyword_overlap_score`
-  (raw fraction, used for the tailor pre-check).
+  (raw fraction, used for the tailor pre-check). Matches **whole tokens**, not
+  substrings, with equivalences declared by name in `ALIASES` — see
+  `OVERVIEW.md` §6 before changing any of it.
 - `job_sources.py` — provider adapters + normalization. Keyless/always-on:
   RemoteOK, Arbeitnow, Jobicy, Himalayas. Key-optional: **Jooble** (this is
   the one that reaches LinkedIn/Indeed/Naukri listings), **Adzuna**.
@@ -115,7 +121,9 @@ posting's hash and its card are the same real-world thing. Columns:
 `tags` and `match_terms` are JSON-encoded TEXT, decoded in the router.
 
 Others: `applications` (status ∈ `Saved, Cut, Set, Interviewing, Rejected,
-Offer`), `contacts`, `interviews`, `suggested_interviews`.
+Offer`), `application_events` (append-only status history, written by SQLite
+trigger rather than by the routers — `OVERVIEW.md` §5), `contacts`,
+`interviews`, `suggested_interviews`.
 
 `profile.json`: `name`, `contact{email,phone,location,linkedin}`,
 `summary_base`, `skills[]`, `roles[]` (each with a stable `id` the tailor
@@ -300,7 +308,7 @@ Don't introduce pytest/jest/vitest without being asked.
    extraction must still work; `/status` reports it.
 4. Migrations are additive-only via `_POSTING_COLUMNS`. Never rewrite the
    table; existing user DBs must survive.
-5. Live DB is real user data (~828 postings). `workspace/` and `data/` are
+5. Live DB is real user data (670 postings). `workspace/` and `data/` are
    never to be deleted without explicit permission.
 6. **Known open bug:** the same posting appears twice (e.g. "Senior Python
    Engineer, EPAM") — `posting_hash` isn't deduping one job arriving from two
