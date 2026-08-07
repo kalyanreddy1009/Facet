@@ -54,6 +54,12 @@ node_modules/
 .next.previous/
 .next.qa/
 .next.build/
+# Missing here cost a commit: a sandbox served from NEXT_DIST_DIR=.next.sbx
+# put ~300 build artifacts into the index, because the list above enumerates
+# names rather than matching the pattern. A glob instead of a fifth literal,
+# so the next scratch root someone invents is covered before they discover it
+# in `git status`.
+.next.*/
 *.tsbuildinfo
 
 # Scratch inputs and outputs from manual testing — real resumes go through the

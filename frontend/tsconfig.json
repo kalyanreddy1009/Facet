@@ -40,7 +40,9 @@
     ".next.qa/types/**/*.ts",
     ".next.qa/dev/types/**/*.ts",
     ".next.build/types/**/*.ts",
-    ".next.build/dev/types/**/*.ts"
+    ".next.build/dev/types/**/*.ts",
+    ".next.sbx/types/**/*.ts",
+    ".next.sbx/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

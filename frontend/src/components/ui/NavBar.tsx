@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Activity, Menu, X } from "lucide-react";
+import { Activity } from "lucide-react";
 import { ENTER, REDUCED } from "@/lib/motion";
 import AccountMenu from "@/components/ui/AccountMenu";
 import FacetMark from "@/components/ui/FacetMark";
+import TabBar from "@/components/ui/TabBar";
 import { useSession } from "@/lib/useSession";
 
 const LINKS = [
@@ -26,26 +26,6 @@ export default function NavBar() {
   const pathname = usePathname();
   const reduced = useReducedMotion();
   const { session } = useSession();
-  const [open, setOpen] = useState(false);
-
-  // Escape closes the mobile menu, and so does turning the phone landscape
-  // into the desktop layout — otherwise the sheet stays mounted underneath a
-  // nav that is now showing the same four links inline, and the page below it
-  // is covered by a menu nobody can see a way out of.
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    const wide = window.matchMedia("(min-width: 768px)");
-    const onWide = () => wide.matches && setOpen(false);
-    document.addEventListener("keydown", onKeyDown);
-    wide.addEventListener("change", onWide);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      wide.removeEventListener("change", onWide);
-    };
-  }, [open]);
 
   // Single-user mode has no login at all, so the app is always reachable there.
   const inApp = session?.authenticated === true || session?.single_user === true;
@@ -63,6 +43,7 @@ export default function NavBar() {
   const landing = pathname === "/";
 
   return (
+    <>
     <header className="sticky top-0 z-40 nav-shell">
       {/* Three columns rather than space-between: the outer two are equal
           fractions, so the track lands on the optical centre of the island no
@@ -128,7 +109,12 @@ export default function NavBar() {
             <Link
               href={STATUS_LINK.href}
               aria-current={pathname === STATUS_LINK.href ? "page" : undefined}
-              className={`nav-pill nav-pill-sm relative hidden md:flex items-center gap-1.5 text-xs ${
+              /* Shown at every width now. It used to hide below `md` because
+                 the hamburger owned that corner; with the tab bar carrying the
+                 four destinations, this is the only thing left up here and it
+                 fits. Status is a diagnostic — agy and WeasyPrint — so it
+                 belongs in the chrome rather than taking a tab slot. */
+              className={`nav-pill nav-pill-sm relative flex items-center gap-1.5 text-xs ${
                 pathname === STATUS_LINK.href
                   ? "nav-pill-active nav-pill-on"
                   : "text-text-dim hover:text-text"
@@ -152,55 +138,16 @@ export default function NavBar() {
             </Link>
           )}
 
-          {showApp && (
-            <button
-              type="button"
-              onClick={() => setOpen((o) => !o)}
-              /* 44x44. This control only ever renders below `md`, so it is
-                 always a thumb reaching for it, and it is the only way to
-                 navigate on a phone — it was 36x26, under Apple's 28pt floor
-                 for any control and well under the 44pt a button is meant to
-                 offer. The size is unconditional rather than behind
-                 `pointer: coarse`, because a narrow window on a desktop shows
-                 this same button to a mouse and would otherwise get a
-                 44-wide, 26-tall lozenge. */
-              className="nav-pill nav-pill-sm md:hidden !w-11 !h-11 text-text-dim hover:text-text"
-              aria-expanded={open}
-              aria-label={open ? "Close menu" : "Open menu"}
-            >
-              {open ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            </button>
-          )}
         </div>
       </div>
-
-      {open && showApp && (
-        <nav
-          /* The header is pointer-transparent so the page stays clickable
-             around the island; anything real inside it has to opt back in. */
-          className="glass pointer-events-auto md:hidden mt-2 max-w-shell mx-auto rounded-2xl p-2 flex flex-col gap-1"
-          aria-label="Main"
-        >
-          {[...LINKS, STATUS_LINK].map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              // Closed here rather than in an effect on `pathname`: tapping
-              // the link you are already on does not change the route, and a
-              // menu that stays open in that one case reads as a stuck menu.
-              onClick={() => setOpen(false)}
-              aria-current={pathname === link.href ? "page" : undefined}
-              className={`nav-pill !justify-start !h-11 text-sm ${
-                pathname === link.href
-                  ? "nav-pill-active nav-pill-on font-medium"
-                  : "text-text-dim hover:text-text"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-      )}
     </header>
+
+    {/* Outside the header on purpose. `.nav-shell` is `pointer-events: none`
+        so the page stays clickable around the floating island, and a tab bar
+        living inside it would have to opt back in for no reason — it is a
+        fixed element at the other end of the screen and shares nothing with
+        the header but a condition. */}
+    <TabBar show={showApp} />
+    </>
   );
 }

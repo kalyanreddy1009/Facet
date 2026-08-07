@@ -1320,6 +1320,108 @@ body::before {
   box-shadow: 0 -1px 0 rgba(15, 17, 21, 0.03), 0 12px 28px -20px rgba(15, 17, 21, 0.3);
 }
 
+/* ---- The tab bar (phones) ------------------------------------------------
+
+   Replaces a hamburger. Facet has four peer destinations that never change,
+   which is the exact shape a tab bar is for; a menu is what you reach for when
+   they do not fit. Behind a button, every destination cost two taps and the
+   current one was invisible until you opened it.
+
+   `position: fixed`, not sticky: the bar belongs to the app frame, not to the
+   document, and a sticky element inside a scrolling column leaves the last row
+   of a list stranded underneath it. The document pays for the space instead —
+   see the `body` padding below.
+
+   No `backdrop-filter`, for the same reason `.cut-bar` has none: this element
+   is on screen for every frame of every scroll, and the blur is the most
+   expensive property in this file. `--glass-2` at 96% already separates it. */
+.tab-bar {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: stretch;
+  /* Opaque, not `--glass-2`.
+     `.cut-bar` uses the 96% glass and gets away with it because it scrolls
+     with the document and only ever has a little under it. This bar is
+     permanent chrome with a whole page sliding beneath it, and 4% of
+     transparency was enough to read the rejection line straight through the
+     tabs. Without a backdrop blur to hide behind — which this bar deliberately
+     does not pay for, being composited every scroll frame — the only honest
+     answer is a solid surface. */
+  background: var(--surface-1);
+  border-top: 1px solid var(--border);
+  /* Clears the home indicator on a notched phone, and collapses to nothing on
+     hardware that has none. */
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -8px 24px -20px rgba(15, 17, 21, 0.35);
+}
+
+/* The breakpoint lives here, not in a `md:hidden` on the element.
+
+   This class is unlayered, and Tailwind's utilities sit inside `@layer
+   utilities` — unlayered rules beat layered ones regardless of specificity, so
+   `display: grid` above quietly won and the bar stayed on screen at 1440px
+   underneath the inline nav. Caught by the check, not by reading it. Anything
+   else in this file that sets `display` has the same trap waiting. */
+@media (min-width: 768px) {
+  .tab-bar {
+    display: none;
+  }
+}
+
+.tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  /* 56px, comfortably past Apple's 44pt floor, and the whole column is the
+     target rather than the glyph — a tab you have to hit precisely is a tab
+     that has misunderstood what a thumb is. */
+  min-height: 56px;
+  padding: 8px 4px;
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color var(--t-fast) var(--ease);
+}
+
+.tab-item-on {
+  color: var(--accent-text);
+}
+
+/* Colour alone must not be the only signal — deuteranopia is the most common
+   colour blindness and accent-vs-dim is exactly the distinction it flattens.
+   The active tab is also the only one whose icon is filled. */
+.tab-item-on .tab-icon {
+  opacity: 1;
+}
+
+.tab-icon {
+  width: 22px;
+  height: 22px;
+  opacity: 0.75;
+}
+
+.tab-label {
+  font-size: 0.6875rem; /* 11px at the default root, and it scales with it. */
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* The bar is fixed, so the document has to pay for its height or the last row
+   of every list sits permanently underneath it. Scoped to the widths where the
+   bar actually renders. */
+@media (max-width: 767px) {
+  body:has(.tab-bar) {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  }
+}
+
 /* A keycap. Real dimensions rather than a styled span: the shortcut hint is
    only useful if it reads as a key at a glance. */
 .kbd {

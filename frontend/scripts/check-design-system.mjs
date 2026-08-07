@@ -60,6 +60,7 @@ const OWNED = [
   "ruled",
   "showcase",
   "skeleton",
+  "tab-",
   "tpl-",
   "tnum",
   "trend-",
