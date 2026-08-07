@@ -28,8 +28,11 @@ function ok(condition: boolean, message: string) {
 
 const KEYWORDS = ["Python", "FastAPI", "PostgreSQL", "Kubernetes", "C++", "node.js", "AWS"];
 
-/** Cases chosen to exercise the parts most likely to drift: substring hits,
- *  punctuation inside technology names, case folding, and an empty term. */
+/** Cases chosen to exercise the parts most likely to drift: alias folding,
+ *  punctuation inside technology names, case folding, phrase keywords, an
+ *  empty term — and above all the substring false positives this matcher was
+ *  rewritten to remove, since those are the ones a well-meaning "optimisation"
+ *  on one side would silently bring back. */
 const CASES: { text: string; keywords: string[] }[] = [
   { text: "We use Python and FastAPI with Postgres on AWS.", keywords: KEYWORDS },
   { text: "Deep C++ experience; some node.js. Kubernetes a plus.", keywords: KEYWORDS },
@@ -39,6 +42,31 @@ const CASES: { text: string; keywords: string[] }[] = [
   { text: "anything", keywords: [] },
   { text: "", keywords: KEYWORDS },
   { text: "python", keywords: ["Python", "  ", "AWS"] },
+  // The posting that scored 60% under substring matching while naming none of
+  // these: Go from Django, R from career, C from Reach.
+  {
+    text: "We are a Django shop. Great colleagues, good salary, career growth. Reach out!",
+    keywords: ["Go", "R", "C", "Java", "React"],
+  },
+  // Prefix collisions between real technologies.
+  { text: "JavaScript and TypeScript throughout", keywords: ["Java", "Script", "TypeScript"] },
+  // Sentence punctuation: `.` is inside the token pattern, so these arrive as
+  // `python.` and `node.js.` and must still match.
+  { text: "The stack is Python. Ships with Node.js.", keywords: ["Python", "Node.js"] },
+  // `next` is an ordinary English word and must not satisfy Next.js.
+  { text: "the next candidate we hire", keywords: ["Next.js"] },
+  { text: "built on Next.js and Vue.js", keywords: ["Next.js", "Vue"] },
+  // Aliases, in both directions.
+  { text: "k8s, golang and C# on .NET", keywords: ["Kubernetes", "Go", "C#", ".NET"] },
+  // Multi-word keywords match as a contiguous phrase, not as loose words.
+  {
+    text: "event-driven architecture at scale",
+    keywords: ["Event-driven architecture", "distributed systems"],
+  },
+  {
+    text: "an architecture that is event driven by design",
+    keywords: ["Event-driven architecture"],
+  },
 ];
 
 function demo() {
@@ -95,13 +123,38 @@ print(json.dumps([keyword_overlap_score(c["text"], c["keywords"]) for c in cases
   // 3. Behaviour the UI depends on, checked regardless of the backend.
   const rich = matchAgainst(CASES[0].text, KEYWORDS);
   ok(rich.hits.includes("Python"), "an exact term should hit");
-  ok(rich.hits.includes("PostgreSQL") === false, "'Postgres' must not satisfy 'PostgreSQL'");
+  // 'Postgres' DOES satisfy 'PostgreSQL', and that is the point of ALIASES.
+  // This assertion used to say the opposite, back when matching was substring
+  // based and the pair happened not to match in that direction. The alias map
+  // makes the equivalence deliberate and readable instead of accidental.
+  ok(rich.hits.includes("PostgreSQL"), "'Postgres' must satisfy 'PostgreSQL' via the alias map");
   ok(rich.misses.includes("Kubernetes"), "an absent term should be reported as not mentioned");
   ok(rich.hits.length + rich.misses.length === KEYWORDS.length, "every term is accounted for");
 
   const punctuated = matchAgainst(CASES[1].text, KEYWORDS);
   ok(punctuated.hits.includes("C++"), "'c++' must survive tokenisation");
   ok(punctuated.hits.includes("node.js"), "'node.js' must survive tokenisation");
+
+  // --- The false positives this matcher exists to prevent -----------------
+  const noise = matchAgainst(CASES[8].text, CASES[8].keywords);
+  ok(
+    noise.hits.length === 0,
+    `a posting naming none of these must match none; got ${JSON.stringify(noise.hits)}`
+  );
+  ok(matchAgainst("JavaScript everywhere", ["Java"]).hits.length === 0, "'Java' must not match 'JavaScript'");
+  ok(matchAgainst("a career in commerce", ["C", "R"]).hits.length === 0, "single letters must not match inside words");
+  ok(matchAgainst("strong R and SQL", ["R"]).hits.includes("R"), "a one-letter language still matches itself");
+  ok(matchAgainst("the next candidate", ["Next.js"]).hits.length === 0, "'next' must not satisfy 'Next.js'");
+
+  // Phrases are contiguous runs, not bags of words.
+  ok(
+    matchAgainst("event-driven architecture", ["Event-driven architecture"]).hits.length === 1,
+    "a multi-word keyword should match as a phrase"
+  );
+  ok(
+    matchAgainst("architecture that is event driven", ["event architecture"]).hits.length === 0,
+    "words present but not adjacent must not match a phrase"
+  );
 
   ok(matchAgainst("anything", []).score === 0, "no keywords means no score, not a divide by zero");
   ok(matchAgainst("", KEYWORDS).score === 0, "empty text scores zero");
