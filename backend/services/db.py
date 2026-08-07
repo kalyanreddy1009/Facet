@@ -173,6 +173,55 @@ def _create_schema(conn: sqlite3.Connection) -> None:
           dismissed INTEGER NOT NULL DEFAULT 0
         );
 
+        -- Status history. `applications.status` holds only where a thing is
+        -- now, which is enough to draw a list and not enough to answer the
+        -- question people actually have: what happened, and when did it stop.
+        -- Without this the Cabinet's funnel had to *infer* that anything
+        -- currently 'Offer' must once have been 'Set', and had to drop
+        -- rejections from the maths entirely, because a rejected row cannot
+        -- say which stage it was rejected from.
+        --
+        -- Append-only by construction: nothing in the app updates or deletes
+        -- a row here. `status` is deliberately not constrained to a fixed
+        -- vocabulary — a CHECK would turn adding a status into a table
+        -- rebuild, and this table's job is to record what happened, including
+        -- a value a later version of the app invented.
+        CREATE TABLE IF NOT EXISTS application_events (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          application_id INTEGER NOT NULL REFERENCES applications(id),
+          status TEXT NOT NULL,
+          occurred_at TEXT NOT NULL DEFAULT (datetime('now')),
+          -- Free text, and the one place a backfilled or inferred row admits
+          -- to being one. NULL means "this was observed as it happened".
+          note TEXT
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_application_events_app
+          ON application_events(application_id, occurred_at);
+
+        -- Recorded by trigger rather than by the routers, and that is the
+        -- whole point. Status is written from at least two places today —
+        -- PATCH /api/applications/{id} and the cutting pipeline's direct
+        -- UPDATE ... SET status = 'Cut' — and a history that depends on every
+        -- author remembering to append is a history with holes in it. The
+        -- database is the one place every write has to pass through.
+        CREATE TRIGGER IF NOT EXISTS applications_status_created
+        AFTER INSERT ON applications
+        BEGIN
+          INSERT INTO application_events (application_id, status, occurred_at)
+          VALUES (NEW.id, NEW.status, NEW.created_at);
+        END;
+
+        -- `IS NOT` rather than `!=`: SQLite's `!=` is NULL for a NULL operand,
+        -- so a status going to or from NULL would silently record nothing.
+        CREATE TRIGGER IF NOT EXISTS applications_status_changed
+        AFTER UPDATE OF status ON applications
+        WHEN NEW.status IS NOT OLD.status
+        BEGIN
+          INSERT INTO application_events (application_id, status)
+          VALUES (NEW.id, NEW.status);
+        END;
+
         -- Calendar-sync suggestions (Section 10) — every match is a guess,
         -- never written straight into `interviews`. A person confirms or
         -- dismisses each one; `dismissed` doubles as "no longer pending"
@@ -235,6 +284,27 @@ def _migrate(conn: sqlite3.Connection) -> None:
     # dismissed or promoted is kept: those carry a decision the person made,
     # and re-adding a dismissed posting would undo it.
     conn.execute("DELETE FROM seen_postings WHERE source = 'RSS' AND dismissed = 0 AND promoted = 0")
+
+    # Seed the status history for applications that predate it.
+    #
+    # One event per application, and deliberately not a fabricated chain. An
+    # application sitting at 'Offer' certainly passed through 'Set' at some
+    # point, but nothing here knows when, and inventing three timestamps to
+    # make a chart look complete is exactly the kind of confident fiction this
+    # app is built not to produce. The note says so, in the row.
+    #
+    # `occurred_at` uses created_at rather than now, because the one true
+    # thing available is when the application was made. The funnel handles the
+    # rest by treating the current status as the furthest stage reached — see
+    # `routers/tracker.dashboard_summary`.
+    conn.execute(
+        """INSERT INTO application_events (application_id, status, occurred_at, note)
+           SELECT a.id, a.status, a.created_at,
+                  'backfilled: status at the time history was added, earlier stages unknown'
+             FROM applications a
+            WHERE NOT EXISTS (
+                  SELECT 1 FROM application_events e WHERE e.application_id = a.id)"""
+    )
 
     conn.executescript(
         """

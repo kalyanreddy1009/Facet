@@ -229,6 +229,12 @@ export interface DashboardSummary {
   response_rate: number | null;
   funnel: { Cut: number; Set: number; Interviewing: number; Offer: number };
   rejected_count: number;
+  /** Where the rejections happened, keyed by the furthest stage the
+   *  application reached. `unknown` is a real and honest key: applications
+   *  rejected before status history was recorded cannot say where they died,
+   *  and are reported as unknown rather than assigned to a convenient stage.
+   *  Absent stages simply had no rejections. */
+  rejected_from: Record<string, number>;
   needs_followup: Application[];
   cut_vs_set: { cut: number; set: number; gap: number };
   cut_not_sent_yet: Application[];

@@ -377,35 +377,89 @@ async def get_cover_letter_file(application_id: int):
     return await _serve_application_file(application_id, "cover_letter_path", "application/pdf")
 
 
+#: The pipeline, in order. Rejected is deliberately absent: it is an outcome
+#: that can arrive at any stage, not a stage of its own, and ranking it would
+#: make a rejection at screening look like progress past an interview.
+STAGES = ("Saved", "Cut", "Set", "Interviewing", "Offer")
+_STAGE_RANK = {name: i for i, name in enumerate(STAGES)}
+
+
+def _furthest_stage(statuses: list[str]) -> str | None:
+    """The furthest point an application reached, from its recorded history
+    plus its current status. None when nothing recognisable was seen — which
+    is what a row rejected before history existed looks like, and it is
+    reported as unknown rather than guessed at."""
+    ranks = [_STAGE_RANK[s] for s in statuses if s in _STAGE_RANK]
+    return STAGES[max(ranks)] if ranks else None
+
+
 @router.get("/api/dashboard/summary")
 async def dashboard_summary():
     """Precomputes the Cabinet's three-view numbers server-side in one call
     (Section 10), so the frontend never recalculates aggregates from a full
     row dump on every render.
 
-    Only a single current `status` is tracked per application (no status-
-    history log), so the funnel below counts "reached this stage or later"
-    using the natural progression Cut -> Set -> Interviewing -> Offer.
-    Rejected applications are excluded from funnel/response-rate math (we
-    can't know which stage they dropped from) and reported as their own
-    count instead, so the funnel never silently guesses that.
+    THE FUNNEL READS HISTORY NOW, NOT JUST THE CURRENT STATUS.
+
+    This used to work from `applications.status` alone, which meant it could
+    only *infer* that anything currently 'Offer' must once have been 'Set',
+    and had to drop rejections from the maths entirely — a rejected row could
+    not say which stage it was rejected from, so counting it anywhere would
+    have been a guess. That excluded exactly the outcome people most want to
+    understand.
+
+    `application_events` records every status change (by trigger, so no write
+    path can forget), and the furthest stage an application reached is the
+    highest-ranked status across its history *and* its current value. Taking
+    the maximum of both is what lets rows backfilled with a single event —
+    everything created before this table existed — still count correctly:
+    their current status is their furthest known stage.
+
+    A rejection now lands in the funnel at the stage it actually reached.
+    Where that is genuinely unknown, it is reported under `unknown` instead of
+    being assigned somewhere convenient.
     """
     applications = await db.fetch_all("SELECT * FROM applications")
-
-    reached_cut = [a for a in applications if a["status"] != "Saved"]
-    reached_set = [a for a in reached_cut if a["status"] != "Cut"]
-    reached_interviewing = [
-        a for a in reached_set if a["status"] in ("Interviewing", "Offer")
-    ]
-    reached_offer = [a for a in reached_set if a["status"] == "Offer"]
-    rejected = [a for a in applications if a["status"] == "Rejected"]
-
-    response_rate = (
-        len(reached_interviewing) / len(reached_set) if reached_set else None
+    events = await db.fetch_all(
+        "SELECT application_id, status FROM application_events ORDER BY occurred_at, id"
     )
 
+    history: dict[int, list[str]] = {}
+    for event in events:
+        history.setdefault(event["application_id"], []).append(event["status"])
+
+    # Furthest stage per application, from history + where it sits today.
+    furthest: dict[int, str | None] = {
+        a["id"]: _furthest_stage(history.get(a["id"], []) + [a["status"]])
+        for a in applications
+    }
+    rejected = [a for a in applications if a["status"] == "Rejected"]
+
+    def reached(stage: str) -> list[dict]:
+        floor = _STAGE_RANK[stage]
+        return [
+            a
+            for a in applications
+            if (best := furthest[a["id"]]) is not None and _STAGE_RANK[best] >= floor
+        ]
+
+    reached_set = reached("Set")
+    reached_interviewing = reached("Interviewing")
+
+    # Rejections are included in both sides now: an application that was sent
+    # and then rejected did reach 'Set', and pretending otherwise flattered
+    # the response rate by removing its worst outcomes from the denominator.
+    response_rate = len(reached_interviewing) / len(reached_set) if reached_set else None
+
+    # Where rejections actually happened. `unknown` is the honest bucket for
+    # rows whose history predates this table and that were already rejected,
+    # so nothing ever knew what stage they died at.
+    rejected_from: dict[str, int] = {}
+    for application in rejected:
+        stage = _furthest_stage(history.get(application["id"], []))
+        rejected_from[stage or "unknown"] = rejected_from.get(stage or "unknown", 0) + 1
+
     cut_now = [a for a in applications if a["status"] == "Cut"]
-    set_or_later = reached_set
 
     followups = await db.fetch_all(
         """SELECT * FROM applications
@@ -423,21 +477,40 @@ async def dashboard_summary():
     return {
         "response_rate": response_rate,
         "funnel": {
-            "Cut": len(reached_cut),
+            "Cut": len(reached("Cut")),
             "Set": len(reached_set),
             "Interviewing": len(reached_interviewing),
-            "Offer": len(reached_offer),
+            "Offer": len(reached("Offer")),
         },
         "rejected_count": len(rejected),
+        "rejected_from": rejected_from,
         "needs_followup": followups,
         "cut_vs_set": {
             "cut": len(cut_now),
-            "set": len(set_or_later),
-            "gap": len(cut_now) - len(set_or_later),
+            "set": len(reached_set),
+            "gap": len(cut_now) - len(reached_set),
         },
         "cut_not_sent_yet": cut_now,
         "clarity_score_trend": clarity_trend,
     }
+
+
+@router.get("/api/applications/{application_id}/events")
+async def application_events(application_id: int):
+    """The status history of one application, oldest first.
+
+    Ordered by `occurred_at, id` rather than `occurred_at` alone: two changes
+    inside the same second are ordinary (a cut that immediately marks itself
+    'Cut'), `datetime('now')` has one-second resolution, and without the id
+    tiebreak the pair would come back in arbitrary order.
+    """
+    if not await db.fetch_one("SELECT 1 FROM applications WHERE id = ?", (application_id,)):
+        raise HTTPException(status_code=404, detail="Application not found")
+    return await db.fetch_all(
+        """SELECT id, status, occurred_at, note FROM application_events
+           WHERE application_id = ? ORDER BY occurred_at, id""",
+        (application_id,),
+    )
 
 
 @router.get("/api/interviews/{interview_id}/detail")
