@@ -317,12 +317,27 @@ async def get(job_id: int) -> dict | None:
 
 
 def _latest(kind: str) -> dict | None:
+    """The newest job of a kind, in this user's scope, shaped exactly like
+    `_get` — including `position`.
+
+    It used to build the dict itself, which meant it returned a row with no
+    `position` key and no user filter. `/api/resume/extraction-status` reads
+    `job["position"]`, so every poll after a resume save 500'd: the Stone page
+    spun forever and the profile — and so every match score derived from it —
+    never refreshed. Going through `_get` means the two can't drift again.
+    """
     conn = _connect()
-    return _row_to_job(
-        conn.execute(
-            "SELECT * FROM jobs WHERE kind = ? ORDER BY id DESC LIMIT 1", (kind,)
+    user = paths.get_user()
+    if user is None:
+        row = conn.execute(
+            "SELECT id FROM jobs WHERE kind = ? ORDER BY id DESC LIMIT 1", (kind,)
         ).fetchone()
-    )
+    else:
+        row = conn.execute(
+            "SELECT id FROM jobs WHERE kind = ? AND user_slug = ? ORDER BY id DESC LIMIT 1",
+            (kind, user),
+        ).fetchone()
+    return _get(row[0]) if row else None
 
 
 async def latest(kind: str) -> dict | None:
@@ -579,6 +594,13 @@ def demo() -> None:
         assert finished["result"] == {"doubled": 2}, finished
         assert finished["position"] is None
         assert await _run(_claim) is None, "queue should be empty"
+
+        # `latest` must be shaped like `get` — the extraction-status endpoint
+        # reads `position` off it, and a missing key there 500'd every poll.
+        assert await latest("nothing-of-this-kind") is None
+        newest = await latest("tailor")
+        assert newest is not None and newest["id"] == b, newest
+        assert "position" in newest, newest
 
         # A raising handler fails the job, bucketed, without killing the loop.
         c = await enqueue("tailor", {"n": 9})

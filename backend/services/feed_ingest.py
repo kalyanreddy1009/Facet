@@ -69,6 +69,56 @@ def load_candidate_keywords() -> list[str]:
     return list(profile.get("keywords", [])) + list(profile.get("skills", []))
 
 
+def _haystack(title: str | None, company: str | None, summary: str | None, tags: list) -> str:
+    """The text a posting is scored against. One definition, because scoring a
+    stored row against a different string than ingest used would silently make
+    a rescore disagree with the number ingest wrote."""
+    return f"{title or ''} {company or ''} {summary or ''} {' '.join(tags or [])}"
+
+
+def rescore_stored_postings(dry_run: bool = False) -> tuple[int, int]:
+    """Recompute `match_score`/`match_terms` for every stored posting in the
+    current user scope. Returns (examined, changed).
+
+    `match_score` is derived from the Stone but written down, because The Rough
+    sorts on it in SQL. So editing your resume used to leave every posting
+    already in the table carrying a score computed from the *old* profile —
+    and a first-ever resume left them all at zero, which renders as no badge at
+    all. Ingest heals a posting only when its feed shows it again, and the
+    postings that never come back are exactly the ones someone saved.
+
+    Only the two derived columns are touched: never `promoted` or `dismissed`,
+    which are decisions the user made. Idempotent.
+    """
+    keywords = load_candidate_keywords()
+    if not keywords or not paths.DB_PATH.exists():
+        return 0, 0
+
+    conn = sqlite3.connect(str(paths.DB_PATH))
+    try:
+        apply_pragmas(conn)
+        rows = conn.execute(
+            "SELECT id, title, company, summary, tags, match_score FROM seen_postings"
+        ).fetchall()
+        changed = 0
+        for row_id, title, company, summary, tags, old in rows:
+            haystack = _haystack(title, company, summary, json.loads(tags or "[]"))
+            score = posting_match_score(haystack, keywords)
+            if abs((old or 0.0) - score) < 1e-9:
+                continue
+            changed += 1
+            if not dry_run:
+                conn.execute(
+                    "UPDATE seen_postings SET match_score = ?, match_terms = ? WHERE id = ?",
+                    (score, json.dumps(posting_match_terms(haystack, keywords)), row_id),
+                )
+        if not dry_run:
+            conn.commit()
+        return len(rows), changed
+    finally:
+        conn.close()
+
+
 def _too_old(posted_date: str | None) -> bool:
     if not posted_date:
         return False  # undated postings are usually fresh; keep them
@@ -105,9 +155,8 @@ def store_postings(postings: list[dict]) -> dict:
                 "SELECT 1 FROM seen_postings WHERE posting_hash = ?", (posting["posting_hash"],)
             ).fetchone() is None
 
-            haystack = (
-                f"{posting['title']} {posting['company']} {posting['summary']} "
-                f"{' '.join(posting['tags'])}"
+            haystack = _haystack(
+                posting["title"], posting["company"], posting["summary"], posting["tags"]
             )
             score = posting_match_score(haystack, keywords)
             matched = posting_match_terms(haystack, keywords)

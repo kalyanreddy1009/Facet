@@ -44,13 +44,30 @@ export default function StonePage() {
   const extractionStatus = extraction?.status;
   useEffect(() => {
     if (extractionStatus !== "running") return;
+    // A poll that fails is not the same as a poll that says "still working",
+    // and treating them alike is how a 500 on this endpoint spun forever with
+    // nothing on screen and nothing in the console. A couple of misses is a
+    // flaky network; a run of them is the server, and the person is owed the
+    // truth rather than an animation.
+    let failures = 0;
     const interval = setInterval(async () => {
       // A backgrounded tab is not watching. Browsers already throttle this
       // timer, but skipping the request outright means a tab left open on
       // this page overnight is not still asking the backend every 1.5s.
       if (document.hidden) return;
       const status = await api.extractionStatus().catch(() => null);
-      if (!status) return;
+      if (!status) {
+        if (++failures < 4) return;
+        clearInterval(interval);
+        const lost = {
+          error: "Lost track of the extraction",
+          hint: "Your resume is saved. Reload to see whether the profile finished.",
+        };
+        setExtraction({ status: "error", error: lost });
+        push(lost.error, { hint: lost.hint });
+        return;
+      }
+      failures = 0;
       setExtraction(status);
       if (status.status === "error" && status.error) {
         push(status.error.error, { hint: status.error.hint });

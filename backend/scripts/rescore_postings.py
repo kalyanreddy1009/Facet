@@ -25,17 +25,13 @@ made and no scoring change gets to revisit them.
 """
 
 import argparse
-import json
-import sqlite3
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from services import paths  # noqa: E402
-from services.db import apply_pragmas  # noqa: E402
-from services.feed_ingest import load_candidate_keywords  # noqa: E402
-from services.matching import posting_match_score, posting_match_terms  # noqa: E402
+from services.feed_ingest import rescore_stored_postings  # noqa: E402
 
 
 def _users() -> list[str | None]:
@@ -53,47 +49,13 @@ def rescore(dry_run: bool) -> tuple[int, int]:
 
     for user in _users():
         with paths.user_scope(user):
-            db_path = paths.DB_PATH
-            if not db_path.exists():
-                continue
-            keywords = load_candidate_keywords()
             label = user or "(single-user root)"
-            if not keywords:
-                print(f"{label}: no profile keywords, skipped")
-                continue
-
-            conn = sqlite3.connect(str(db_path))
-            try:
-                apply_pragmas(conn)
-                rows = conn.execute(
-                    "SELECT id, title, company, summary, tags, match_score FROM seen_postings"
-                ).fetchall()
-                moved = 0
-                for row_id, title, company, summary, tags, old in rows:
-                    # Assembled exactly as store_postings does it; scoring a
-                    # different text than the app scores would be worse than
-                    # leaving the old number alone.
-                    haystack = (
-                        f"{title or ''} {company or ''} {summary or ''} "
-                        f"{' '.join(json.loads(tags or '[]'))}"
-                    )
-                    score = posting_match_score(haystack, keywords)
-                    terms = posting_match_terms(haystack, keywords)
-                    touched += 1
-                    if abs((old or 0.0) - score) < 1e-9:
-                        continue
-                    moved += 1
-                    changed += 1
-                    if not dry_run:
-                        conn.execute(
-                            "UPDATE seen_postings SET match_score = ?, match_terms = ? WHERE id = ?",
-                            (score, json.dumps(terms), row_id),
-                        )
-                if not dry_run:
-                    conn.commit()
-                print(f"{label}: {len(rows)} postings, {moved} scores moved")
-            finally:
-                conn.close()
+            # Same function the profile extraction calls, so a manual rescore
+            # and an automatic one can never produce different numbers.
+            examined, moved = rescore_stored_postings(dry_run)
+            touched += examined
+            changed += moved
+            print(f"{label}: {examined} postings, {moved} scores moved")
 
     return touched, changed
 

@@ -8,7 +8,7 @@ happens to a body that isn't the shape the model expects, whether a route
 added next month will be reachable without a session because somebody forgot
 a decorator.
 
-Three of these checks are route *sweeps* rather than fixed cases. They walk
+Four of these checks are route *sweeps* rather than fixed cases. They walk
 the app's own route table and assert a property of every route, so a new endpoint is
 covered the day it is written rather than the day someone remembers to add a
 test for it. That is the only kind of test that keeps working as the surface
@@ -18,6 +18,7 @@ What it asserts:
 
   * every non-public route refuses an anonymous caller (sweep)
   * every admin route refuses a signed-in non-admin (sweep)
+  * every GET answers a signed-in user without a 5xx (sweep)
   * no handler answers with HTML or a stack trace, whatever you send it
   * validation failures are 4xx and name the field; they are never 500s
   * unicode, very long strings and SQL-looking input round-trip as data
@@ -162,6 +163,38 @@ def check_admin_routes_refuse_a_normal_user(client: TestClient) -> None:
                 leaked.append(f"{method} {path} -> {response.status_code}")
     assert not leaked, "a non-admin reached an admin route:\n  " + "\n  ".join(leaked)
     print("  roles:      every admin route refuses a signed-in non-admin")
+
+
+def check_signed_in_reads_never_500(client: TestClient) -> None:
+    """Every GET, as a real signed-in user, with a job in the queue.
+
+    The other sweeps all probe the *gate*, which means they only ever see 401s
+    and never execute a handler body. So a handler could — and did — raise on
+    its very first line and no sweep noticed: `/api/resume/extraction-status`
+    read `job["position"]`, a key `jobs.latest()` never set, and 500'd on every
+    poll after somebody saved their resume. The Stone page swallowed the error
+    and spun forever.
+
+    Hence the seeded job: with an empty queue that endpoint returns "idle" and
+    never reaches the line that breaks. A sweep that only exercises the empty
+    case is the reason this shipped.
+    """
+    import asyncio
+
+    _sign_in(client, "alice@example.com")
+    alice = store.get_user_by_email("alice@example.com")
+    with paths.user_scope(alice["slug"]):
+        asyncio.run(jobs.enqueue("extract_profile", {}, alice["id"]))
+
+    broken = []
+    for path, methods in _routes():
+        if "GET" not in methods or path.startswith(ADMIN_PREFIX):
+            continue
+        response = client.get(_concrete(path))
+        if response.status_code >= 500:
+            broken.append(f"GET {path} -> {response.status_code}")
+    assert not broken, "a signed-in read raised:\n  " + "\n  ".join(broken)
+    print("  reads:      every GET answers a signed-in user without a 5xx")
 
 
 def check_nothing_ever_answers_with_html(client: TestClient) -> None:
@@ -405,6 +438,7 @@ def main_() -> None:
 
         check_every_route_is_closed_by_default(client)
         check_admin_routes_refuse_a_normal_user(client)
+        check_signed_in_reads_never_500(client)
         check_nothing_ever_answers_with_html(client)
         check_malformed_json_is_a_4xx(client)
         check_required_fields_are_required(client)

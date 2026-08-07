@@ -99,4 +99,40 @@ run4 = feed_ingest.store_postings([stale])
 assert run4["skipped_stale"] == 1, run4
 assert count() == 2, count()
 
-print("DEDUP OK — no duplicates, dismissals stick, stale postings dropped.")
+# --- Rescoring after the Stone changes ------------------------------------
+#
+# Postings are scored at ingest against whatever profile.json said then, so
+# editing your resume leaves every stored row carrying the old answer — and a
+# first-ever resume leaves them all at zero, which renders as no badge at all.
+# That is the "I updated my resume and the score vanished" bug.
+
+
+def scores() -> list[float | None]:
+    conn = sqlite3.connect(str(_tmp))
+    try:
+        return [r[0] for r in conn.execute("SELECT match_score FROM seen_postings ORDER BY id")]
+    finally:
+        conn.close()
+
+
+# Ingested above with no profile at all, so every score is a zero.
+assert all((s or 0.0) == 0.0 for s in scores()), scores()
+
+paths.PROFILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+paths.PROFILE_PATH.write_text('{"skills": ["Python", "FastAPI"], "keywords": []}', encoding="utf-8")
+
+examined, changed = feed_ingest.rescore_stored_postings(dry_run=True)
+assert examined == 2 and changed == 2, (examined, changed)
+assert all((s or 0.0) == 0.0 for s in scores()), "a dry run must write nothing"
+
+examined, changed = feed_ingest.rescore_stored_postings()
+assert examined == 2 and changed == 2, (examined, changed)
+assert all(s and s > 0 for s in scores()), scores()
+
+# Idempotent: a second pass moves nothing.
+assert feed_ingest.rescore_stored_postings()[1] == 0, "rescore is not idempotent"
+
+# And it never revisits a decision the user made.
+assert count("dismissed = 1") == 1, "rescoring cleared a dismissal"
+
+print("DEDUP OK — no duplicates, dismissals stick, stale postings dropped, rescore heals scores.")

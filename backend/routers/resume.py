@@ -5,7 +5,7 @@ import json
 from fastapi import APIRouter, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from services import jobs, resume_templates, settings_store
+from services import feed_ingest, jobs, resume_templates, settings_store
 from services.agy_runner import (
     cleanup_job_dir,
     parse_json_output,
@@ -146,7 +146,13 @@ async def run_extract_profile_job(job: dict) -> dict:
 
     profile = parse_json_output(output)
     paths.PROFILE_PATH.write_text(json.dumps(profile, indent=2), encoding="utf-8")
-    return {"saved": True}
+
+    # The Stone just changed, so every stored score was computed against the
+    # old one. Rescoring here rather than lazily on read because The Rough
+    # sorts and filters on `match_score` in SQL — a score that only exists in
+    # the response can't order the list. ~670 rows is well under a second.
+    examined, changed = feed_ingest.rescore_stored_postings()
+    return {"saved": True, "rescored": changed, "postings": examined}
 
 
 @router.get("/api/resume/extraction-status")
