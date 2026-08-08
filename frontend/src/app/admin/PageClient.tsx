@@ -148,7 +148,14 @@ export default function AdminPage() {
       if (done) push(done, { tone: "success" });
       return result;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      // The fallback only runs when something non-Error was thrown, so there is
+      // no message to pass on. Naming the request that failed still beats
+      // "Something went wrong" — these actions approve, suspend and delete real
+      // accounts, and an admin who cannot tell which one failed has to go and
+      // check the table to find out what they just did.
+      setError(
+        err instanceof Error ? err.message : `The request to ${path} failed, and returned no reason.`
+      );
       return null;
     } finally {
       setPending(null);

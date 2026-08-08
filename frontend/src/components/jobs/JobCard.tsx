@@ -92,7 +92,11 @@ function JobCardBase({ job, active, onDismiss, onTailor, onOpen }: JobCardProps)
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-          <h3 className="text-base font-semibold text-text leading-snug">
+          {/* h2, not h3: these cards are the top-level content under the page's
+              single h1, and a jump straight to h3 leaves a hole in the outline
+              a screen-reader user navigates by. The size is carried by the
+              classes, so the level is free to be correct. */}
+          <h2 className="text-base font-semibold text-text leading-snug">
             {/* A posting without a URL is a row, not a link. `href={undefined}`
                 still renders an <a>, which drops out of the tab order and
                 reads to a screen reader as a link that goes nowhere — so the
@@ -118,7 +122,7 @@ function JobCardBase({ job, active, onDismiss, onTailor, onOpen }: JobCardProps)
             ) : (
               job.title || "Untitled role"
             )}
-          </h3>
+          </h2>
           <MatchBadge score={job.match_score} />
           {job.promoted === 1 && <span className="badge">Tailored</span>}
         </div>

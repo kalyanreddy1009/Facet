@@ -22,18 +22,37 @@ export default function StonePage() {
   const [importing, setImporting] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [extraction, setExtraction] = useState<ExtractionStatus | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  // A 404 here means "no Stone yet", which is the ordinary first-run state and
+  // opens an empty editor. Every other failure must NOT: an empty editor after
+  // a 500 or a dropped connection looks exactly like a first run, and the next
+  // ⌘S writes that emptiness over a Stone that was fine. The Stone is the only
+  // source of truth about the user, so a load we cannot vouch for blocks the
+  // editor rather than guessing at its contents.
+  const load = useCallback(() => {
+    setLoadError(null);
     api
       .getMasterResume()
       .then((res) => {
         setMarkdown(res.markdown);
         setSavedMarkdown(res.markdown);
       })
-      .catch(() => {}) // no stone yet is the normal first-run state
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 404) return;
+        setLoadError(
+          err instanceof ApiError && err.message
+            ? err.message
+            : "Could not reach the server to load your Stone."
+        );
+      })
       .finally(() => setLoaded(true));
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Poll only while an extraction is actually running.
   //
@@ -158,6 +177,24 @@ export default function StonePage() {
       <main className="max-w-shell mx-auto px-5 sm:px-8 py-8 sm:py-10 flex flex-col gap-5">
         <Skeleton className="h-10 w-56" />
         <Skeleton className="h-[28rem] w-full" />
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="max-w-shell mx-auto px-5 sm:px-8 py-8 sm:py-10">
+        <header className="mb-6">
+          <h1 className="text-2xl font-semibold text-text">Your Stone</h1>
+        </header>
+        <Panel className="p-5 flex flex-col gap-3 items-start">
+          <p className="text-sm text-text">{loadError}</p>
+          <p className="text-sm text-text-dim max-w-prose text-pretty">
+            Your Stone has not been changed. The editor stays closed until it loads, so nothing can
+            be saved over it by mistake.
+          </p>
+          <Button onClick={load}>Try again</Button>
+        </Panel>
       </main>
     );
   }

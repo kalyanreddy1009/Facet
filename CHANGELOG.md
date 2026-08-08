@@ -1172,3 +1172,24 @@ Stone extraction produced. Add if the matches read as consistently wrong.
 Found, not fixed: the same posting appears twice ("Senior Python Engineer,
 EPAM"), so `posting_hash` isn't deduping the same job arriving from two
 sources. Next pass.
+
+The Stone page told a server error and a first run apart. `getMasterResume()`
+ended in `.catch(() => {})`, so a 500 or a dropped connection opened the same
+empty editor a brand-new user sees — and the next ⌘S wrote that emptiness over
+a Stone that was fine. The Stone is the only source of truth about the user, so
+this was the worst data-loss path in the app. Now only a 404 means "no Stone
+yet"; anything else leaves the editor closed behind a message and a Try again.
+Verified in a sandbox across four paths: 404 opens the editor, 500 and a
+network abort block it, and retry recovers.
+
+Job card titles are `h2`, not `h3`. `/rough` has one `h1` and no `h2` at all,
+so the outline jumped h1 → h3 and left a hole for anyone navigating by heading.
+The size comes from the classes, so the level was free to be correct.
+
+Found, not fixed: `npx eslint` reports one more `set-state-in-effect` warning
+from the Stone loader's `useCallback` + `useEffect` pair — the same shape
+already in `useSession.ts` and `useStatus.ts`. Worth one pass across all three
+rather than three separate ones.
+
+Confirmed still open: the duplicate "Senior Python Engineer, EPAM" above showed
+up twice in an authenticated sweep, so `posting_hash` is still not deduping.
