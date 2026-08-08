@@ -1222,3 +1222,57 @@ Left alone, deliberately: the silent catches in `AgyHealthBanner`, `login` and
 reasons hold. The twelve `set-state-in-effect` warnings are one fetch-on-mount
 convention used consistently across the app, not twelve defects; churning them
 individually would cost more than it returns.
+
+## The Cabinet, rebuilt around what needs you
+
+The page was three tabs, and the tabs followed the API rather than anything a
+person wants. "Needs a follow-up" lived under Applications, "Cut, not sent yet"
+lived under Facets, and an interview happening on Tuesday lived under
+Interviews — three clicks to assemble one to-do list, with nothing on any tab
+hinting that the other two had work waiting in them.
+
+It is now one page with four sections, in the order the questions get asked:
+**Waiting on you** → **Where things stand** → **Is it moving** → **Interviews**.
+The first section is the three lists merged into one queue, sorted by how soon
+each thing matters rather than by which endpoint returned it, with every row's
+action inline. `/cabinet#interviews` still works as a link; it scrolls to the
+section instead of switching a tab, which is what a fragment was always for.
+
+**The tabs were hiding a false statement.** `cut_vs_set.gap` was
+`len(cut_now) - len(reached_set)` — a current-status count minus a
+cumulative-reached one. Reproduced in a seeded sandbox: two facets cut and
+never sent, six ever sent, gap −4, and the Facets tab rendered "You've sent
+more than you've cut recently — nothing waiting in the wings" directly above
+the panel listing those two waiting facets. The number was not repairable, so
+the field is gone from `/api/dashboard/summary` rather than left on the wire
+for someone to pick up. `cut_not_sent_yet` is a list, and a list cannot
+disagree with itself.
+
+**The sending-trend bars had never rendered.** The bar's `height` is a
+percentage, and its parent column was auto-height inside an `items-end` row —
+a percentage of `auto` is `auto`, so all eight computed to zero and the chart
+had been eight invisible bars under eight floating numbers since it was
+written. Nobody caught it by reading the CSS; it took a screenshot of the page
+with data in it. The bars now resolve against a `flex-1` track, which is also
+the correct basis: proportional to the plotting area rather than to the area
+plus its captions. Their labels stack month-over-day, because at 390px eight
+one-line labels all truncated to "Jun…".
+
+**recharts is gone from the app.** The clarity-score `LineChart` was its last
+consumer — a 348KB chunk fetched to draw one polyline. It is now an inline SVG
+sparkline beside the number it describes, on a fixed 0–100 domain: auto-fitting
+the axis to the data turns a wobble between 71 and 74 into a dramatic climb,
+which is how a chart lies without a single wrong number in it. The route's
+static entry grew 5.0KB (234.8 → 239.8KB) because the queue renders eagerly
+where the old views were dynamic; the 348KB no longer loads at all.
+
+Validated in a seeded sandbox on 3100/8100 across mobile, tablet, desktop and
+wide: no console errors, no horizontal overflow, heading outline h1 → four h2s,
+first queue action reachable in eight tabs with a visible 2px focus ring.
+Functionally: "Mark as sent" removes its row and the pipeline recomputes 6 → 7.
+Empty state checked separately with the fixtures deleted — every section says
+what to do next rather than only that it is empty.
+
+Left alone: the pipeline. It was already the best thing on the page — it says
+where applications *die* rather than drawing a funnel of numbers already
+printed beside it — and it moved across unchanged.

@@ -485,11 +485,16 @@ async def dashboard_summary():
         "rejected_count": len(rejected),
         "rejected_from": rejected_from,
         "needs_followup": followups,
-        "cut_vs_set": {
-            "cut": len(cut_now),
-            "set": len(reached_set),
-            "gap": len(cut_now) - len(reached_set),
-        },
+        # `cut_vs_set` used to live here and has been removed rather than left
+        # unused. Its `gap` was `len(cut_now) - len(reached_set)`, which
+        # subtracts a *current-status* count from a *cumulative-reached* one:
+        # two facets waiting against six ever sent gave -4, and the Cabinet
+        # rendered "you've sent more than you've cut — nothing waiting in the
+        # wings" directly above the list of the two waiting facets. The number
+        # was never repairable, because the two quantities do not belong in the
+        # same subtraction. `cut_not_sent_yet` below is the honest answer to the
+        # only question it was trying to ask, and it is a list, so it cannot
+        # disagree with itself.
         "cut_not_sent_yet": cut_now,
         "clarity_score_trend": clarity_trend,
     }

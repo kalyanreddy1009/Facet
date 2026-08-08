@@ -98,16 +98,35 @@ export default function SendingTrend({ summary }: { summary: DashboardSummary })
           .join(", ")}`}
       >
         {buckets.map((bucket) => (
-          <div key={bucket.start.toISOString()} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+          <div
+            key={bucket.start.toISOString()}
+            className="flex-1 h-full flex flex-col items-center gap-1.5 min-w-0"
+          >
             <span className="mono text-2xs text-text-ghost tnum leading-none">
               {bucket.count || ""}
             </span>
-            <div
-              className={`w-full rounded-t ${bucket.count ? "trend-bar" : "trend-bar-empty"}`}
-              style={{ height: `${Math.max(bucket.count ? 6 : 2, (bucket.count / peak) * 100)}%` }}
-            />
-            <span className="mono text-2xs text-text-ghost leading-none truncate w-full text-center">
-              {bucket.start.toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+            {/* The bar's height is a percentage, so it needs a parent with a
+                *definite* height to resolve against. It used to sit directly in
+                this column, which is auto-height in a `items-end` row — a
+                percentage of `auto` is `auto`, so every bar computed to zero and
+                the chart had been rendering as eight invisible bars under eight
+                floating numbers for its whole life. `flex-1` here resolves to a
+                real height (the track left after both labels), which is also the
+                right basis: bars are then proportional to the plotting area
+                rather than to the area plus its captions. */}
+            <div className="w-full flex-1 flex items-end">
+              <div
+                className={`w-full rounded-t ${bucket.count ? "trend-bar" : "trend-bar-empty"}`}
+                style={{ height: `${Math.max(bucket.count ? 6 : 2, (bucket.count / peak) * 100)}%` }}
+              />
+            </div>
+            {/* Month over day, on two lines. On one line at 390px, eight
+                columns leave ~35px each and "Jun 15" truncates to "Jun…" —
+                eight identical labels, which is worse than no labels at all. */}
+            <span className="mono text-2xs text-text-ghost leading-tight w-full text-center">
+              {bucket.start.toLocaleDateString(undefined, { month: "short" })}
+              <br />
+              {bucket.start.getDate()}
             </span>
           </div>
         ))}

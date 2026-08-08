@@ -1,62 +1,41 @@
 "use client";
 
+/**
+ * One page, four sections, in the order the questions actually get asked:
+ * what needs me now → where does everything stand → is it moving → the
+ * interviews themselves.
+ *
+ * It used to be three tabs, and the tabs were drawn along the lines of the API
+ * rather than along anything a person wants. "Needs a follow-up" sat under
+ * Applications and "Cut, not sent yet" sat under Facets, so the two halves of
+ * one to-do list were a click apart with nothing on either tab hinting that
+ * the other had work in it. Meanwhile every tab re-answered "how many have I
+ * cut" with a differently-computed number.
+ *
+ * The whole page is now roughly the height of what one tab used to be, because
+ * removing the duplication removed most of the content. Sections carry `id`s,
+ * so /cabinet#interviews still works as a link — it scrolls instead of
+ * switching, which is what a fragment was always supposed to do.
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
-import dynamic from "next/dynamic";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Archive, Calendar, Layers, PlugZap, RefreshCw } from "lucide-react";
+import { PlugZap, RefreshCw } from "lucide-react";
 import { api, type Application, type Contact, type DashboardSummary, type Interview } from "@/lib/api";
+import ActionQueue from "@/components/cabinet/ActionQueue";
+import ClaritySparkline from "@/components/cabinet/ClaritySparkline";
 import InterviewsView from "@/components/cabinet/InterviewsView";
+import PipelineView from "@/components/cabinet/PipelineView";
+import SendingTrend from "@/components/cabinet/SendingTrend";
+import StatNumber from "@/components/cabinet/StatNumber";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
-import Segmented from "@/components/ui/Segmented";
+import Panel from "@/components/ui/Panel";
 import Toaster from "@/components/ui/Toaster";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useToasts } from "@/lib/useToasts";
-import { ENTER } from "@/lib/motion";
-
-// Split out of the initial bundle so the shell and the tab strip paint before
-// either view is parsed. (The 150KB of recharts this was originally written
-// for is gone — the funnel is now the dependency-free PipelineView — but these
-// are still the two heaviest views on the page and only one is ever visible.)
-const viewSkeleton = () => <Skeleton className="h-64 w-full" />;
-const ApplicationsView = dynamic(() => import("@/components/cabinet/ApplicationsView"), {
-  ssr: false,
-  loading: viewSkeleton,
-});
-const FacetsView = dynamic(() => import("@/components/cabinet/FacetsView"), {
-  ssr: false,
-  loading: viewSkeleton,
-});
-
-type ViewKey = "applications" | "facets" | "interviews";
-
-const VIEWS = [
-  { value: "applications" as const, label: "Applications", icon: Archive },
-  { value: "facets" as const, label: "Facets", icon: Layers },
-  { value: "interviews" as const, label: "Interviews", icon: Calendar },
-];
 
 export default function CabinetPage() {
-  const reduced = useReducedMotion();
   const { toasts, push, dismiss, hold, resume } = useToasts();
-  const [view, setView] = useState<ViewKey>("applications");
-
-  /* The open tab lives in the URL fragment, so /cabinet#interviews is a link
-     you can send yourself and a reload does not throw you back to
-     Applications. Read in an effect rather than in the initial state: the
-     server render has no fragment, and seeding state from `location` during
-     render is a hydration mismatch. `replaceState` on change, not `push` —
-     switching tabs should not fill the Back button with three entries of the
-     same page. */
-  useEffect(() => {
-    const fromHash = window.location.hash.slice(1);
-    if (VIEWS.some((v) => v.value === fromHash)) setView(fromHash as ViewKey);
-  }, []);
-
-  const selectView = useCallback((next: ViewKey) => {
-    setView(next);
-    window.history.replaceState(null, "", next === "applications" ? " " : `#${next}`);
-  }, []);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [interviews, setInterviews] = useState<Interview[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -92,7 +71,7 @@ export default function CabinetPage() {
     loadAll();
   }, [loadAll]);
 
-  /** Optimistic status change — the row leaves its list immediately, and a
+  /** Optimistic status change — the row leaves the queue immediately, and a
    *  failed write is reconciled by the reload either way. */
   const setStatus = async (id: number, status: Application["status"]) => {
     setSummary((prev) =>
@@ -128,53 +107,91 @@ export default function CabinetPage() {
         </p>
       </header>
 
-      <Segmented value={view} segments={VIEWS} onChange={selectView} label="Cabinet view" />
-
-      <div className="mt-5">
-        {!loaded ? (
-          // Two grey rectangles say nothing to a screen reader, and the page
-          // announced neither that it was loading nor when it finished.
-          <div className="flex flex-col gap-4" role="status" aria-label="Loading your cabinet">
-            <Skeleton className="h-44 w-full" />
-            <Skeleton className="h-44 w-full" />
-          </div>
-        ) : failed ? (
-          <EmptyState
-            icon={PlugZap}
-            title="Couldn't reach the backend"
-            body="The Cabinet lives in your own database on the server, and nothing answered. Your data is fine — this page just can't read it right now."
-            action={
-              <Button variant="primary" icon={RefreshCw} onClick={loadAll}>
-                Try again
-              </Button>
-            }
+      {!loaded ? (
+        // Grey rectangles say nothing to a screen reader, so the region
+        // announces that it is loading and, on replacement, that it is done.
+        <div className="flex flex-col gap-4" role="status" aria-label="Loading your cabinet">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-56 w-full" />
+        </div>
+      ) : failed || !summary ? (
+        <EmptyState
+          icon={PlugZap}
+          title="Couldn't reach the backend"
+          body="The Cabinet lives in your own database on the server, and nothing answered. Your data is fine — this page just can't read it right now."
+          action={
+            <Button variant="primary" icon={RefreshCw} onClick={loadAll}>
+              Try again
+            </Button>
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-8">
+          <ActionQueue
+            followups={summary.needs_followup}
+            unsent={summary.cut_not_sent_yet}
+            interviews={interviews}
+            applicationsById={applicationsById}
+            onUpdateStatus={setStatus}
+            hasSentAnything={summary.funnel.Set > 0}
           />
-        ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={view}
-              initial={reduced ? false : { opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={reduced ? undefined : { opacity: 0, y: -4 }}
-              transition={ENTER}
-            >
-              {summary && view === "applications" && (
-                <ApplicationsView summary={summary} onUpdateStatus={setStatus} />
-              )}
-              {summary && view === "facets" && (
-                <FacetsView summary={summary} onSetFacet={(id) => setStatus(id, "Set")} />
-              )}
-              {view === "interviews" && (
-                <InterviewsView
-                  interviews={interviews}
-                  applicationsById={applicationsById}
-                  contactsById={contactsById}
+
+          <section aria-labelledby="standing-heading">
+            <h2 id="standing-heading" className="text-base font-semibold text-text mb-2">
+              Where things stand
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Panel className="p-5 flex flex-col gap-5">
+                <StatNumber
+                  label="Response rate"
+                  value={
+                    summary.response_rate === null
+                      ? "—"
+                      : `${Math.round(summary.response_rate * 100)}%`
+                  }
+                  hint="Interviewing plus offers, over everything you actually sent."
                 />
-              )}
-            </motion.div>
-          </AnimatePresence>
-        )}
-      </div>
+                <div className="grid grid-cols-2 gap-4 pt-5 border-t border-border">
+                  <StatNumber label="Rejected" value={String(summary.rejected_count)} />
+                  <StatNumber label="Offers" value={String(summary.funnel.Offer)} />
+                </div>
+                <div className="pt-5 border-t border-border">
+                  <ClaritySparkline trend={summary.clarity_score_trend ?? []} />
+                </div>
+              </Panel>
+
+              <Panel className="p-5">
+                <p className="label mb-4">Pipeline</p>
+                <PipelineView
+                  funnel={summary.funnel}
+                  rejected={summary.rejected_count}
+                  rejectedFrom={summary.rejected_from ?? {}}
+                />
+              </Panel>
+            </div>
+          </section>
+
+          <section aria-labelledby="moving-heading">
+            <h2 id="moving-heading" className="text-base font-semibold text-text mb-2">
+              Is it moving
+            </h2>
+            {/* The trajectory question, which the pipeline cannot answer: a
+                snapshot on a bad week and a good week look identical. */}
+            <SendingTrend summary={summary} />
+          </section>
+
+          <section id="interviews" aria-labelledby="interviews-heading" className="scroll-mt-24">
+            <h2 id="interviews-heading" className="text-base font-semibold text-text mb-2">
+              Interviews
+            </h2>
+            <InterviewsView
+              interviews={interviews}
+              applicationsById={applicationsById}
+              contactsById={contactsById}
+            />
+          </section>
+        </div>
+      )}
 
       <Toaster toasts={toasts} onDismiss={dismiss} onHold={hold} onResume={resume} />
     </main>
