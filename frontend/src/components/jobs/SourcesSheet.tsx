@@ -39,9 +39,17 @@ export default function SourcesSheet({
   const [newFeed, setNewFeed] = useState({ label: "", url: "" });
   const [keys, setKeys] = useState({ adzuna_app_id: "", adzuna_app_key: "", jooble_key: "", adzuna_country: "in" });
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
+  // A failed load must not read as an empty account. "No feeds subscribed" and
+  // blank key fields are how this sheet says "you have none" — so a dropped
+  // request would invite the user to re-add a feed they already have, or retype
+  // an API key that was stored fine. Suggestions are the exception: they are
+  // advisory, and fewer of them costs nothing.
   const load = useCallback(() => {
-    api.listFeeds().then(setFeeds).catch(() => {});
+    setLoadError(null);
+    const fail = () => setLoadError("Couldn't load your saved sources. This list may be incomplete.");
+    api.listFeeds().then(setFeeds).catch(fail);
     api.feedSuggestions(query, location).then(setSuggestions).catch(() => {});
     api
       .getSettings()
@@ -49,7 +57,7 @@ export default function SourcesSheet({
         setSettings(s);
         setKeys((k) => ({ ...k, adzuna_country: s.adzuna_country || "in" }));
       })
-      .catch(() => {});
+      .catch(fail);
   }, [query, location]);
 
   useEffect(() => {
@@ -103,6 +111,15 @@ export default function SourcesSheet({
     >
       <div className="flex flex-col gap-5">
         <Segmented value={tab} segments={TABS} onChange={setTab} label="Source settings" size="sm" />
+
+        {loadError && (
+          <div className="panel-raised p-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-danger-text text-pretty">{loadError}</p>
+            <Button onClick={load} className="shrink-0">
+              Retry
+            </Button>
+          </div>
+        )}
 
         {tab === "platforms" && (
           <div className="flex flex-col gap-2">

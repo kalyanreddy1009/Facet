@@ -1193,3 +1193,32 @@ rather than three separate ones.
 
 Confirmed still open: the duplicate "Senior Python Engineer, EPAM" above showed
 up twice in an authenticated sweep, so `posting_hash` is still not deduping.
+
+The duplicate-posting item above is closed, and the answer is that it was not a
+bug. Measured against the real 670-row table: read-time collapse
+(`dedup_key` in the `GROUP BY`) already removes 48 rows, and of the six groups
+that survive, four are *different jobs* — same title and company, different
+city (Hildesheim vs Hannover, Cambridge vs Milton Keynes). The two that really
+are duplicates are python.org 8117/8107, the same job posted twice under two
+ids by the same poster. Nothing in the URL, title or company distinguishes that
+from a genuine re-listing, and merging on title+company alone is exactly what
+would delete the four location variants. The conservative rule the code already
+documents is the right one; leaving it.
+
+The sources sheet no longer reports a failed load as an empty account. Three
+`.catch(() => {})` calls meant a dropped `listFeeds` or `getSettings` rendered
+"No feeds subscribed" and blank key fields — the same words the sheet uses to
+say you have none. So a network blip invited the user to re-add a feed they
+already had, or retype an API key that was stored fine. A failure now shows a
+line and a Retry above the tabs. Feed *suggestions* are still allowed to fail
+quietly: they are advisory, and fewer of them costs nothing.
+
+The extension's fallback connection error names the outcome instead of saying
+"Something went wrong." — the person is looking at a Connect button and needs
+to know whether pressing it again is worth anything.
+
+Left alone, deliberately: the silent catches in `AgyHealthBanner`, `login` and
+`set-password` each carry a comment explaining why they are quiet, and the
+reasons hold. The twelve `set-state-in-effect` warnings are one fetch-on-mount
+convention used consistently across the app, not twelve defects; churning them
+individually would cost more than it returns.

@@ -47,7 +47,11 @@ function explain(result) {
     case "http_error":
       return `Facet answered with an error (HTTP ${result.status}).`;
     default:
-      return result.detail || "Something went wrong.";
+      // No branch matched, so the reason is whatever the background script sent.
+      // With nothing to pass on, name the outcome rather than the feeling: the
+      // person is looking at a Connect button and needs to know whether to press
+      // it again.
+      return result.detail || `The connection test failed for an unknown reason (${result.status || "no status"}).`;
   }
 }
 
