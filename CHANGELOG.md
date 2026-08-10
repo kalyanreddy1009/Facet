@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-08-10 — A second frontend, v2, toggled site-wide
+
+A visually and structurally distinct duplicate frontend at `/v2/...`
+(`app/v2/`, `components-v2/`), mirroring every v1 page — landing, login,
+set-password, stone, rough, tailor, cabinet, profile, status, admin — against
+the unchanged backend API. v1 is light/glass/top-nav/Inter; v2 is
+dark/flat-bordered/left-sidebar/serif (Newsreader) with an amber accent — new
+JSX and a new `app/v2/v2.css`, not a reskin of v1's DOM. Shared logic
+(`lib/api.ts`, `match.ts`, `jdTrim.ts`, `handoff.ts`, `useSession.ts`, etc.)
+is reused as-is; only the visual/structural layer is duplicated. A `fv` cookie
+plus `middleware.ts` is the whole toggle: flipping it in either nav navigates
+to the counterpart URL and remembers the choice for the next bare visit,
+typed URL, or bookmark. `NavBar` and `AgyHealthBanner` (v1's shared chrome)
+now return `null` on `/v2/*` since v2 supplies its own. `admin` got a full
+build, not a stub — it's gated by `session.user.is_admin` exactly like v1, so
+nothing extra was needed to reach it; its account-list grid became stacked
+cards since v2 has no equivalent table convention. `check-design-system.mjs`
+now also scans `app/v2/v2.css` for its own classes/custom-properties/px
+font-sizes, alongside globals.css, rather than being extended with new
+per-name exceptions — v2's classes are already namespaced under one `v2-`
+prefix. Left out: v2 is not a pixel-exact functional clone in every
+micro-interaction (e.g. `ScoreRing`'s spring animation became a static SVG
+arc, consistent with v2 being flat/editorial rather than motion-driven) —
+noted case by case in the pages that differ.
+
 ## 2026-08-06 — Cut a Facet revamp and the resume template system
 
 Seven ATS-friendly resume templates, chosen from current parser guidance and

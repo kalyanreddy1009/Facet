@@ -1,0 +1,398 @@
+/**
+ * v2's design system — deliberately unrelated to v1's tokens in
+ * `app/globals.css`. v1 is light-first, one blue accent, glass surfaces, a
+ * floating pill nav. v2 is dark-first, a warm serif for display type, flat
+ * bordered panels instead of translucency (cheaper, and reads as a different
+ * material), amber accent, and a fixed sidebar rather than a top bar.
+ *
+ * Every custom class here is prefixed `v2-` so `scripts/check-design-system.mjs`
+ * — which cross-checks classes against `app/globals.css` by prefix — never
+ * matches them; they are simply outside the set of prefixes it owns, the same
+ * way a Tailwind utility is. No change to that script was needed.
+ */
+
+:root {
+  --v2-bg: #121210;
+  --v2-bg-raised: #191915;
+  --v2-panel: #1e1e19;
+  --v2-border: #34342c;
+  --v2-border-soft: #26261f;
+  --v2-text: #f2f0e6;
+  --v2-text-dim: #a8a596;
+  --v2-text-faint: #726f60;
+  --v2-accent: #ff8a3d;
+  --v2-accent-ink: #1a1108;
+  --v2-ok: #7fbf6a;
+  --v2-ok-soft: #1d2617;
+  --v2-warn: #e8b84b;
+  --v2-warn-soft: #2a2313;
+  --v2-danger: #e86a5c;
+  --v2-danger-soft: #2b1a17;
+  --v2-radius: 4px;
+  --v2-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.v2-root {
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  min-height: 100dvh;
+  font-family: var(--v2-font-serif), ui-serif, Georgia, serif;
+}
+
+.v2-root ::selection {
+  background: var(--v2-accent);
+  color: var(--v2-accent-ink);
+}
+
+.v2-shell {
+  display: grid;
+  grid-template-columns: 15rem 1fr;
+  min-height: 100dvh;
+}
+
+@media (max-width: 56rem) {
+  .v2-shell {
+    grid-template-columns: 1fr;
+  }
+}
+
+.v2-main {
+  padding: 2.5rem clamp(1.25rem, 4vw, 3.5rem) 6rem;
+  max-width: 64rem;
+}
+
+.v2-bare-main {
+  display: grid;
+  place-items: center;
+  min-height: calc(100dvh - 3.5rem);
+  padding: 2rem 1.25rem;
+}
+
+/* Sidebar ---------------------------------------------------------------- */
+
+.v2-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  border-right: 1px solid var(--v2-border);
+  background: var(--v2-bg-raised);
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+@media (max-width: 56rem) {
+  .v2-sidebar {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+}
+
+.v2-bare-topbar {
+  border-bottom: 1px solid var(--v2-border);
+  background: var(--v2-bg-raised);
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.v2-wordmark {
+  font-family: var(--v2-font-serif), ui-serif, serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--v2-text);
+}
+
+.v2-wordmark-tag {
+  font-family: var(--v2-font-mono), ui-monospace, monospace;
+  font-size: 0.65rem;
+  border: 1px solid var(--v2-accent);
+  color: var(--v2-accent);
+  border-radius: 999px;
+  padding: 0.05rem 0.4rem;
+  letter-spacing: 0.04em;
+}
+
+.v2-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.v2-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  min-height: 2.25rem;
+  border-radius: var(--v2-radius);
+  font-family: var(--v2-font-sans), sans-serif;
+  font-size: 0.875rem;
+  color: var(--v2-text-dim);
+  border: 1px solid transparent;
+}
+
+.v2-sidebar-link:hover {
+  color: var(--v2-text);
+  background: var(--v2-panel);
+}
+
+.v2-sidebar-link-on {
+  color: var(--v2-text);
+  background: var(--v2-panel);
+  border-color: var(--v2-border);
+}
+
+.v2-sidebar-link-sm {
+  font-size: 0.8rem;
+  color: var(--v2-text-faint);
+}
+
+.v2-sidebar-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--v2-border-soft);
+}
+
+/* Toggle ------------------------------------------------------------------ */
+
+.v2-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--v2-font-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: var(--v2-text-dim);
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-radius);
+  padding: 0.4rem 0.65rem;
+  min-height: 2rem;
+  background: transparent;
+}
+
+.v2-toggle:hover {
+  color: var(--v2-text);
+  border-color: var(--v2-accent);
+}
+
+.v2-toggle-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--v2-accent);
+}
+
+/* Typography --------------------------------------------------------------- */
+
+.v2-h1 {
+  font-family: var(--v2-font-serif), serif;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+}
+
+.v2-h2 {
+  font-family: var(--v2-font-serif), serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+.v2-eyebrow {
+  font-family: var(--v2-font-mono), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v2-accent);
+}
+
+.v2-lede {
+  font-family: var(--v2-font-sans), sans-serif;
+  color: var(--v2-text-dim);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.v2-sans {
+  font-family: var(--v2-font-sans), sans-serif;
+}
+
+.v2-mono {
+  font-family: var(--v2-font-mono), ui-monospace, monospace;
+}
+
+/* Surfaces ------------------------------------------------------------------ */
+
+.v2-panel {
+  background: var(--v2-panel);
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-radius);
+  padding: 1.25rem;
+}
+
+.v2-panel-tight {
+  padding: 0.85rem 1rem;
+}
+
+.v2-row {
+  border-bottom: 1px solid var(--v2-border-soft);
+  padding: 0.85rem 0;
+}
+
+.v2-row:last-child {
+  border-bottom: none;
+}
+
+/* Controls ------------------------------------------------------------------ */
+
+.v2-btn {
+  font-family: var(--v2-font-sans), sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  min-height: 2.25rem;
+  padding: 0 1rem;
+  border-radius: var(--v2-radius);
+  border: 1px solid var(--v2-border);
+  color: var(--v2-text);
+  background: var(--v2-bg-raised);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.v2-btn:hover {
+  border-color: var(--v2-text-faint);
+}
+
+.v2-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.v2-btn-primary {
+  background: var(--v2-accent);
+  border-color: var(--v2-accent);
+  color: var(--v2-accent-ink);
+  font-weight: 600;
+}
+
+.v2-btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+.v2-field {
+  width: 100%;
+  min-height: 2.25rem;
+  border-radius: var(--v2-radius);
+  border: 1px solid var(--v2-border);
+  background: var(--v2-bg);
+  color: var(--v2-text);
+  padding: 0.5rem 0.7rem;
+  font-family: var(--v2-font-sans), sans-serif;
+  font-size: 0.9rem;
+}
+
+.v2-field:focus-visible {
+  outline: 2px solid var(--v2-accent);
+  outline-offset: 1px;
+}
+
+textarea.v2-field {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.v2-label {
+  font-family: var(--v2-font-mono), monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--v2-text-faint);
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+/* Badges / status ------------------------------------------------------------ */
+
+.v2-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-family: var(--v2-font-mono), monospace;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--v2-border);
+  color: var(--v2-text-dim);
+}
+
+.v2-badge-ok {
+  color: var(--v2-ok);
+  border-color: var(--v2-ok);
+  background: var(--v2-ok-soft);
+}
+
+.v2-badge-warn {
+  color: var(--v2-warn);
+  border-color: var(--v2-warn);
+  background: var(--v2-warn-soft);
+}
+
+.v2-badge-danger {
+  color: var(--v2-danger);
+  border-color: var(--v2-danger);
+  background: var(--v2-danger-soft);
+}
+
+/* Sticky action bar (tailor page) -------------------------------------------- */
+
+.v2-actionbar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 1.5rem;
+  padding: 0.85rem 1rem;
+  background: var(--v2-bg-raised);
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-radius);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Motion / accessibility ------------------------------------------------------ */
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-root * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.v2-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

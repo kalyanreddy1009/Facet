@@ -9,6 +9,7 @@ import AccountMenu from "@/components/ui/AccountMenu";
 import FacetMark from "@/components/ui/FacetMark";
 import TabBar from "@/components/ui/TabBar";
 import { useSession } from "@/lib/useSession";
+import { setVersionCookie, toV2Path } from "@/lib/version";
 
 const LINKS = [
   { href: "/rough", label: "Find jobs" },
@@ -41,6 +42,10 @@ export default function NavBar() {
   // everywhere else. The glint, though, runs on every page: the brand should
   // not behave like a different brand once you are signed in.
   const landing = pathname === "/";
+
+  // v2 has its own chrome (`components-v2/Sidebar`) — this nav renders
+  // nothing there rather than stacking a second header above it.
+  if (pathname.startsWith("/v2")) return null;
 
   return (
     <>
@@ -124,6 +129,18 @@ export default function NavBar() {
               {STATUS_LINK.label}
             </Link>
           )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setVersionCookie("v2");
+              window.location.assign(toV2Path(pathname));
+            }}
+            className="nav-pill nav-pill-sm text-xs text-text-dim hover:text-text"
+            title="Switch to the v2 design"
+          >
+            V2
+          </button>
 
           <AccountMenu />
 
