@@ -24,6 +24,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, Check, Lock } from "lucide-react";
 import { useSession } from "@/lib/useSession";
 import ProductShowcase from "./ProductShowcase";
@@ -32,15 +33,15 @@ import StoneGraphic from "./StoneGraphic";
 const FAQ = [
   {
     q: "Does Facet ever invent skills, employers, or accomplishments?",
-    a: "No. Your Stone — built from the resume you import — is the only source of truth about you. The AI can reorder, re-emphasize and rephrase what's genuinely there; it can't add anything that isn't. That constraint is the product, not a setting.",
+    a: "No. Your Stone, built from the resume you import, is the only source of truth about you. The AI can reorder, re-emphasize and rephrase what's genuinely there; it can't add anything that isn't. That constraint is the product, not a setting.",
   },
   {
     q: "What do I actually get for a posting?",
-    a: "A tailored resume, a cover letter and a short recruiter pitch, each downloadable as PDF or Word. The layout is fixed and identical every time — only the emphasis moves, so you can send one without reading it end to end and still know what it says.",
+    a: "A tailored resume, a cover letter and a short recruiter pitch, each downloadable as PDF or Word. The layout is fixed and identical every time; only the emphasis moves, so you can send one without reading it end to end and still know what it says.",
   },
   {
     q: "How does it get LinkedIn and Naukri postings without scraping them?",
-    a: "Two legitimate routes. Aggregator APIs like Adzuna and Arbeitnow already index postings syndicated from those boards and hand them over through their own API. And Facet builds the saved-search URL for each platform so you create the alert there yourself, then reads the RSS it gives you. Nothing ever logs into a job platform on your behalf — that's how accounts get banned, and the cost would land on you.",
+    a: "Two legitimate routes. Aggregator APIs like Adzuna and Arbeitnow already index postings syndicated from those boards and hand them over through their own API. And Facet builds the saved-search URL for each platform so you create the alert there yourself, then reads the RSS it gives you. Nothing ever logs into a job platform on your behalf: that's how accounts get banned, and the cost would land on you.",
   },
   {
     q: "Does it keep track of what happens after I apply?",
@@ -48,7 +49,7 @@ const FAQ = [
   },
   {
     q: "Will Facet submit applications for me?",
-    a: "No. The Apply-Assist extension fills the fields it recognizes on a posting you opened yourself, then stops. You review it and click Submit — that decision stays yours.",
+    a: "No. The Apply-Assist extension fills the fields it recognizes on a posting you opened yourself, then stops. You review it and click Submit; that decision stays yours.",
   },
   {
     q: "Who can see my data?",
@@ -56,7 +57,7 @@ const FAQ = [
   },
   {
     q: "What does it cost?",
-    a: "Nothing. This is a self-hosted install — there is no Facet company on the other end of it to bill you.",
+    a: "Nothing. This is a self-hosted install, and there is no Facet company on the other end of it to bill you.",
   },
 ];
 
@@ -185,6 +186,70 @@ function SectionHead({
   );
 }
 
+/** A term/definition pair, flippable. Front carries the term and its index,
+ *  back carries the meaning — a click or hover rotates between them. A real
+ *  `<button>` with `aria-pressed`, so a keyboard or screen-reader user gets
+ *  the same control a mouse user gets, and the back is always in the DOM
+ *  (just rotated away) rather than conditionally rendered, so nothing here
+ *  depends on JS having run. */
+function FlipCard({
+  term,
+  meaning,
+  index,
+}: {
+  term: string;
+  meaning: string;
+  index: number;
+}) {
+  const [pressed, setPressed] = useState(false);
+  return (
+    <button
+      type="button"
+      className="flip-card w-full"
+      aria-pressed={pressed}
+      onClick={() => setPressed((v) => !v)}
+    >
+      <span className="flip-card-inner">
+        <span className="flip-card-face flip-card-front glass-card glass-card-lift">
+          <span className="mono tnum text-xs text-text-ghost" aria-hidden>
+            0{index + 1}
+          </span>
+          <span className="mt-3 mono text-lg font-semibold uppercase tracking-[0.1em] text-accent-text">
+            {term}
+          </span>
+          <span className="mt-2 text-xs text-text-faint">Tap to read</span>
+        </span>
+        <span className="flip-card-face flip-card-back glass-card glass-card-lift">
+          <span className="text-sm text-text-dim text-pretty leading-relaxed">{meaning}</span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/** Phase one → phase two: the gem and its light rays open the page; scrolling
+ *  down the hero's own height brings up a masthead "FACET" behind it and
+ *  settles the gem smaller and lower, handing off to the content that starts
+ *  right where the hero ends. `heroRef` is the whole hero `<section>`, not
+ *  just the gem's small wrapper — binding to the wrapper meant the entire
+ *  transform resolved in the first hundred pixels of scroll, so a full-page
+ *  scroll blew straight past it before it ever registered. Tied to scroll
+ *  progress with Framer's `useScroll`, not a pinned/sticky trick: this stays
+ *  a normal document scroll, so it can never fight the browser's own scroll
+ *  restoration or trap a trackpad gesture. `StoneGraphic` itself is never
+ *  touched; only the wrapper around it moves. */
+function useHeroScene(heroRef: React.RefObject<HTMLElement | null>) {
+  const reduced = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
+
+  const mastOpacity = useTransform(scrollYProgress, [0.15, 0.85], [0, 1]);
+  const mastScale = useTransform(scrollYProgress, [0, 1], [0.9, 1.06]);
+  const gemScale = useTransform(scrollYProgress, [0, 1], [1, 0.82]);
+  const gemY = useTransform(scrollYProgress, [0, 1], [0, 64]);
+
+  return { reduced, mastOpacity, mastScale, gemScale, gemY };
+}
+
 export default function LandingContent() {
   const { session } = useSession();
   // single_user counts: a local checkout has no login at all, and offering
@@ -197,13 +262,32 @@ export default function LandingContent() {
     ? { href: "/tailor", label: "Open Facet" }
     : { href: "/login", label: "Sign in" };
 
+  const heroRef = useRef<HTMLElement>(null);
+  const { reduced, mastOpacity, mastScale, gemScale, gemY } = useHeroScene(heroRef);
+
   return (
     <main className="landing-dark">
+      <div className="ambient-sweep" aria-hidden />
       {/* ---------------------------------------------------------- hero */}
-      <section className="max-w-shell mx-auto px-5 sm:px-8 min-h-[calc(100svh-var(--nav-block))] grid lg:grid-cols-[1.02fr_0.98fr] items-center gap-10 lg:gap-14 py-16 sm:py-20">
+      <section
+        ref={heroRef}
+        className="relative max-w-shell mx-auto px-5 sm:px-8 min-h-[calc(100svh-var(--nav-block))] grid lg:grid-cols-[1.02fr_0.98fr] items-center gap-10 lg:gap-14 py-16 sm:py-20"
+      >
+        {/* Page two of the scroll narrative: the masthead word, behind
+            everything, fading and scaling in as the hero scrolls past. Spans
+            the whole section rather than sitting in the gem's column, so it
+            reads as the page's own watermark and not as part of the
+            illustration. */}
+        <motion.div
+          aria-hidden
+          className="hero-mast absolute inset-x-0 top-[8%] text-center select-none z-0"
+          style={reduced ? undefined : { opacity: mastOpacity, scale: mastScale }}
+        >
+          FACET
+        </motion.div>
         {/* `z-10`, and that is the whole fix for the headline. The stone's fan
             is drawn with `overflow-visible` so the light genuinely crosses the
-            page — which is the best thing on this screen and worth keeping —
+            page, which is the best thing on this screen and worth keeping,
             but it was painting *over* the type, and "A facet for" sat under a
             violet wash that read as a rendering fault rather than as light.
             Raising the copy above the beam keeps the crossing and gives the
@@ -236,7 +320,7 @@ export default function LandingContent() {
                 inventing a single thing" cannot open by inventing something. */}
             Facet keeps one honest record of your real background, searches the public job boards
             and your own subscribed feeds from a single bar, and cuts a tailored resume, cover letter
-            and recruiter pitch for each posting — then tracks what came of it. Without inventing a
+            and recruiter pitch for each posting, then tracks what came of it. Without inventing a
             single thing.
           </p>
           <div className="flex flex-wrap items-center gap-2.5 mt-1">
@@ -252,7 +336,7 @@ export default function LandingContent() {
           </div>
           <p className="text-sm text-text-faint">
             {signedIn
-              ? "You're signed in — pick up where you left off."
+              ? "You're signed in, pick up where you left off."
               : "Accounts are created by whoever administers this Facet."}
           </p>
         </div>
@@ -267,9 +351,12 @@ export default function LandingContent() {
             the page down. `z-0` pairs with the copy's `z-10` above, which is
             what keeps the whole bracket — type and light both — from ever
             painting over the headline. */}
-        <div className="relative z-0 grid place-items-center">
+        <motion.div
+          className="relative z-0 grid place-items-center"
+          style={reduced ? undefined : { scale: gemScale, y: gemY }}
+        >
           <StoneGraphic size="clamp(13rem, 40vw, 30rem)" />
-        </div>
+        </motion.div>
       </section>
 
       {/* ---------------------------------------------------- the product */}
@@ -290,35 +377,23 @@ export default function LandingContent() {
             body="Facet borrows its language from gemcutting and uses it consistently everywhere. These are all of it."
           />
         </Reveal>
-        {/* Four ruled rows rather than four cards.
+        {/* Four flip cards rather than four ruled rows.
 
             These are definitions — a term, its meaning, and its place in the
-            sequence. A card is a container for something you might act on, and
-            four of them side by side turned a glossary into a feature grid you
-            had to read twice to realise wasn't one. Hairlines and a monospaced
-            term put the vocabulary in the register it belongs to: reference
-            material, scannable in one pass, and quiet enough that the sections
-            with an action in them keep their weight. */}
-        <dl className="mt-10 border-t border-border">
+            sequence — and the reference this sprint is following showcases
+            exactly this kind of "what is X" content as a card you turn over
+            rather than a row you scan. The term sits alone on the front so
+            the four read as a set at a glance; the definition is one flip
+            away, which is closer to how someone actually meets this
+            vocabulary — the word first, on its own, everywhere else in the
+            app. */}
+        <div className="mt-10 grid grid-cols-2 lg:grid-cols-4 gap-4">
           {VOCABULARY.map(([term, meaning], i) => (
             <Reveal key={term} delay={i * 70}>
-              <div className="ruled-row grid grid-cols-[auto_1fr] sm:grid-cols-[10rem_1fr_auto] items-baseline gap-x-5 gap-y-1 py-5">
-                <dt className="mono text-sm font-semibold uppercase tracking-[0.14em] text-accent-text">
-                  {term}
-                </dt>
-                <dd className="col-span-1 max-sm:col-start-1 max-sm:row-start-2 text-md text-text-dim text-pretty leading-relaxed">
-                  {meaning}
-                </dd>
-                {/* The index, right-aligned. It is the reading order of the
-                    four, which is genuinely the thing a newcomer needs and is
-                    otherwise only implied by where they sit on the page. */}
-                <span className="mono tnum text-xs text-text-ghost max-sm:hidden" aria-hidden>
-                  0{i + 1}
-                </span>
-              </div>
+              <FlipCard term={term} meaning={meaning} index={i} />
             </Reveal>
           ))}
-        </dl>
+        </div>
       </LitSection>
 
       {/* -------------------------------------------------------------- FAQ */}
@@ -339,10 +414,16 @@ export default function LandingContent() {
                     +
                   </span>
                 </summary>
-                {/* 15px, not 13. The app can sit at 13px — that is the convention
-                    for dense UI — but this is marketing copy a stranger reads once,
-                    and the rule that body text clears 15px applies to them. */}
-                <p className="text-md text-text-dim mt-4 text-pretty leading-relaxed">{item.a}</p>
+                {/* 15px, not 13. The app can sit at 13px, that is the convention
+                    for dense UI, but this is marketing copy a stranger reads once,
+                    and the rule that body text clears 15px applies to them. Wrapped
+                    in `.faq-body` so the open/close animates a grid track instead
+                    of snapping, `<details>` has no transitionable auto-height. */}
+                <div className="faq-body">
+                  <div>
+                    <p className="text-md text-text-dim mt-4 text-pretty leading-relaxed">{item.a}</p>
+                  </div>
+                </div>
               </details>
             </Reveal>
           ))}

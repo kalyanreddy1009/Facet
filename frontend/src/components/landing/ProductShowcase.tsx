@@ -62,7 +62,7 @@ const BEATS: Beat[] = [
   {
     eyebrow: "The Stone",
     title: "One honest record, imported once.",
-    body: "Your resume becomes the fixed set of facts every application is built from — and the ceiling on what anything Facet writes is allowed to claim. You review it and correct it. Nothing else ever edits it.",
+    body: "Your resume becomes the fixed set of facts every application is built from, and the ceiling on what anything Facet writes is allowed to claim. You review it and correct it. Nothing else ever edits it.",
     route: "/stone",
     icon: StoneIcon,
   },
@@ -76,14 +76,14 @@ const BEATS: Beat[] = [
   {
     eyebrow: "The cut",
     title: "One posting in. Three documents out.",
-    body: "A tailored resume, a cover letter and a short recruiter pitch, as PDF or Word. The layout is fixed and identical every time — only the emphasis moves, and it can only move within what your Stone already says.",
+    body: "A tailored resume, a cover letter and a short recruiter pitch, as PDF or Word. The layout is fixed and identical every time; only the emphasis moves, and it can only move within what your Stone already says.",
     route: "/tailor",
     icon: FacetIcon,
   },
   {
     eyebrow: "The Cabinet",
     title: "And what came of it.",
-    body: "Everything you have sent, what has gone quiet and needs a nudge, and the interviews on the other side of it. Point it at your calendar feed and it spots the invitations itself — then asks before filing them.",
+    body: "Everything you have sent, what has gone quiet and needs a nudge, and the interviews on the other side of it. Point it at your calendar feed and it spots the invitations itself, then asks before filing them.",
     route: "/cabinet",
     icon: CabinetIcon,
   },
@@ -487,7 +487,7 @@ function CabinetStage() {
         <CalendarCheck className="w-4 h-4 text-accent-text shrink-0" aria-hidden />
         <div className="min-w-0">
           <p className="text-xs font-medium text-text">
-            Interview found in your calendar feed — Ardent Health, Thursday 14:00
+            Interview found in your calendar feed: Ardent Health, Thursday 14:00
           </p>
           <p className="text-2xs text-text-faint mt-0.5">
             Matched to an application. Confirm to file it.
