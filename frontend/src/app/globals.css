@@ -2073,6 +2073,89 @@ body::before {
   }
 }
 
+/* ---- Landing page: dark teal glass ---------------------------------- */
+/* Scoped exactly like `.chrome` above — local token overrides on one
+   subtree, not a second global theme. The rest of the app stays the paper
+   workbench; this wraps only `<main>` in LandingContent. The gem
+   (`StoneGraphic`) is untouched — this only restyles the surfaces around it. */
+.landing-dark {
+  --bg: #101416;
+  --surface-1: #181c1e;
+  --surface-2: rgba(255, 255, 255, 0.05);
+  --surface-3: rgba(255, 255, 255, 0.09);
+  --surface-4: rgba(255, 255, 255, 0.14);
+  --text: #e7edf0;
+  --text-dim: #aab8bf;
+  --text-faint: #8a9aa2;
+  --text-ghost: #6d7d85;
+  --border: rgba(130, 209, 241, 0.16);
+  --border-strong: rgba(130, 209, 241, 0.3);
+  --accent: #4fb4dc;
+  --accent-hover: #6cc6e6;
+  --accent-press: #3a9dc0;
+  --accent-text: #82d1f1;
+  --accent-soft: rgba(130, 209, 241, 0.14);
+  --accent-border: rgba(130, 209, 241, 0.42);
+  --on-accent: #06232c;
+  --glass-1: rgba(255, 255, 255, 0.06);
+  --lattice-line: rgba(130, 209, 241, 0.16);
+  position: relative;
+  isolation: isolate;
+  color: var(--text);
+}
+/* A dark radial floor behind the ambient field, in place of the paper
+   gradient `body::before` paints for the rest of the app — `isolation:
+   isolate` above gives this its own stacking context so it sits over that
+   gradient without touching it. */
+.landing-dark::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  pointer-events: none;
+  contain: strict;
+  background: radial-gradient(120% 90% at 50% -10%, #16232a 0%, #101416 55%, #0b0f10 100%);
+}
+.landing-dark .ambient-glow-a {
+  background: radial-gradient(circle at center, rgba(130, 209, 241, 0.24) 0%, rgba(130, 209, 241, 0.09) 42%, transparent 68%);
+}
+.landing-dark .ambient-glow-b {
+  background: radial-gradient(circle at center, rgba(82, 224, 197, 0.18) 0%, rgba(82, 224, 197, 0.07) 44%, transparent 70%);
+}
+.landing-dark .ambient-glow-c {
+  background: radial-gradient(circle at center, rgba(255, 184, 117, 0.12) 0%, rgba(255, 184, 117, 0.05) 46%, transparent 70%);
+}
+/* The mockup's liquid-glass card: translucent over the dark field, blurred,
+   with a cyan-lit edge rather than the light theme's near-opaque paper card.
+   `-webkit-` first — the minifier drops the unprefixed form otherwise and
+   Firefox gets no blur at all. */
+.landing-dark .glass-card {
+  background: linear-gradient(158deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 55%, rgba(130, 209, 241, 0.05) 100%);
+  -webkit-backdrop-filter: blur(28px);
+  backdrop-filter: blur(28px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 0 0 1px rgba(130, 209, 241, 0.16),
+    0 20px 44px -26px rgba(0, 0, 0, 0.6);
+}
+@media (hover: hover) {
+  .landing-dark .glass-card-lift:hover {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 0 1px rgba(130, 209, 241, 0.4),
+      0 24px 56px -24px rgba(130, 209, 241, 0.28);
+  }
+}
+/* The ruled vocabulary rows and FAQ cards weren't hover targets before —
+   this scope is exactly the interactive-card treatment the reference asked
+   for, without needing a new component. */
+.landing-dark .ruled-row {
+  border-radius: 14px;
+  transition: background-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+@media (hover: hover) {
+  .landing-dark .ruled-row:hover {
+    background: rgba(130, 209, 241, 0.05);
+    box-shadow: inset 0 0 0 1px rgba(130, 209, 241, 0.22);
+  }
+}
+
 /* Someone who has asked for less transparency gets an opaque interface and no
    ambient field — that request is about legibility, and a "tasteful" amount of
    glass is still glass. Every surface reverts in one place. */

@@ -198,7 +198,7 @@ export default function LandingContent() {
     : { href: "/login", label: "Sign in" };
 
   return (
-    <main>
+    <main className="landing-dark">
       {/* ---------------------------------------------------------- hero */}
       <section className="max-w-shell mx-auto px-5 sm:px-8 min-h-[calc(100svh-var(--nav-block))] grid lg:grid-cols-[1.02fr_0.98fr] items-center gap-10 lg:gap-14 py-16 sm:py-20">
         {/* `z-10`, and that is the whole fix for the headline. The stone's fan
