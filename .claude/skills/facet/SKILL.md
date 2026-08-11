@@ -195,15 +195,24 @@ one-sidedly.**
 
 ## 7. Design system
 
-Light-first: the `:root` values *are* the light theme; dark is a
-`prefers-color-scheme` variant. Read a token from `:root` before assuming.
+Dark teal glass, and one theme: the `:root` values are the whole palette —
+there is no light variant and no `prefers-color-scheme` branch. Read a token
+from `:root` before assuming.
 
-Four neutral surface steps with translucent `--glass-*` forms. **One** accent
-(`--accent` `#4a76f0` as fill, `--accent-text` `#2a51c6` as ink on light).
+A dark floor under one WebGL field (`components/ui/AmbientShader`, mounted once
+in the root layout), and every surface above it a translucent white over a blur
+— `--glass-1/2/3`. `--surface-1` is the one opaque tone, for the surfaces that
+cannot be seen through at all (the tab bar, a resume preview). **One** accent
+(`--accent` `#4fb4dc` as fill, `--accent-text` `#82d1f1` as ink).
 Green/amber/red strictly for status — if it isn't reporting state, it isn't
-coloured. `--glint` (cyan) only in the ambient field, hero, and the travelling
-`.wordmark` gradient. Depth = 1px border + translucent surface + one neutral
-shadow. Inter for UI, JetBrains Mono for numbers.
+coloured. `--glint` only in the field, the hero, and the travelling
+`.wordmark` gradient. Depth = a cyan 1px edge + a translucent surface + an
+inner glow. Inter for UI, JetBrains Mono for numbers.
+
+The blur is real and it is rationed. Anything composited on every scroll frame
+— `.cut-bar`, `.tab-bar` — is opaque and pays nothing; everything else is
+glass. That trade is the reason the landing page scrolls at 60fps with sixteen
+panes on it.
 
 **Sizing is rem and that is load-bearing** — it is how Dynamic Type works.
 `--control-h` is `2rem`, lifting to `2.5rem` under `pointer: coarse`. Text

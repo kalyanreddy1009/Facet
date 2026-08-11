@@ -29,7 +29,6 @@ import { Archive, ArrowRight, Check, Gem, Lock, Mountain, Scissors } from "lucid
 import type { LucideIcon } from "lucide-react";
 import { heroProgress } from "@/lib/heroProgress";
 import { useSession } from "@/lib/useSession";
-import AmbientShader from "./AmbientShader";
 import ProductShowcase from "./ProductShowcase";
 import StoneGraphic from "./StoneGraphic";
 
@@ -336,18 +335,6 @@ export default function LandingContent() {
     ? { href: "/tailor", label: "Open Facet" }
     : { href: "/login", label: "Sign in" };
 
-  // The nav and the ambient field are siblings of this `<main>` in the root
-  // layout, so a class on `.landing-dark` can never reach them — which is
-  // exactly why every `.landing-dark .nav-*` rule written for this page was
-  // styling nothing and the bar kept its app material. One flag on the root
-  // element is the only thing that can scope all three, and it comes off on
-  // unmount so a client-side navigation away does not leave the app dark.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.add("landing-route");
-    return () => root.classList.remove("landing-route");
-  }, []);
-
   const heroRef = useRef<HTMLElement>(null);
   const {
     reduced,
@@ -364,7 +351,6 @@ export default function LandingContent() {
 
   return (
     <main className="landing-dark">
-      <AmbientShader />
       {/* ---------------------------------------------------------- hero */}
       {/* Two screens of scroll, one pinned stage.
 

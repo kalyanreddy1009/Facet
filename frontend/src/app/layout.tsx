@@ -3,7 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/ui/NavBar";
 import AgyHealthBanner from "@/components/ui/AgyHealthBanner";
-import AmbientField from "@/components/ui/AmbientField";
+import AmbientShader from "@/components/ui/AmbientShader";
 import SessionSeed from "@/components/ui/SessionSeed";
 import { getServerSession } from "@/lib/serverSession";
 
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#eef1f7",
-  colorScheme: "light",
+  themeColor: "#101416",
+  colorScheme: "dark",
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -40,7 +40,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         </a>
         <SessionSeed session={session}>
           {/* Behind everything, and the reason every surface is translucent. */}
-          <AmbientField />
+          <AmbientShader />
           <NavBar />
           <AgyHealthBanner />
           {/* `tabIndex={-1}` is what makes the skip link actually work. An

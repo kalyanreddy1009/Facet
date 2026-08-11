@@ -189,16 +189,20 @@ destinations (Rough, Cut, Cabinet, Stone) with the app's own `FacetIcons`.
 Replaced a hamburger. Status stays in the header at every width; it is a
 diagnostic, not a fifth tab.
 
-**Design system, enforced by tokens in `app/globals.css`, light-first** —
-`:root` *is* the light theme, dark is a `prefers-color-scheme` variant. Four
-neutral surface steps each with a translucent `--glass-*` form. **One** accent
-(indigo `--accent #4a76f0` fill, `--accent-text` `#2a51c6` light / `#9fbaff`
-dark — same hue, two lightnesses, because neither clears AA in both roles) for
-the primary action and current state only. Green/amber/red strictly for status:
-if it is not reporting state, it is not coloured. `--glint` cyan is the single
-exception — ambient background, hero, travelling `.wordmark` gradient, never a
-control. Depth = 1px border + translucent surface + one neutral shadow. Inter
-for UI, JetBrains Mono for numbers.
+**Design system, enforced by tokens in `app/globals.css` — dark teal glass,
+one theme.** `:root` is the whole palette; there is no light variant and no
+`prefers-color-scheme` branch. A dark floor (`body::before`) under one WebGL
+field (`components/ui/AmbientShader`, mounted once in the root layout), and
+every surface above it a translucent white over a blur — `--glass-1/2/3`, with
+`--surface-1` the one opaque tone for the handful of surfaces that cannot be
+seen through (the tab bar, a resume preview). **One** accent (cyan `--accent
+#4fb4dc` as fill, `--accent-text #82d1f1` as ink — same hue, two lightnesses,
+because neither clears AA in both roles) for the primary action and current
+state only. Green/amber/red strictly for status: if it is not reporting state,
+it is not coloured. `--glint` is the single exception — the field, the hero,
+the travelling `.wordmark` gradient, never a control. Depth = a cyan 1px edge +
+a translucent surface + an inner glow. Inter for UI, JetBrains Mono for
+numbers.
 
 **Sizing is rem, and that is the Dynamic Type mechanism.** `--control-h` 2rem,
 lifting to 2.5rem under `pointer: coarse`. Text containers take `min-height`,

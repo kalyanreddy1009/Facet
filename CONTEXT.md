@@ -189,14 +189,17 @@ Pages: `/` (landing, public), `/login` + `/set-password` (auth), `/tailor`
 `/status`.
 Shared: `components/ui/` (Button, Panel, Sheet, Segmented, EmptyState,
 Skeleton, Toaster, NavBar, AccountMenu, LoadingOverlay, AgyHealthBanner,
-AmbientField), `lib/api.ts` (typed client + `ApiError`/`isAborted`),
+AmbientShader), `lib/api.ts` (typed client + `ApiError`/`isAborted`),
 `lib/useJobs.ts`, `lib/useStatus.ts`, `lib/useSession.ts`, `lib/format.ts`,
 `lib/useToasts.tsx`, `lib/motion.ts` (the CSS motion tokens as numbers, for
 framer), `lib/handoff.ts` (sessionStorage Rough→Tailor handoff).
 
-`AmbientField` is the fixed background layer — two drifting radial glints and
-a faint facet lattice, pure CSS, no JS. Every surface (`.panel`, `.card`,
-`.chrome`) is translucent over it; that is what the `--glass-*` tokens tune.
+`AmbientShader` is the fixed background layer — one fullscreen WebGL fragment
+shader, one draw call a frame, mounted once in the root layout. It stops
+drawing on `visibilitychange`, draws a single frame under
+`prefers-reduced-motion`, and leaves the CSS floor (`body::before`) showing if
+the driver refuses a context. Every surface (`.panel`, `.card`, `.chrome`) is
+translucent over it; that is what the `--glass-*` tokens tune.
 `npm run check` runs `scripts/check-design-system.mjs`, which fails the build
 if a component uses a class or `--custom-property` that globals.css never
 defines — the failure mode that shipped four unstyled screens in July 2026.

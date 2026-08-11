@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * The landing page's field: one fullscreen WebGL fragment shader, fixed behind
- * everything.
+ * The app's field: one fullscreen WebGL fragment shader, fixed behind
+ * everything, mounted once in the root layout.
  *
  * What it replaces is three drifting radial gradients and a rotating conic
  * sweep — four large composited layers that between them read as "a gradient"

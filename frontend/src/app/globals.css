@@ -28,22 +28,22 @@
    ========================================================================== */
 
 :root {
-  /* Surfaces — a nearly neutral paper with the faintest cool cast left in it.
-     The first light palette carried the dark theme's blue-slate hue straight
-     across at full strength, which is why the whites read cold and slightly
-     blue rather than as paper. The hue is still there — this is not a warm
-     interface — but at roughly a third of the saturation, which is the
-     difference between "tinted" and "chilly".
-     Light mode inverts the direction of "up": the page is a tinted paper and
-     the first level above it is plain white. Past white there is nowhere
-     lighter to go, so --surface-3/-4 step back *down* into tinted greys —
-     they are the hover and scrollbar values, i.e. separation rather than
-     elevation. */
-  --bg: #f2f2f3;
-  --surface-1: #ffffff;
-  --surface-2: #f8f8f9;
-  --surface-3: #eeeef0;
-  --surface-4: #d6d7db;
+  /* Surfaces — dark teal glass, the landing page's material, now the whole
+     app's. The reversal it replaces (paper page, dark instrument) needed the
+     nav to be the one dark object in a light room; here the room itself is
+     dark and lit from behind by the shader field, so "up" means *more light
+     let through*, not more white pigment. Every level above the floor is a
+     translucent white over that field rather than an opaque tone, which is
+     what makes a stack of panels read as panes over one light source instead
+     of as tiles.
+     `--surface-1` is the one opaque value, because a handful of surfaces —
+     the tab bar, the resume preview page — sit over moving content and cannot
+     be seen through at all. */
+  --bg: #101416;
+  --surface-1: #181c1e;
+  --surface-2: rgba(255, 255, 255, 0.05);
+  --surface-3: rgba(255, 255, 255, 0.09);
+  --surface-4: rgba(255, 255, 255, 0.14);
 
   /* Translucent forms of the same surfaces. These are what `.panel`, `.card`
      and `.chrome` actually paint, so the ambient field reads through the whole
@@ -61,45 +61,48 @@
      At 0.93 there is still glass — the blur, the saturate, the edge highlight
      and a hint of the field underneath all survive — but the panel is a
      surface first and an effect second. `prefers-reduced-transparency` still
-     drops to fully opaque below. */
-  --glass-1: rgba(255, 255, 255, 0.93);
-  --glass-2: rgba(255, 255, 255, 0.96);
-  --glass-3: rgba(238, 238, 240, 0.97);
-  /* Down from 16px, and the saturate below from 1.4. With the surfaces at
-     0.93 there is very little left to blur or saturate — the pixels behind
-     barely reach the eye — so the larger radius was paying full price for an
-     effect nobody could see. */
-  --glass-blur: 12px;
-  /* The top highlight that makes a translucent panel read as a pane of glass
-     rather than a hole. One hairline, never a gradient wash. On paper the
-     light edge is nearly white — it reads against the ambient tint the panel
-     is floating over, not against the panel itself. */
-  --glass-edge: rgba(255, 255, 255, 0.95);
+     drops to fully opaque below.
 
-  /* Text. Darker across the board than the first light palette, which carried
-     the dark theme's *relationships* over — dim was 2 steps below body, faint
-     3 — without accounting for the fact that on paper those steps run toward
-     the background rather than away from it. Supporting text at 5:1 on black
-     is comfortable; at 5:1 on white it looks switched off. Body is near-black,
-     and every step below it stays well inside readable rather than sitting on
-     the WCAG line. */
-  --text: #0f1115;
-  --text-dim: #3a414d;
-  --text-muted: #545c69; /* alias kept because half the app already asks for it */
-  --text-faint: #545c69;
-  --text-ghost: #6a7280; /* also the placeholder colour, so it clears 4.5:1 */
+     On the dark field the maths runs the other way: what shows through a
+     panel is *darker* than the panel, so the surface can be genuinely
+     translucent without the text on it losing any contrast at all. That is
+     why these went from 0.93-of-white to 0.06-of-white and the interface got
+     more legible rather than less. */
+  --glass-1: rgba(255, 255, 255, 0.06);
+  --glass-2: rgba(255, 255, 255, 0.08);
+  --glass-3: rgba(255, 255, 255, 0.04);
+  /* Deep enough that what is behind a pane becomes colour rather than shapes.
+     Only the surfaces that are *not* composited on every scroll frame pay it —
+     see `.cut-bar` and `.tab-bar`, which still deliberately do not. */
+  --glass-blur: 32px;
+  /* The top highlight that makes a translucent panel read as a pane of glass
+     rather than a hole. One hairline, never a gradient wash. Against the dark
+     field the lit edge is a dim white, not a bright one: at full strength it
+     reads as a stroke drawn on the panel instead of as light catching it. */
+  --glass-edge: rgba(255, 255, 255, 0.16);
+
+  /* Text. Slightly cool near-white, and the steps below it run *away* from the
+     background rather than toward it, which is the one relationship that has
+     to be re-derived rather than inverted when a palette flips. Every step
+     stays well inside readable: `--text-ghost`, the quietest and the
+     placeholder colour, measures 4.6:1 on `--bg`. */
+  --text: #e7edf0;
+  --text-dim: #aab8bf;
+  --text-muted: #96a6ae; /* alias kept because half the app already asks for it */
+  --text-faint: #96a6ae;
+  --text-ghost: #8b9ba3; /* also the placeholder colour, so it clears 4.5:1 */
 
   /* Borders. `--border` and `--border-strong` are the depth cue — decorative,
      so WCAG 1.4.11's 3:1 doesn't reach them. `--border-control` is the visible
      boundary of an actual control (a field, a secondary button); that one does
      have to clear 3:1 or a low-vision user can't find the input. */
-  /* Raised from 0.10/0.16: a hairline that works on a dark surface disappears
-     on paper, and with every panel translucent the border is the only thing
-     drawing the edge of a card at all. Still one pixel — the fix is contrast,
-     not weight. A 2px border is a box; this is an edge. */
-  --border: rgba(15, 17, 21, 0.16);
-  --border-strong: rgba(15, 17, 21, 0.26);
-  --border-control: rgba(15, 17, 21, 0.5); /* 3.4:1 on white */
+  /* Cyan rather than plain white, because on this field an edge is the light
+     the pane is catching and the light in this room has a hue. Still one pixel
+     — the fix is contrast, not weight. A 2px border is a box; this is an
+     edge. */
+  --border: rgba(130, 209, 241, 0.22);
+  --border-strong: rgba(130, 209, 241, 0.3);
+  --border-control: rgba(160, 215, 238, 0.52); /* 3.3:1 on --bg */
 
   /* The one accent. Indigo dark enough for white label text is too dark to BE
      text on a dark surface, and vice versa — that is colour maths, not a
@@ -107,40 +110,45 @@
      ink. Do not use --accent for text, or --accent-text for a fill.
      The fill is unchanged from the dark theme — white on it measures 4.9:1
      either way, because a filled button carries its own background. The ink
-     is the half that had to move: #86a9ff on paper is 1.8:1 and unreadable,
-     so on light it darkens instead of lightening — 6.5:1 on white. */
-  --accent: #4a76f0; /* fills: buttons, checkbox, nav indicator, focus ring */
-  --accent-hover: #3c66df;
-  --accent-press: #2f56c4;
-  --accent-text: #2a51c6; /* accent AS text on a light surface */
-  --accent-soft: rgba(74, 118, 240, 0.1);
-  --accent-border: rgba(74, 118, 240, 0.35);
-  --on-accent: #ffffff;
+     is the half that had to move: on this field the ink lightens to #82d1f1
+     (9.9:1 on --bg) while the fill stays dark enough to carry `--on-accent`
+     type at 8.6:1. Indigo is gone from the system entirely — it was the paper
+     workbench's accent, and one interface gets one hue. */
+  --accent: #4fb4dc; /* fills: buttons, checkbox, nav indicator, focus ring */
+  --accent-hover: #6cc6e6;
+  --accent-press: #3a9dc0;
+  --accent-text: #82d1f1; /* accent AS text on a dark surface */
+  --accent-soft: rgba(130, 209, 241, 0.14);
+  --accent-border: rgba(130, 209, 241, 0.42);
+  /* Ink for a filled accent control: the darkest teal in the system rather
+     than white, which is what keeps a primary button reading as lit glass and
+     not as a sticker. */
+  --on-accent: #06232c;
 
   /* Decoration only. The second hue exists so the ambient field has somewhere
      to travel — a one-hue gradient is just a brightness ramp. It never means
      anything, so it never appears on a control. */
-  --glint: #17a4bb;
+  --glint: #9ae7ff;
 
   /* Status — the only other colours in the system. `-text` variants are the
-     form for status colour used AS text: darkened here rather than lightened,
+     form for status colour used AS text: lightened here rather than darkened,
      same reason as the accent ink. The dots and fills keep the saturated
      value, so a green dot still reads as green at 8px. */
-  --ok: #2da44e;
-  --ok-text: #0f7130;
-  --ok-soft: rgba(45, 164, 78, 0.12);
-  --ok-border: rgba(45, 164, 78, 0.32);
-  --warn: #b8820f; /* 3.37:1 on white — a dot and an icon are graphics, WCAG 1.4.11 */
-  --warn-text: #8a5a06;
-  --warn-soft: rgba(184, 130, 15, 0.14);
-  --warn-border: rgba(184, 130, 15, 0.4);
-  --danger: #e0443c;
-  --danger-text: #c02a22;
-  --danger-soft: rgba(224, 68, 60, 0.1);
-  --danger-border: rgba(224, 68, 60, 0.32);
-  --neutral: #6b7688;
-  --neutral-soft: rgba(107, 118, 136, 0.12);
-  --neutral-border: rgba(107, 118, 136, 0.28);
+  --ok: #35c46a;
+  --ok-text: #6ee7a0;
+  --ok-soft: rgba(53, 196, 106, 0.14);
+  --ok-border: rgba(53, 196, 106, 0.34);
+  --warn: #e0a32a; /* a dot and an icon are graphics — WCAG 1.4.11, not 1.4.3 */
+  --warn-text: #f0c674;
+  --warn-soft: rgba(224, 163, 42, 0.14);
+  --warn-border: rgba(224, 163, 42, 0.38);
+  --danger: #ef5a51;
+  --danger-text: #ff9b93;
+  --danger-soft: rgba(239, 90, 81, 0.14);
+  --danger-border: rgba(239, 90, 81, 0.36);
+  --neutral: #8b98a6;
+  --neutral-soft: rgba(139, 152, 166, 0.14);
+  --neutral-border: rgba(139, 152, 166, 0.3);
 
   --radius-sm: 6px;
   --radius: 9px;
@@ -173,21 +181,15 @@
      forever with nothing coordinating them. */
   --strike: 9s;
 
-  /* Shadows. Neutral, and near-black at low alpha — a coloured shadow is the
-     fastest way to look fake, and on paper the dark theme's 0.6 alpha reads as
-     a smudge rather than depth, so light mode carries the same two levels at a
-     fraction of the strength. */
-  --shadow-raised: 0 1px 2px rgba(15, 17, 21, 0.07), 0 8px 22px -10px rgba(15, 17, 21, 0.22);
-  --shadow-float: 0 2px 4px rgba(15, 17, 21, 0.07), 0 16px 48px -16px rgba(15, 17, 21, 0.24);
-
-  /* One line of the ambient lattice. Dark-on-light now, and at a higher alpha
-     than the dark theme's 0.028: a light line vanishes on paper, and the eye
-     is far less sensitive to a dark hairline on white than to a bright one on
-     black. Still below the threshold of conscious notice while reading. */
-  --lattice-line: rgba(30, 40, 60, 0.075);
+  /* Shadows. Neutral and near-black — a coloured shadow is the fastest way to
+     look fake. Deeper than the paper build's: on a dark field a shadow has to
+     out-darken a background that is already dark before it separates anything,
+     which is why 0.07 of black did nothing here and 0.4 does. */
+  --shadow-raised: 0 2px 6px rgba(0, 0, 0, 0.3), 0 10px 30px -12px rgba(0, 0, 0, 0.5);
+  --shadow-float: 0 4px 10px rgba(0, 0, 0, 0.34), 0 24px 60px -20px rgba(0, 0, 0, 0.6);
 
   /* The one scrim, behind the one modal layer. */
-  --overlay: rgba(15, 17, 21, 0.34);
+  --overlay: rgba(4, 8, 10, 0.62);
 
   --nav-h: 3.5rem;
   /* The nav floats rather than sitting on the edge, so the space it occupies
@@ -342,12 +344,12 @@ button:not(:disabled),
 }
 
 @layer components {
-/* The wash, on its own compositor layer.
+/* The floor.
 
-   A gradient two steps of the same neutral — light at the top where the nav
-   sits, settling into --bg by the first fold — so the page has a top without
-   ever announcing itself as a gradient. It belongs to the viewport, not to a
-   document that may be six screens long.
+   A dark radial that is brightest just above the fold, where the nav island
+   sits, settling into --bg and then darker at the bottom edge so a long page
+   still has a bottom. It belongs to the viewport, not to a document that may
+   be six screens long.
 
    It used to get that with `background-attachment: fixed` on the body, which
    buys the right *look* at the worst possible price: the browser cannot scroll
@@ -359,158 +361,27 @@ button:not(:disabled),
 
    A fixed *element* is the same picture and a different mechanism: it gets its
    own layer, the compositor moves it for free, and nothing repaints. p95 falls
-   to 28ms. `contain: strict` and the negative z-index match `.ambient`, which
-   has always been done this way — this is the one layer that had been left
-   behind. Not inside `.ambient`: that layer is removed for anyone who asks for
-   reduced transparency, and the page still needs a background. */
+   to 28ms.
+
+   z-index -3, one below the shader canvas: this is what is on screen before
+   WebGL has a context, or for good if the driver refuses one, and the page has
+   to be legible either way. */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
-  z-index: -2;
+  z-index: -3;
   pointer-events: none;
   contain: strict;
-  background: linear-gradient(178deg, #fdfdfd 0%, var(--bg) 46%, #edeef0 100%);
+  background: radial-gradient(120% 90% at 50% -10%, #16232a 0%, var(--bg) 55%, #0b0f10 100%);
 }
 
-  /* ---- The ambient field ------------------------------------------- */
-  /* Facet's subject is a cut stone, so the background is the light a cut
-     stone sits in: two slow radial glints and a faint faceted lattice. It is
-     one fixed layer behind everything, `pointer-events: none`, and it is the
-     reason every surface above it is translucent.
-
-     Deliberately no canvas and no rAF loop: two CSS keyframes on a composited
-     layer cost nothing and keep working with JS disabled. */
-  .ambient {
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    overflow: hidden;
-    /* Its own stacking/paint context, so the blurred children below never
-       force the page content to repaint. */
-    contain: strict;
-  }
-
-  .ambient-glow {
-    position: absolute;
-    border-radius: 50%;
-    /* No `filter: blur()`. These are 34–62vmax elements: a blur filter on a
-       surface that size is one of the most expensive things a page can ask
-       for, and it was being recomputed as each one drifted. A radial gradient
-       is already soft — the blur was adding nothing but cost.
-       `will-change` is also gone. It promotes each glow to its own permanent
-       compositor layer, and three viewport-sized permanent layers is real
-       memory for an effect that reads at 8% opacity. */
-  }
-
-  .ambient-glow-a {
-    width: 62vmax;
-    height: 62vmax;
-    top: -26vmax;
-    left: -14vmax;
-    /* Alpha is up from the dark theme's, not down. A glow works on black by
-       adding light; on paper it can only work by adding colour, and 0.07 of
-       an indigo over white is invisible — which is most of why the first
-       light build read as a blank page. */
-    background: radial-gradient(
-      circle at center,
-      rgba(74, 118, 240, 0.22) 0%,
-      rgba(74, 118, 240, 0.09) 42%,
-      transparent 68%
-    );
-    animation: drift-a 34s var(--ease) infinite alternate;
-  }
-
-  .ambient-glow-b {
-    width: 54vmax;
-    height: 54vmax;
-    bottom: -24vmax;
-    right: -12vmax;
-    background: radial-gradient(
-      circle at center,
-      rgba(23, 164, 187, 0.18) 0%,
-      rgba(23, 164, 187, 0.07) 44%,
-      transparent 70%
-    );
-    animation: drift-b 42s var(--ease) infinite alternate;
-  }
-
-  /* A third source, small and warm-shifted toward violet — the colour a stone
-     throws after the blue and the cyan. Three lights on different cycles never
-     return to the same arrangement, which is what keeps a static page from
-     looking like a static page. */
-  .ambient-glow-c {
-    width: 34vmax;
-    height: 34vmax;
-    top: 32%;
-    right: 8%;
-    background: radial-gradient(
-      circle at center,
-      rgba(168, 85, 247, 0.13) 0%,
-      rgba(168, 85, 247, 0.05) 46%,
-      transparent 70%
-    );
-    animation: drift-c 51s var(--ease) infinite alternate;
-  }
-
-  /* Grain. One 140px tile of fractal noise, generated by the browser from
-     ~200 bytes of inline SVG — no image request, no network, and it rasterises
-     once. It is the difference between a flat CSS gradient and a surface: on a
-     large pale area an 8-bit gradient bands visibly, and a little noise is the
-     standard fix as well as being the thing that reads as "printed" rather
-     than "rendered".
-
-     Very low opacity on purpose. If you can see grain, it is too much. */
-  .ambient-grain {
-    position: absolute;
-    inset: 0;
-    opacity: 0.32;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' fill='none' filter='url(%23n)' opacity='0.32'/%3E%3C/svg%3E");
-  }
-
-  /* The floor. A page that ends in the same flat tone it started in has no
-     bottom; this puts a shadow under the content the way a surface would. */
-  .ambient-vignette {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(
-      120% 80% at 50% -10%,
-      transparent 55%,
-      rgba(15, 17, 21, 0.05) 100%
-    );
-  }
-
-  /* The lattice: the facet edges of the stone, at the threshold of visible.
-     If you can consciously see it while reading, it is too strong. */
-  .ambient-lattice {
-    position: absolute;
-    inset: 0;
-    opacity: 0.9;
-    /* A triangular lattice — three line families at 60° apart, which is the
-       pavilion pattern of a brilliant cut and also the one tiling that needs
-       no image file. Line, then a long gap: a 1px rule every 92px, not a
-       grid. */
-    background-image: repeating-linear-gradient(
-        60deg,
-        var(--lattice-line) 0 1px,
-        transparent 1px 78px
-      ),
-      repeating-linear-gradient(
-        -60deg,
-        var(--lattice-line) 0 1px,
-        transparent 1px 78px
-      ),
-      repeating-linear-gradient(
-        0deg,
-        var(--lattice-line) 0 1px,
-        transparent 1px 78px
-      );
-    /* Fades out toward the bottom so long pages don't sit on a repeating
-       texture the whole way down. */
-    -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 92%);
-    mask-image: linear-gradient(to bottom, #000 0%, transparent 92%);
-  }
+  /* ---- The ambient field -------------------------------------------
+     Was three drifting radial gradients, a lattice, a grain tile and a
+     vignette — six composited layers that between them read as "a gradient".
+     It is now one WebGL canvas (`components/ui/AmbientShader`), which is one
+     draw call of two triangles a frame and no DOM at all. `.ambient-shader`
+     below is the whole of what is left in CSS. */
 
   /* ---- Surfaces ---------------------------------------------------- */
   /* Every surface is translucent over the ambient field. The `background-color`
@@ -518,18 +389,22 @@ body::before {
      panel is a flat wash of the ambient glow and body text loses contrast. */
   .panel {
     background: var(--glass-1);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(130%);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
   }
 
   .panel-inset {
-    background: rgba(15, 17, 21, 0.04);
+    background: rgba(0, 0, 0, 0.18);
     border: 1px solid var(--border);
     border-radius: var(--radius);
   }
 
   .panel-raised {
     background: var(--glass-2);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(130%);
     border: 1px solid var(--border);
     border-radius: var(--radius);
   }
@@ -541,9 +416,15 @@ body::before {
   .card {
     position: relative;
     background: var(--glass-1);
-    border: 1px solid var(--border);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+    /* The strong border, not the hairline. A 6%-white pane over a dark field
+       has almost no fill of its own to define it, so on a card — the one
+       surface that is the subject of its screen — the edge is what says there
+       is an object here at all. */
+    border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-raised);
+    box-shadow: inset 0 0 30px rgba(130, 209, 241, 0.06), var(--shadow-raised);
   }
 
   /* The glass edge — one hairline of light along the top, the thing that
@@ -569,63 +450,47 @@ body::before {
     position: relative;
   }
 
-  /* Chrome — nav, sheets, popovers. Sits closest to the viewer, so it is the
-     most opaque thing on screen: a translucent nav over a translucent panel
-     over the field is three layers of haze and no legibility. */
   /* Chrome: every surface that floats *above* the work rather than being part
-     of it — toasts, popovers, the loading panel.
+     of it — toasts, popovers, the loading panel, the mobile nav sheet.
 
-     These are now the instrument, the same dark material as the nav. That is
-     the point of the reversal: it is not that the nav happens to be dark, it
-     is that in this app anything which is the *tool* rather than the *work* is
-     dark, and the paper is reserved for your content. A toast telling you an
-     account was suspended is the tool talking; it should look like the tool.
+     Same material as everything else, one step brighter and one step further
+     from the field: it is nearer the viewer, and a pane at the panel's own
+     opacity sitting on top of a panel reads as a smudge rather than as a
+     second object. The step is small on purpose — the difference between
+     chrome and content here is elevation, not colour.
 
-     Scoping the tokens is what makes this a one-line change at each call site
-     instead of a dark variant of every component: `text-text-dim` inside a
-     toast resolves to the light value automatically. */
+     Scoping the tokens is what keeps this a one-line change at each call site:
+     `text-text-dim` inside a toast resolves against this surface
+     automatically. */
   .chrome {
-    background: linear-gradient(to bottom, #1e2536 0%, #141a27 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11), 0 1px 2px rgba(15, 17, 21, 0.16),
-      0 14px 34px -14px rgba(15, 17, 21, 0.45);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    --text: #f2f5fa;
-    --text-dim: #a9b4c8;
-    --text-faint: #8d99b0;
-    --text-ghost: #74809a;
-    --border: rgba(255, 255, 255, 0.1);
-    --border-strong: rgba(255, 255, 255, 0.16);
-    --accent-text: #9fbaff;
-    --accent-soft: rgba(122, 158, 255, 0.16);
-    --accent-border: rgba(122, 158, 255, 0.4);
+    background: var(--glass-2);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), var(--shadow-float);
+    border: 1px solid var(--accent-border);
+    --text-dim: #bec8cd;
     --surface-2: rgba(255, 255, 255, 0.08);
     --surface-3: rgba(255, 255, 255, 0.12);
-    /* Status inks have to invert too, or an error toast prints maroon on
-       graphite and cannot be read at all. */
-    --ok-text: #6ee7a0;
-    --warn-text: #f0c674;
-    --danger-text: #ff9b93;
     color: var(--text);
   }
 
   /* ---- The instrument ---------------------------------------------- */
-  /* The nav is the one dark object in a light interface.
-     
-     The reasoning, since it is a reversal: this app is a workbench. The page
-     is paper — a light, quiet surface you read and write on — and the thing
-     that should never compete with it is the chrome. Translucent white chrome
-     on a white page has no contrast to spend, which is why the last two
-     attempts needed ever more elaborate tricks (a recessed well, a lit lip, a
-     conic edge) just to make a row of buttons visible against the bar holding
-     them. Turning the bar dark solves that in one move: every control on it
-     reads instantly, the brand mark inverts to light without any special
-     case, and the interface gains an anchor — a tool at the top of the bench.
-     
-     It also pays for itself. There is no backdrop-filter here any more, and
-     `backdrop-filter` is the single most expensive property in this file:
-     each element carrying one forces the compositor to re-sample everything
-     behind it on every frame it is on screen. */
+  /* A floating glass pill, inset from the top edge, lit by the field behind
+     it.
+
+     It used to be a graphite instrument, and that was the right answer to a
+     different room: on paper, translucent white chrome has no contrast to
+     spend, so the bar had to go dark to make the controls on it legible. The
+     room is dark now. The same argument, run again, gives the opposite result
+     — the bar is the one *lit* object, and the thing that reads instantly is
+     an edge catching the light rather than a block of graphite.
+
+     It is the one permanently on-screen element that pays for a
+     backdrop-filter. That is deliberate and it is the only one: it never
+     moves, so the compositor re-samples a strip the height of the nav and
+     nothing else. */
   .nav-shell {
+    padding-top: 24px;
     /* Horizontal padding matches the page gutter (`px-5 sm:px-8`) rather than
        the vertical inset, so the island's edges land on the same two vertical
        lines as every card below it. At 1920 the island used to start 32px
@@ -648,10 +513,10 @@ body::before {
      depth. Apple's scroll edge effect is the fix, and every system bar gets it
      free; a custom bar like this one has to draw it.
 
-     A short scrim, the colour the page already is at its top, fading out over
-     the height of the nav block. Content dissolves as it reaches the edge
-     instead of being cut. Behind the island (`z-index: -1`) so it never
-     touches the instrument itself, and inert like the rest of the shell. */
+     A short scrim in the floor's own colour, fading out over the height of the
+     nav block, so content dissolves as it reaches the edge instead of being
+     cut. Behind the island (`z-index: -1`) so it never touches the instrument
+     itself, and inert like the rest of the shell. */
   .nav-shell::before {
     content: "";
     position: absolute;
@@ -661,9 +526,9 @@ body::before {
     pointer-events: none;
     background: linear-gradient(
       to bottom,
-      #fdfdfd 0%,
-      rgba(253, 253, 253, 0.86) 42%,
-      rgba(253, 253, 253, 0) 100%
+      rgba(16, 20, 22, 0.92) 0%,
+      rgba(16, 20, 22, 0.7) 42%,
+      rgba(16, 20, 22, 0) 100%
     );
   }
   /* The gutter widens with the page's at the `sm` breakpoint, for the same
@@ -686,35 +551,28 @@ body::before {
     max-width: calc(1120px - 64px);
     margin-inline: auto;
     min-height: var(--nav-h);
-    border-radius: 15px;
-    /* Graphite, with the same blue bias as the stone's shadowed facets. Two
-       stops, because a flat dark rectangle reads as a hole rather than as an
-       object with a surface. */
-    background: linear-gradient(to bottom, #1e2536 0%, #141a27 100%);
+    /* Fully rounded. The pill is the shape that says "floating object" without
+       any shadow work, and it is the one place in the system that is not on
+       the 6/9/13/18px radius ladder — because it is not a box with rounded
+       corners, it is a capsule. */
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    -webkit-backdrop-filter: blur(48px) saturate(140%);
+    backdrop-filter: blur(48px) saturate(140%);
+    border: 1px solid var(--accent-border);
     box-shadow:
-      /* the lit top edge of a milled surface */
-      inset 0 1px 0 rgba(255, 255, 255, 0.11),
-      /* and the shadow it drops on the paper */
-      0 1px 2px rgba(15, 17, 21, 0.16), 0 10px 28px -12px rgba(15, 17, 21, 0.42);
-
-    /* Everything inside inherits an inverted palette, so `text-text-dim`,
-       `text-text` and the mark's currentColor all do the right thing without
-       a single dark-mode variant at any call site. This is the whole reason
-       the tokens are custom properties. */
-    --text: #f2f5fa;
-    --text-dim: #a9b4c8;
-    --text-faint: #8d99b0;
-    --text-ghost: #74809a;
-    --border: rgba(255, 255, 255, 0.1);
-    --border-strong: rgba(255, 255, 255, 0.16);
-    --accent-text: #9fbaff;
-    --accent-soft: rgba(122, 158, 255, 0.16);
-    --accent-border: rgba(122, 158, 255, 0.4);
-    --surface-2: rgba(255, 255, 255, 0.08);
-    --surface-3: rgba(255, 255, 255, 0.12);
+      /* the lit top edge */
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      /* the rim light it throws */ 0 0 20px rgba(130, 209, 241, 0.1),
+      /* and the shadow it drops on the field */ 0 18px 40px -24px rgba(0, 0, 0, 0.6);
+    /* One step brighter than the page inside the island: it is nearer the
+       viewer than anything else on screen and its labels are small. */
+    --text-dim: #bec8cd;
+    --surface-2: rgba(255, 255, 255, 0.07);
+    --surface-3: rgba(255, 255, 255, 0.11);
     /* Set on the element, not only as a token: anything inside that does not
        name a colour — an inline SVG using currentColor, most of all the mark —
-       has to inherit the light ink rather than the page's dark default. */
+       has to inherit it. */
     color: var(--text);
   }
 
@@ -725,8 +583,8 @@ body::before {
     align-items: center;
     gap: 2px;
     padding: 3px;
-    border-radius: 12px;
-    background: rgba(0, 0, 0, 0.28);
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.22);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
@@ -740,7 +598,7 @@ body::before {
     justify-content: center;
     min-height: 30px;
     padding: 0 12px;
-    border-radius: 9px;
+    border-radius: 999px;
     white-space: nowrap;
     color: var(--text-dim);
     transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease);
@@ -748,22 +606,23 @@ body::before {
   .nav-pill-sm {
     min-height: 26px;
     padding: 0 9px;
-    border-radius: 8px;
+    border-radius: 999px;
   }
 
   /* Where you are: the one lit key on the instrument. */
   .nav-pill-active {
-    background: linear-gradient(to bottom, #5b83f5, #3f6ae8);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 3px rgba(20, 30, 60, 0.55);
+    border-radius: 999px;
+    background: linear-gradient(to bottom, #9cdcf5, #6cc6e6);
+    box-shadow: 0 0 15px rgba(130, 209, 241, 0.4);
   }
   .nav-pill-on {
-    color: #ffffff;
+    color: var(--on-accent);
   }
 
   @media (hover: hover) {
     .nav-pill:hover {
       color: var(--text);
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(130, 209, 241, 0.14);
     }
     /* The hover tilt lives on the SVG and the breathing on its wrapper: an
        animation's transform beats a hovered element's own transform, so
@@ -776,49 +635,48 @@ body::before {
     }
   }
 
-  /* Floating overlay panels — the account menu, the mobile nav sheet. Named
-     for what it is rather than for an effect, since the effect is now only a
-     small blur behind a mostly-opaque surface. */
+  /* Floating overlay panels — the account menu, the mobile nav sheet. The
+     same material as `.chrome`, which is what it is; the two class names are
+     kept because half the app asks for one and half for the other. */
   .glass {
-    background: linear-gradient(to bottom, #1e2536 0%, #141a27 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.11), 0 1px 2px rgba(15, 17, 21, 0.16),
-      0 14px 34px -14px rgba(15, 17, 21, 0.45);
-    --text: #f2f5fa;
-    --text-dim: #a9b4c8;
-    --text-faint: #8d99b0;
-    --border: rgba(255, 255, 255, 0.1);
+    background: var(--glass-2);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    border: 1px solid var(--accent-border);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), var(--shadow-float);
+    --text-dim: #bec8cd;
     --surface-2: rgba(255, 255, 255, 0.08);
     --surface-3: rgba(255, 255, 255, 0.12);
-    --accent-text: #9fbaff;
     color: var(--text);
   }
 
-  /* ---- Landing surfaces -------------------------------------------- */
-  /* A card that floats on the page.
+  /* ---- Liquid glass ------------------------------------------------ */
+  /* The card that floats on the field, and the app's one card material.
 
-     No backdrop-filter, and that is the point. There were up to sixteen of
-     these on the landing page, each one asking the compositor to re-sample
-     and blur everything behind it on every frame it was on screen — while
-     three radial gradients drifted underneath and the hero animated. That is
-     what made scrolling crawl. A near-opaque fill over the ambient field is
-     visually within a hair of the blurred version on a light background,
-     because there is little behind it with enough contrast to blur, and it
-     costs one paint instead of a per-frame resample.
+     Genuinely translucent over a blur deep enough that what is behind it
+     becomes colour rather than shapes, a cyan-lit hairline edge, and an inner
+     glow so the pane reads as lit from within rather than merely see-through.
+     That inner glow is the whole difference between this and a frosted
+     rectangle.
 
-     The lit edge is a plain inset shadow rather than the conic-gradient ring
-     it was: `mask-composite` on a pseudo-element creates a second compositing
-     layer per card, for a highlight nobody can consciously see. */
+     The blur is back, having been removed when this was a light interface. It
+     was removed for a real reason — sixteen of these re-sampling the page every
+     frame is what made scrolling crawl — and the reason no longer holds: what
+     is behind a pane now is one composited canvas rather than four drifting
+     gradient layers, and the material stops working entirely without it. The
+     surfaces that are still composited on every scroll frame (`.cut-bar`,
+     `.tab-bar`) deliberately go without.
+
+     `-webkit-` first, or the minifier keeps only the prefixed form and Firefox
+     silently gets no blur at all. */
   .glass-card {
     position: relative;
     border-radius: 22px;
-    background: linear-gradient(
-      158deg,
-      rgba(255, 255, 255, 0.97) 0%,
-      rgba(253, 253, 254, 0.94) 55%,
-      rgba(246, 247, 250, 0.95) 100%
-    );
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 0 0 1px rgba(15, 17, 21, 0.07),
-      0 14px 34px -22px rgba(15, 17, 21, 0.3);
+    background: var(--glass-1);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+    backdrop-filter: blur(var(--glass-blur)) saturate(130%);
+    border: 1px solid var(--accent-border);
+    box-shadow: inset 0 0 30px rgba(130, 209, 241, 0.1), var(--shadow-float);
   }
 
   /* Lifts on hover, for the cards worth pointing at. Deliberately not every
@@ -830,8 +688,9 @@ body::before {
   @media (hover: hover) {
     .glass-card-lift:hover {
       transform: translateY(-3px);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 1), 0 0 0 1px rgba(15, 17, 21, 0.09),
-        0 24px 48px -24px rgba(15, 17, 21, 0.34);
+      border-color: rgba(130, 209, 241, 0.55);
+      box-shadow: inset 0 0 40px rgba(130, 209, 241, 0.16), 0 16px 50px rgba(0, 0, 0, 0.45),
+        0 0 30px rgba(130, 209, 241, 0.22);
     }
   }
 
@@ -916,25 +775,25 @@ body::before {
        the nav's top lip — and a primary action that ignores that reads as
        pasted on. Two stops, six percent apart. If you can see it as a
        gradient it has gone too far. */
-    background: linear-gradient(to bottom, #5681f4, var(--accent));
+    background: linear-gradient(to bottom, #6cc6e6, var(--accent));
     color: var(--on-accent);
     /* An inner top hairline, the same trick as `.card::before`, plus a shadow
        tinted with the accent rather than neutral — a coloured shadow under a
        coloured button is the one place it is not a costume, because that is
        the light the button itself is throwing. */
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22),
-      0 1px 2px rgba(15, 17, 21, 0.12), 0 6px 16px -8px rgba(74, 118, 240, 0.5);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 2px rgba(0, 0, 0, 0.3),
+      0 6px 20px -8px rgba(130, 209, 241, 0.55);
   }
   .btn-primary:hover:not(:disabled) {
     background: linear-gradient(to bottom, var(--accent), var(--accent-hover));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22),
-      0 1px 2px rgba(15, 17, 21, 0.14), 0 10px 22px -10px rgba(74, 118, 240, 0.62);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 2px rgba(0, 0, 0, 0.34),
+      0 12px 28px -10px rgba(130, 209, 241, 0.7);
   }
   .btn-primary:active:not(:disabled) {
     background: var(--accent-press);
     /* The lift collapses on press. Without this the button scales down while
        still casting the shadow of something held above the page. */
-    box-shadow: inset 0 1px 2px rgba(15, 17, 21, 0.22);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
   }
 
   /* Trailing affordance cap — a 20px circle holding ONE 12px icon, on the one
@@ -969,15 +828,19 @@ body::before {
     background: var(--text-dim);
   }
 
+  /* The secondary control is a small pane of the same glass, not a filled
+     tile: on this field a solid button competes with the primary one, and the
+     border is doing the work of saying "control" anyway. */
   .btn-default {
-    background: var(--glass-2);
+    background: var(--glass-1);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
     color: var(--text);
     border-color: var(--border-control);
   }
   .btn-default:hover:not(:disabled) {
-    background: var(--surface-1);
-    border-color: var(--border-strong);
-    box-shadow: 0 1px 2px rgba(15, 17, 21, 0.06);
+    background: var(--accent-soft);
+    border-color: var(--accent-border);
   }
 
   .btn-ghost {
@@ -1006,10 +869,9 @@ body::before {
     width: 100%;
     min-height: var(--control-h);
     /* Darker than the panel it sits on — an input reads as a well, not a
-       tile. A dark tint at low alpha rather than a lighter fill: on white
-       there is nothing lighter to go to, and a well has to read as recessed.
-       Translucent for the same reason everything else here is. */
-    background: rgba(15, 17, 21, 0.032);
+       tile, and on this field "recessed" means letting *less* light through
+       rather than more. Translucent for the same reason everything else is. */
+    background: rgba(0, 0, 0, 0.22);
     border: 1px solid var(--border-control);
     border-radius: var(--radius);
     color: var(--text);
@@ -1027,7 +889,7 @@ body::before {
     color: var(--text-ghost);
   }
   .field:hover:not(:focus) {
-    border-color: rgba(15, 17, 21, 0.42);
+    border-color: var(--accent-border);
   }
   .field:focus {
     outline: none;
@@ -1177,8 +1039,8 @@ body::before {
   /* The tab indicator, sharing the nav pill's fill so "where you are" looks
      the same whether it is a route or a view within one. */
   .seg-active {
-    background: linear-gradient(to bottom, #5b83f5, #3f6ae8);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 3px rgba(20, 30, 60, 0.4);
+    background: linear-gradient(to bottom, #9cdcf5, #6cc6e6);
+    box-shadow: 0 0 15px rgba(130, 209, 241, 0.4);
   }
 
   .skeleton {
@@ -1227,35 +1089,6 @@ body::before {
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
-  }
-}
-
-/* The ambient glints. Transform only — a keyframe that touched `top`/`left`
-   would re-layout the fixed layer on every frame of a 34-second animation. */
-@keyframes drift-a {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  to {
-    transform: translate3d(8vw, 6vh, 0) scale(1.14);
-  }
-}
-
-@keyframes drift-b {
-  from {
-    transform: translate3d(0, 0, 0) scale(1.08);
-  }
-  to {
-    transform: translate3d(-7vw, -5vh, 0) scale(1);
-  }
-}
-
-@keyframes drift-c {
-  from {
-    transform: translate3d(0, 0, 0) scale(0.92);
-  }
-  to {
-    transform: translate3d(-5vw, 7vh, 0) scale(1.12);
   }
 }
 
@@ -1316,8 +1149,12 @@ body::before {
      it was deliberately removed from the nav and from the landing cards for
      exactly this reason. At 96% opaque the bar already separates from whatever
      passes under it, and it costs nothing to move. */
-  background: var(--glass-2);
-  box-shadow: 0 -1px 0 rgba(15, 17, 21, 0.03), 0 12px 28px -20px rgba(15, 17, 21, 0.3);
+  /* Opaque, for the same reason `.tab-bar` is: without a backdrop blur — which
+     this bar deliberately does not pay for, being composited on every scroll
+     frame — 6% of transparency is enough to read the line passing underneath
+     straight through the label on top of it. */
+  background: #141a1c;
+  box-shadow: 0 -1px 0 rgba(130, 209, 241, 0.12), 0 -12px 28px -20px rgba(0, 0, 0, 0.6);
 }
 
 /* ---- The tab bar (phones) ------------------------------------------------
@@ -1357,7 +1194,7 @@ body::before {
   /* Clears the home indicator on a notched phone, and collapses to nothing on
      hardware that has none. */
   padding-bottom: env(safe-area-inset-bottom);
-  box-shadow: 0 -8px 24px -20px rgba(15, 17, 21, 0.35);
+  box-shadow: 0 -8px 24px -20px rgba(0, 0, 0, 0.7);
 }
 
 /* The breakpoint lives here, not in a `md:hidden` on the element.
@@ -1482,6 +1319,9 @@ body::before {
   object-position: top center;
   border: 1px solid var(--border);
   border-radius: 3px;
+  /* The one white surface left in the app, and it is not a surface of the app:
+     it is a picture of a sheet of paper, and a resume preview that matched the
+     interface would be lying about what gets sent. */
   background: #ffffff;
 }
 
@@ -1495,7 +1335,7 @@ body::before {
    than nothing at all — an absent bar reads as missing data, and "you sent
    nothing that week" is data. */
 .trend-bar {
-  background: linear-gradient(to top, #3f6ae8, #5b83f5);
+  background: linear-gradient(to top, #4fb4dc, #9cdcf5);
 }
 .trend-bar-empty {
   background: var(--border-strong);
@@ -1551,7 +1391,7 @@ body::before {
   border-radius: var(--radius-lg);
   background: var(--surface-1);
   overflow: hidden;
-  box-shadow: 0 1px 2px rgba(15, 17, 21, 0.04), 0 24px 48px -32px rgba(15, 17, 21, 0.22);
+  box-shadow: var(--shadow-float);
 }
 
 .showcase-bar {
@@ -1609,8 +1449,8 @@ body::before {
   border-radius: 999px;
   font-size: 0.6875rem;
   font-weight: 600;
-  color: #fff;
-  background: linear-gradient(to bottom, #5b83f5, #3f6ae8);
+  color: var(--on-accent);
+  background: linear-gradient(to bottom, #9cdcf5, #6cc6e6);
 }
 .showcase-chip-out {
   color: var(--text-dim);
@@ -2041,27 +1881,26 @@ body::before {
    only the ink and the edges change. */
 @media (prefers-contrast: more) {
   :root {
-    --text-dim: #1b2029;
-    --text-muted: #262c37;
-    --text-faint: #262c37;
-    --text-ghost: #3a414d;
-    --border: rgba(15, 17, 21, 0.34);
-    --border-strong: rgba(15, 17, 21, 0.5);
-    --border-control: rgba(15, 17, 21, 0.78);
-    --accent-text: #1b3ba8;
-    --ok-text: #0a5624;
-    --warn-text: #6b4504;
-    --danger-text: #96190f;
-    /* The focus ring is the keyboard user's cursor. At 3.5px of a 10%-alpha
+    --text-dim: #eef4f6;
+    --text-muted: #dbe5e9;
+    --text-faint: #dbe5e9;
+    --text-ghost: #c2ced3;
+    --border: rgba(160, 215, 238, 0.42);
+    --border-strong: rgba(160, 215, 238, 0.62);
+    --border-control: rgba(190, 230, 246, 0.82);
+    --accent-text: #a8e2fb;
+    --ok-text: #92f2bb;
+    --warn-text: #f7d99b;
+    --danger-text: #ffbdb7;
+    /* The focus ring is the keyboard user's cursor. At 3.5px of a 14%-alpha
        tint it is a suggestion; here it is a ring. */
-    --accent-soft: rgba(74, 118, 240, 0.26);
+    --accent-soft: rgba(130, 209, 241, 0.32);
   }
-  /* The instrument scopes its own ink, so the tokens above do not reach it. */
+  /* Chrome scopes its own ink, so the tokens above do not all reach it. */
   .chrome,
   .glass {
-    --text-dim: #dbe3f2;
-    --text-faint: #c3cde0;
-    --border: rgba(255, 255, 255, 0.3);
+    --text-dim: #eef4f6;
+    --text-faint: #dbe5e9;
   }
   .field,
   .btn-default {
@@ -2073,55 +1912,14 @@ body::before {
   }
 }
 
-/* ---- Landing page: dark teal glass ---------------------------------- */
-/* Scoped exactly like `.chrome` above — local token overrides on one
-   subtree, not a second global theme. The rest of the app stays the paper
-   workbench; this wraps only `<main>` in LandingContent. The gem
-   (`StoneGraphic`) is untouched — this only restyles the surfaces around it. */
+/* ---- The landing page's own wrapper --------------------------------- */
+/* Almost nothing left: the teal glass this page introduced is now the app's
+   palette, declared once in `:root`, and the shader field it introduced is now
+   the app's field, mounted once in the root layout. What remains is the
+   stacking context the hero's pinned stage needs. */
 .landing-dark {
-  --bg: #101416;
-  --surface-1: #181c1e;
-  --surface-2: rgba(255, 255, 255, 0.05);
-  --surface-3: rgba(255, 255, 255, 0.09);
-  --surface-4: rgba(255, 255, 255, 0.14);
-  --text: #e7edf0;
-  --text-dim: #aab8bf;
-  --text-faint: #8a9aa2;
-  --text-ghost: #6d7d85;
-  --border: rgba(130, 209, 241, 0.16);
-  --border-strong: rgba(130, 209, 241, 0.3);
-  --accent: #4fb4dc;
-  --accent-hover: #6cc6e6;
-  --accent-press: #3a9dc0;
-  --accent-text: #82d1f1;
-  --accent-soft: rgba(130, 209, 241, 0.14);
-  --accent-border: rgba(130, 209, 241, 0.42);
-  --on-accent: #06232c;
-  --glass-1: rgba(255, 255, 255, 0.06);
-  --lattice-line: rgba(130, 209, 241, 0.16);
   position: relative;
   isolation: isolate;
-  color: var(--text);
-}
-/* A dark radial floor behind the ambient field, in place of the paper
-   gradient `body::before` paints for the rest of the app — `isolation:
-   isolate` above gives this its own stacking context so it sits over that
-   gradient without touching it. */
-.landing-dark::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -3;
-  pointer-events: none;
-  contain: strict;
-  background: radial-gradient(120% 90% at 50% -10%, #16232a 0%, #101416 55%, #0b0f10 100%);
-}
-/* The ambient field is a light-theme device: three tinted blobs meant to be
-   seen *through* near-opaque paper cards. Over the shader below they are just
-   haze on top of a field that already moves, and the lattice draws a grid over
-   a page that has no grid. The whole layer goes on this route. */
-.landing-route .ambient {
-  display: none;
 }
 
 /* The shader canvas, under everything including the dark floor's vignette.
@@ -2164,81 +1962,11 @@ body::before {
   }
 }
 
-/* The landing page's own cards keep the shared `.glass-card` API and get the
-   same material, so nothing on the page is glass in two different ways. */
-.landing-dark .glass-card {
-  background: rgba(255, 255, 255, 0.05);
-  -webkit-backdrop-filter: blur(48px) saturate(130%);
-  backdrop-filter: blur(48px) saturate(130%);
-  border: 1px solid rgba(130, 209, 241, 0.2);
-  box-shadow: inset 0 0 30px rgba(130, 209, 241, 0.1), 0 10px 40px rgba(0, 0, 0, 0.4);
-}
-@media (hover: hover) {
-  .landing-dark .glass-card-lift:hover {
-    border-color: rgba(130, 209, 241, 0.55);
-    box-shadow: inset 0 0 40px rgba(130, 209, 241, 0.16), 0 16px 50px rgba(0, 0, 0, 0.45),
-      0 0 30px rgba(130, 209, 241, 0.22);
-  }
-}
-
-/* ---- The nav, on the landing route ---------------------------------- */
-/* The reference's floating glass pill rather than the app's dark-graphite
-   instrument: fully rounded, inset from the top edge, translucent over the
-   shader, with a cyan rim light. Scoped from the root element because the
-   header is a sibling of the landing `<main>` and nothing inside that main can
-   reach it. */
-.landing-route .nav-shell {
-  padding-top: 24px;
-}
-.landing-route .nav-shell::before {
-  display: none;
-}
-.landing-route .nav-island {
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
-  -webkit-backdrop-filter: blur(48px) saturate(140%);
-  backdrop-filter: blur(48px) saturate(140%);
-  border: 1px solid rgba(130, 209, 241, 0.2);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 20px rgba(130, 209, 241, 0.1),
-    0 18px 40px -24px rgba(0, 0, 0, 0.6);
-  --text: #e7edf0;
-  --text-dim: #bec8cd;
-  --text-faint: #8a9aa2;
-  --text-ghost: #6d7d85;
-  --border: rgba(130, 209, 241, 0.2);
-  --border-strong: rgba(130, 209, 241, 0.34);
-  --accent-text: #82d1f1;
-  --accent-soft: rgba(130, 209, 241, 0.16);
-  --accent-border: rgba(130, 209, 241, 0.45);
-  --surface-2: rgba(255, 255, 255, 0.07);
-  --surface-3: rgba(255, 255, 255, 0.11);
-}
-.landing-route .nav-track {
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.22);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.32), 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-.landing-route .nav-pill {
-  border-radius: 999px;
-}
-.landing-route .nav-pill-active {
-  border-radius: 999px;
-  background: linear-gradient(to bottom, #9cdcf5, #6cc6e6);
-  box-shadow: 0 0 15px rgba(130, 209, 241, 0.4);
-}
-.landing-route .nav-pill-on {
-  color: #06232c;
-}
-/* The wordmark glows the way the reference's does. A text-shadow, not a
-   filter: a filter on this element would create a compositing layer for the
-   whole brand lockup including the mark's own animation. */
-.landing-route .wordmark {
+/* The wordmark glows the way a lit object does. A text-shadow, not a filter:
+   a filter on this element would create a compositing layer for the whole
+   brand lockup including the mark's own animation. */
+.wordmark {
   text-shadow: 0 0 12px rgba(130, 209, 241, 0.45);
-}
-@media (hover: hover) {
-  .landing-route .nav-pill:hover {
-    background: rgba(130, 209, 241, 0.14);
-  }
 }
 
 /* ---- The hero: two screens of scroll, one pinned stage --------------- */
@@ -2419,24 +2147,6 @@ body::before {
    level in — a grid track can be animated even though its content's height
    cannot. `[open]` still has to be set for the browser's own toggle logic;
    this only changes what that toggle looks like. */
-/* The secondary button is a paper control from the app's light theme, which
-   over the dark field rendered as near-invisible grey on white. It gets the
-   page's own material rather than a one-off colour. */
-.landing-dark .btn-default {
-  background: rgba(255, 255, 255, 0.06);
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(130, 209, 241, 0.28);
-  box-shadow: none;
-  color: var(--text);
-}
-@media (hover: hover) {
-  .landing-dark .btn-default:hover {
-    background: rgba(130, 209, 241, 0.14);
-    border-color: rgba(130, 209, 241, 0.5);
-  }
-}
-
 .faq-item {
   border-radius: 20px;
 }
@@ -2470,45 +2180,34 @@ details[open] .faq-body {
    ambient field — that request is about legibility, and a "tasteful" amount of
    glass is still glass. Every surface reverts in one place. */
 @media (prefers-reduced-transparency: reduce) {
-  /* `.chrome` used to be in the list below, which painted it `--surface-1` —
-     white. It is the dark instrument material: it scopes `--text` to near-white
-     for everything inside it, so that rule produced white type on a white
-     toast and an unreadable loading overlay for the one group of people who
-     asked for MORE legibility. It loses its blur here and nothing else. */
-  .chrome {
-    background: #171e2c;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
+  /* Every glass surface goes to one of two opaque tones — `#1c2124` for
+     anything that floats (chrome, the nav, a card) and `#141a1c` for anything
+     recessed — and every blur comes off. Note that `--surface-2/-3` are
+     themselves translucent whites, so the hover states resolve against these
+     fills rather than against the field, which is exactly what is wanted:
+     nothing behind a surface should be visible through it. */
+  .chrome,
+  .glass,
+  .nav-island,
+  .glass-card,
+  .liquid-glass,
   .panel,
   .panel-raised,
   .card,
   .btn-default {
-    background: var(--surface-1);
+    background: #1c2124;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-  }
-  .panel-raised,
-  .btn-default {
-    background: var(--surface-2);
-  }
-  .ambient-grain,
-  .ambient-vignette {
-    display: none;
   }
   .panel-inset,
-  .field {
-    background: var(--bg);
+  .field,
+  .nav-track {
+    background: #141a1c;
   }
-  .ambient {
+  /* The field is a moving image behind translucent panes. With the panes
+     opaque it is visible only in the gutters, where it is decoration nobody
+     asked for. */
+  .ambient-shader {
     display: none;
-  }
-  /* The landing page's surfaces were added after this block was written and
-     kept their translucency straight through the preference. `.glass` and
-     `.nav-island` are already opaque gradients, so only the card needs it. */
-  .glass-card {
-    background: var(--surface-1);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
   }
 }
