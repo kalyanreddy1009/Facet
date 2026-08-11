@@ -114,7 +114,7 @@ print(json.dumps([keyword_overlap_score(c["text"], c["keywords"]) for c in cases
       const mine = matchAgainst(testCase.text, testCase.keywords).score;
       ok(
         Math.abs(mine - expected[i]) < 1e-9,
-        `case ${i} disagrees with the backend: browser ${mine}, python ${expected[i]} — ` +
+        `case ${i} disagrees with the backend: browser ${mine}, python ${expected[i]} - ` +
           `text ${JSON.stringify(testCase.text.slice(0, 40))}`
       );
     });

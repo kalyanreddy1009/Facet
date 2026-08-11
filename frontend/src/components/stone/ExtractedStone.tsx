@@ -111,7 +111,7 @@ export default function ExtractedStone() {
       <Panel className="mt-4 p-5">
         <p className="flex items-center gap-2 text-sm text-text-dim">
           <AlertCircle className="w-4 h-4 text-warn-text shrink-0" aria-hidden />
-          Could not read your Stone. The markdown above is unaffected — it is the
+          Could not read your Stone. The markdown above is unaffected - it is the
           source, and this panel is only what was understood from it.
         </p>
       </Panel>
@@ -124,7 +124,7 @@ export default function ExtractedStone() {
         <p className="text-sm text-text">Nothing extracted yet.</p>
         <p className="text-sm text-text-dim max-w-prose text-pretty">
           Import a resume or write one above, then save. Facet reads it in the background and
-          what it understood appears here — every fact it is allowed to use, and nothing else.
+          what it understood appears here - every fact it is allowed to use, and nothing else.
         </p>
       </Panel>
     );
@@ -145,7 +145,7 @@ export default function ExtractedStone() {
       </div>
       <p className="text-xs text-text-faint max-w-prose text-pretty mb-3">
         The ceiling on every application. Nothing Facet writes can go beyond what is on this
-        list. Read-only — the markdown above is the source, and editing two copies of one truth
+        list. Read-only - the markdown above is the source, and editing two copies of one truth
         is how they drift apart.
       </p>
 
@@ -197,7 +197,7 @@ export default function ExtractedStone() {
                     {role.bullets?.length ?? 0} bullet
                     {(role.bullets?.length ?? 0) === 1 ? "" : "s"}
                     {(role.bullets?.length ?? 0) === 0 && (
-                      <span className="text-warn-text"> — nothing for the tailor to draw on</span>
+                      <span className="text-warn-text"> - nothing for the tailor to draw on</span>
                     )}
                   </p>
                 </div>

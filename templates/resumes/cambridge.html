@@ -1,4 +1,4 @@
-{# CAMBRIDGE — the academic one.
+{# CAMBRIDGE - the academic one.
    Garamond at a generous measure and leading, small-caps headings, and the
    date set above the role rather than beside it, which is the convention in a
    CV. Reads as a document rather than as a form. #}
@@ -25,12 +25,12 @@
   .project + .project { margin-top: 6pt; }
   .project-name { font-weight: 700; }
 {% endblock %}
-{# Dates first, on their own line — the CV convention, and it also gives the
+{# Dates first, on their own line - the CV convention, and it also gives the
    eye a left-hand rhythm to scan without needing a second column. #}
 {% block role_entry scoped %}
   <div class="role-dates">{{ role.start | when }} – {{ role.end | when }}</div>
   <div class="role-line"><span class="role-title">{{ role.title }}</span></div>
   <div class="role-line role-sub">
-    <span class="role-company">{{ role.company }}</span>{% if role.location %} — <span class="role-location">{{ role.location }}</span>{% endif %}
+    <span class="role-company">{{ role.company }}</span>{% if role.location %} - <span class="role-location">{{ role.location }}</span>{% endif %}
   </div>
 {% endblock %}

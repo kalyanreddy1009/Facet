@@ -6,7 +6,7 @@
   the page header or footer, and section headings they do not recognise. That
   list is the same for all seven templates, so it is defined once, here, and no
   skin can accidentally opt out of it. What the skins are allowed to change is
-  everything a parser does not read — typeface, weight, rules, spacing, the
+  everything a parser does not read - typeface, weight, rules, spacing, the
   arrangement of a role's title and dates. The result is seven resumes that
   look genuinely different to a person and identical to a machine.
 
@@ -16,7 +16,7 @@
     · Contact details in the document body. Parsers routinely skip the page
       header region, so a name in @page margin content is a name that never
       arrives.
-    · Standard section headings — "Work Experience", "Education", "Skills".
+    · Standard section headings - "Work Experience", "Education", "Skills".
       A parser categorises by matching these strings; "Where I've Been" lands
       the whole section in the void.
     · Real text. No icons, no bar charts for skill levels, no images. A phone
@@ -30,7 +30,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>{{ name }} — Resume</title>
+<title>{{ name }} - Resume</title>
 <style>
   /* Rules that hold for every template, because they are the ones a parser
      cares about. A skin may restyle these; it may not reintroduce columns. */
@@ -111,7 +111,7 @@
   <h2>Projects</h2>
   {% for project in projects %}
   <div class="project">
-    <p class="project-name">{{ project.name }}{% if project.stack %} — {{ project.stack }}{% endif %}</p>
+    <p class="project-name">{{ project.name }}{% if project.stack %} - {{ project.stack }}{% endif %}</p>
     {% if project.description %}<p class="project-desc">{{ project.description }}</p>{% endif %}
   </div>
   {% endfor %}

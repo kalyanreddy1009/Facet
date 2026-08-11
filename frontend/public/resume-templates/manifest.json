@@ -1,30 +1,30 @@
 {
   "chicago": {
-    "hash": "5aba483cd11a94ba",
-    "bytes": 42950
+    "hash": "271fc575e0a0dc61",
+    "bytes": 42984
   },
   "zurich": {
-    "hash": "4f7ee8bac14a4c10",
-    "bytes": 36264
+    "hash": "eb87d563f0a97e70",
+    "bytes": 36260
   },
   "cambridge": {
-    "hash": "c702d906b98f0e78",
-    "bytes": 35688
+    "hash": "0e4535eb15e024fe",
+    "bytes": 35694
   },
   "meridian": {
-    "hash": "95e3303a6230afca",
-    "bytes": 41158
+    "hash": "08a9092b6775c4fa",
+    "bytes": 41204
   },
   "compact": {
-    "hash": "8842e3ba13a6740f",
-    "bytes": 34368
+    "hash": "38a7bf5378d03f28",
+    "bytes": 34404
   },
   "ledger": {
-    "hash": "2a990e89e65abd00",
-    "bytes": 38750
+    "hash": "899f6ee8d1934393",
+    "bytes": 38712
   },
   "bulletin": {
-    "hash": "b5b3d8cb81509e60",
-    "bytes": 35226
+    "hash": "e976afece685fa3d",
+    "bytes": 35206
   }
 }

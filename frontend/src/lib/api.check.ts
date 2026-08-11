@@ -100,7 +100,7 @@ async function demo() {
   // Any console.assert above prints but does not exit, so fail loudly here.
   if (process.exitCode) throw new Error("api cache: a check failed");
   console.log(
-    "api cache: reuse, invalidation, poll bypass, dedupe — and a 401 only " +
+    "api cache: reuse, invalidation, poll bypass, dedupe - and a 401 only " +
       "redirects from pages that need a session"
   );
 }

@@ -59,7 +59,7 @@ async def confirm_suggestion(suggestion_id: int, body: ConfirmBody):
     if not application_id:
         raise HTTPException(
             status_code=400,
-            detail="This suggestion has no matched application — pick one explicitly.",
+            detail="This suggestion has no matched application - pick one explicitly.",
         )
     contact_id = body.contact_id or suggestion["contact_id"]
 

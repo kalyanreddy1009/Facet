@@ -85,7 +85,7 @@ def build():
     r2.bold = True
 
     role_sub = doc.add_paragraph()
-    sub_run = role_sub.add_run("{{ role.company }} — {{ role.location }}")
+    sub_run = role_sub.add_run("{{ role.company }} - {{ role.location }}")
     sub_run.italic = True
 
     add_tag_paragraph(doc, "{% for bullet in role.bullets %}")

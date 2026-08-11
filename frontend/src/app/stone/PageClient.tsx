@@ -91,7 +91,7 @@ export default function StonePage() {
       if (status.status === "error" && status.error) {
         push(status.error.error, { hint: status.error.hint });
       } else if (status.status === "done") {
-        push("Profile extracted — your Stone is in sync.", { tone: "success" });
+        push("Profile extracted - your Stone is in sync.", { tone: "success" });
       }
     }, 1500);
     return () => clearInterval(interval);
@@ -117,7 +117,7 @@ export default function StonePage() {
       try {
         const res = await api.importResume(file);
         setMarkdown(res.markdown);
-        push("Imported — check the markdown below, then save.", {
+        push("Imported - check the markdown below, then save.", {
           tone: "success",
           hint: "Parsing is mechanical; it gets headings wrong sometimes.",
         });
@@ -205,7 +205,7 @@ export default function StonePage() {
         <h1 className="text-2xl font-semibold text-text">Your Stone</h1>
         <p className="text-sm text-text-dim mt-1 max-w-prose text-pretty">
           The permanent, honest record of your background. Every facet is cut from this and nothing
-          else — so it&apos;s worth getting exactly right.
+          else - so it&apos;s worth getting exactly right.
         </p>
       </header>
 

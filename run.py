@@ -171,7 +171,7 @@ def check_optional(py: Path) -> None:
         capture_output=True,
     ).returncode == 0
     print("  PDF export (WeasyPrint):", "ready" if weasy_ok else
-          "unavailable — native GTK/Pango libs missing. App runs; PDF/DOCX export won't.")
+          "unavailable - native GTK/Pango libs missing. App runs; PDF/DOCX export won't.")
     print("  AI engine (agy CLI):     ",
           "ready" if shutil.which("agy") else
           "not found on PATH. App runs; tailoring/extraction will error until installed.")
@@ -198,7 +198,7 @@ def check_ports() -> None:
     for port in busy:
         what = "backend" if port == BACKEND_PORT else "frontend"
         warn(f"port {port} ({what}) is already serving something")
-    print("\n  Facet is probably already running — try http://localhost:3000 first.")
+    print("\n  Facet is probably already running - try http://localhost:3000 first.")
     print("  If it's a stale process, stop it and re-run:")
     if IS_WIN:
         ports = " ".join(str(p) for p in busy)

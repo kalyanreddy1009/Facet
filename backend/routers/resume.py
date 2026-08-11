@@ -17,7 +17,7 @@ from services import paths
 
 router = APIRouter()
 
-EXTRACTION_INSTRUCTION = """Read the file `master_resume.md` in the current directory — it is a candidate's full resume in markdown, written or edited by them directly.
+EXTRACTION_INSTRUCTION = """Read the file `master_resume.md` in the current directory - it is a candidate's full resume in markdown, written or edited by them directly.
 
 Extract its content into a structured JSON file, following this exact schema and field names:
 {
@@ -35,9 +35,9 @@ Extract its content into a structured JSON file, following this exact schema and
 Rules:
 - Extract only what is genuinely present in master_resume.md. Do not invent or infer skills, employers, dates, or accomplishments that aren't stated.
 - Assign role ids role_1, role_2, etc. in the order roles appear in the document.
-- `keywords` is a broader list of terms (skills, tools, domains, job titles) useful for matching against job descriptions later — derived only from the actual resume content.
+- `keywords` is a broader list of terms (skills, tools, domains, job titles) useful for matching against job descriptions later - derived only from the actual resume content.
 - `summary_base` is a short professional summary drawn from the resume, or reasonably synthesized from its actual content if no explicit summary section exists.
-- Output raw valid JSON only in the output file — no code fences, no commentary.
+- Output raw valid JSON only in the output file - no code fences, no commentary.
 """
 
 
@@ -94,7 +94,7 @@ async def get_profile():
     if not paths.PROFILE_PATH.exists():
         raise HTTPException(
             status_code=404,
-            detail="No profile yet — import a resume first.",
+            detail="No profile yet - import a resume first.",
         )
     return json.loads(paths.PROFILE_PATH.read_text(encoding="utf-8"))
 

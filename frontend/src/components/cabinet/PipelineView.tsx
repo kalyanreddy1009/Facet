@@ -68,7 +68,7 @@ export default function PipelineView({ funnel, rejected, rejectedFrom }: Pipelin
   if (funnel.Cut === 0) {
     return (
       <p className="text-sm text-text-faint py-10 text-center">
-        Nothing in the pipeline yet — cut a facet and set it.
+        Nothing in the pipeline yet - cut a facet and set it.
       </p>
     );
   }
@@ -89,7 +89,7 @@ export default function PipelineView({ funnel, rejected, rejectedFrom }: Pipelin
                 }`}
               >
                 {row.rate === null
-                  ? "—"
+                  ? "-"
                   : `${Math.round(row.rate * 100)}% carried through${
                       worst?.key === row.key && row.rate < 1 ? " · weakest step" : ""
                     }`}

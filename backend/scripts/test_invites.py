@@ -91,7 +91,7 @@ def check_a_second_link_does_not_kill_the_first(client) -> None:
 
     response = _accept(client, older)
     assert response.status_code == 200, (
-        "the older link was rejected after a second was issued — this is the "
+        "the older link was rejected after a second was issued - this is the "
         f"exact regression that locked two users out: {response.text}"
     )
 
@@ -114,7 +114,7 @@ def check_suspended_does_not_consume_the_link(client) -> None:
 
     state = store.invite_state(auth.token_digest(token))
     assert state["verdict"] == store.INVITE_OK, (
-        "the link must survive — being suspended for a minute cannot cost "
+        "the link must survive - being suspended for a minute cannot cost "
         "somebody the only credential they have"
     )
 

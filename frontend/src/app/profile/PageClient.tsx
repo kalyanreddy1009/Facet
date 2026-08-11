@@ -52,7 +52,7 @@ function bytes(n: number): string {
 }
 
 function when(seconds: number | null): string {
-  if (!seconds) return "—";
+  if (!seconds) return "-";
   return new Date(seconds * 1000).toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
@@ -146,13 +146,13 @@ export default function ProfilePage() {
             <span className="text-danger-text">{data.stone.error}</span>
           ) : data.stone.imported ? (
             <>
-              Imported{data.stone.name ? ` — ${data.stone.name}` : ""}. Every
+              Imported{data.stone.name ? ` - ${data.stone.name}` : ""}. Every
               tailored resume is cut from it.
             </>
           ) : (
             <>
               No resume imported yet. The Stone is the single record everything
-              else is cut from — start there.
+              else is cut from - start there.
             </>
           )}
         </p>
@@ -174,7 +174,7 @@ export default function ProfilePage() {
           ))}
         </dl>
         <p className="mt-4 text-xs text-text-faint">
-          {bytes(totalStorage)} on disk — {bytes(data.storage.data)} data,{" "}
+          {bytes(totalStorage)} on disk - {bytes(data.storage.data)} data,{" "}
           {bytes(data.storage.workspace)} workspace, {bytes(data.storage.exports)}{" "}
           exports. Yours alone: every account has its own database and its own
           directory.

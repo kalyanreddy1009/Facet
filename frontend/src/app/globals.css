@@ -2116,108 +2116,262 @@ body::before {
   contain: strict;
   background: radial-gradient(120% 90% at 50% -10%, #16232a 0%, #101416 55%, #0b0f10 100%);
 }
-.landing-dark .ambient-glow-a {
-  background: radial-gradient(circle at center, rgba(130, 209, 241, 0.24) 0%, rgba(130, 209, 241, 0.09) 42%, transparent 68%);
+/* The ambient field is a light-theme device: three tinted blobs meant to be
+   seen *through* near-opaque paper cards. Over the shader below they are just
+   haze on top of a field that already moves, and the lattice draws a grid over
+   a page that has no grid. The whole layer goes on this route. */
+.landing-route .ambient {
+  display: none;
 }
-.landing-dark .ambient-glow-b {
-  background: radial-gradient(circle at center, rgba(82, 224, 197, 0.18) 0%, rgba(82, 224, 197, 0.07) 44%, transparent 70%);
+
+/* The shader canvas, under everything including the dark floor's vignette.
+   `fixed` so the field stays put while the page scrolls over it, which is what
+   makes the content read as panes travelling across a light source rather than
+   as a page with a picture behind it. */
+.ambient-shader {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -2;
+  pointer-events: none;
+  display: block;
 }
-.landing-dark .ambient-glow-c {
-  background: radial-gradient(circle at center, rgba(255, 184, 117, 0.12) 0%, rgba(255, 184, 117, 0.05) 46%, transparent 70%);
+
+/* Liquid glass: the reference's card material.
+   Genuinely translucent (5% white) over a blur deep enough that what is behind
+   it becomes colour rather than shapes, a cyan-lit hairline edge, and an inner
+   glow so the pane looks lit from within instead of merely see-through. That
+   inner glow is the difference between this and a frosted rectangle.
+   `-webkit-` first, or the minifier keeps only the prefixed form and Firefox
+   silently gets no blur at all. */
+.liquid-glass {
+  position: relative;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(48px) saturate(130%);
+  backdrop-filter: blur(48px) saturate(130%);
+  border: 1px solid rgba(130, 209, 241, 0.2);
+  box-shadow: inset 0 0 30px rgba(130, 209, 241, 0.1), 0 10px 40px rgba(0, 0, 0, 0.4);
+  transition: border-color var(--t-slow) var(--ease-emph), box-shadow var(--t-slow) var(--ease-emph),
+    transform var(--t-slow) var(--ease-emph);
 }
-/* The mockup's liquid-glass card: translucent over the dark field, blurred,
-   with a cyan-lit edge rather than the light theme's near-opaque paper card.
-   `-webkit-` first — the minifier drops the unprefixed form otherwise and
-   Firefox gets no blur at all. */
+@media (hover: hover) {
+  .liquid-glass:hover {
+    border-color: rgba(130, 209, 241, 0.55);
+    box-shadow: inset 0 0 40px rgba(130, 209, 241, 0.16), 0 16px 50px rgba(0, 0, 0, 0.45),
+      0 0 30px rgba(130, 209, 241, 0.22);
+  }
+}
+
+/* The landing page's own cards keep the shared `.glass-card` API and get the
+   same material, so nothing on the page is glass in two different ways. */
 .landing-dark .glass-card {
-  background: linear-gradient(158deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 55%, rgba(130, 209, 241, 0.05) 100%);
-  -webkit-backdrop-filter: blur(28px);
-  backdrop-filter: blur(28px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 0 0 1px rgba(130, 209, 241, 0.16),
-    0 20px 44px -26px rgba(0, 0, 0, 0.6);
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(48px) saturate(130%);
+  backdrop-filter: blur(48px) saturate(130%);
+  border: 1px solid rgba(130, 209, 241, 0.2);
+  box-shadow: inset 0 0 30px rgba(130, 209, 241, 0.1), 0 10px 40px rgba(0, 0, 0, 0.4);
 }
 @media (hover: hover) {
   .landing-dark .glass-card-lift:hover {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 0 1px rgba(130, 209, 241, 0.4),
-      0 24px 56px -24px rgba(130, 209, 241, 0.28);
-  }
-}
-/* The ruled vocabulary rows and FAQ cards weren't hover targets before —
-   this scope is exactly the interactive-card treatment the reference asked
-   for, without needing a new component. */
-.landing-dark .ruled-row {
-  border-radius: 14px;
-  transition: background-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
-}
-@media (hover: hover) {
-  .landing-dark .ruled-row:hover {
-    background: rgba(130, 209, 241, 0.05);
-    box-shadow: inset 0 0 0 1px rgba(130, 209, 241, 0.22);
+    border-color: rgba(130, 209, 241, 0.55);
+    box-shadow: inset 0 0 40px rgba(130, 209, 241, 0.16), 0 16px 50px rgba(0, 0, 0, 0.45),
+      0 0 30px rgba(130, 209, 241, 0.22);
   }
 }
 
-/* The nav, on the landing route only: the reference's floating glass pill
-   instead of the app's dark-graphite instrument. Same structure (`.nav-shell`
-   → `.nav-island` → `.nav-track`/`.nav-pill`), new material — translucent over
-   the dark field rather than an opaque gradient, because on this page the
-   field behind it is already dark and an opaque island would just be a second
-   flat rectangle stacked on the first. `-webkit-` first, same reason as every
-   other blur in this file. */
-.landing-dark .nav-shell::before {
-  background: linear-gradient(to bottom, rgba(16, 20, 22, 0.7) 0%, rgba(16, 20, 22, 0.32) 60%, rgba(16, 20, 22, 0) 100%);
+/* ---- The nav, on the landing route ---------------------------------- */
+/* The reference's floating glass pill rather than the app's dark-graphite
+   instrument: fully rounded, inset from the top edge, translucent over the
+   shader, with a cyan rim light. Scoped from the root element because the
+   header is a sibling of the landing `<main>` and nothing inside that main can
+   reach it. */
+.landing-route .nav-shell {
+  padding-top: 24px;
 }
-.landing-dark .nav-island {
-  background: linear-gradient(158deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.04) 60%, rgba(130, 209, 241, 0.06) 100%);
-  -webkit-backdrop-filter: blur(22px) saturate(140%);
-  backdrop-filter: blur(22px) saturate(140%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 0 0 1px rgba(130, 209, 241, 0.16),
-    0 20px 44px -26px rgba(0, 0, 0, 0.55);
+.landing-route .nav-shell::before {
+  display: none;
+}
+.landing-route .nav-island {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(48px) saturate(140%);
+  backdrop-filter: blur(48px) saturate(140%);
+  border: 1px solid rgba(130, 209, 241, 0.2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 20px rgba(130, 209, 241, 0.1),
+    0 18px 40px -24px rgba(0, 0, 0, 0.6);
   --text: #e7edf0;
-  --text-dim: #aab8bf;
+  --text-dim: #bec8cd;
   --text-faint: #8a9aa2;
   --text-ghost: #6d7d85;
-  --border: rgba(130, 209, 241, 0.16);
-  --border-strong: rgba(130, 209, 241, 0.3);
+  --border: rgba(130, 209, 241, 0.2);
+  --border-strong: rgba(130, 209, 241, 0.34);
   --accent-text: #82d1f1;
-  --accent-soft: rgba(130, 209, 241, 0.14);
-  --accent-border: rgba(130, 209, 241, 0.42);
+  --accent-soft: rgba(130, 209, 241, 0.16);
+  --accent-border: rgba(130, 209, 241, 0.45);
   --surface-2: rgba(255, 255, 255, 0.07);
   --surface-3: rgba(255, 255, 255, 0.11);
 }
-.landing-dark .nav-track {
-  background: rgba(0, 0, 0, 0.2);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 0 rgba(255, 255, 255, 0.06);
+.landing-route .nav-track {
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.32), 0 1px 0 rgba(255, 255, 255, 0.06);
 }
-.landing-dark .nav-pill-active {
-  background: linear-gradient(to bottom, #6cc6e6, #3a9dc0);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 3px rgba(6, 35, 44, 0.55);
+.landing-route .nav-pill {
+  border-radius: 999px;
+}
+.landing-route .nav-pill-active {
+  border-radius: 999px;
+  background: linear-gradient(to bottom, #9cdcf5, #6cc6e6);
+  box-shadow: 0 0 15px rgba(130, 209, 241, 0.4);
+}
+.landing-route .nav-pill-on {
+  color: #06232c;
+}
+/* The wordmark glows the way the reference's does. A text-shadow, not a
+   filter: a filter on this element would create a compositing layer for the
+   whole brand lockup including the mark's own animation. */
+.landing-route .wordmark {
+  text-shadow: 0 0 12px rgba(130, 209, 241, 0.45);
 }
 @media (hover: hover) {
-  .landing-dark .nav-pill:hover {
-    background: rgba(130, 209, 241, 0.12);
+  .landing-route .nav-pill:hover {
+    background: rgba(130, 209, 241, 0.14);
   }
 }
 
-/* Flip cards for the four-word vocabulary. A click/hover rotates the card
+/* ---- The hero: two screens of scroll, one pinned stage --------------- */
+/* The section is tall and its contents are sticky. That is the entire
+   mechanism: the browser does the pinning, the scroll stays a normal document
+   scroll, and Framer only reads progress. Nothing here can trap a gesture.
+   `svh` rather than `vh` so a mobile browser's collapsing address bar does not
+   make the pinned stage taller than the screen it is pinned to. */
+.hero-stage {
+  position: relative;
+  height: 220svh;
+}
+.hero-pin {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* The gem and the stack occupy the same grid cell, so the word settles over
+   the stone without either being positioned against a parent that moves. */
+.hero-gem,
+.hero-stack {
+  grid-area: 1 / 1;
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+.hero-gem {
+  z-index: 0;
+}
+.hero-stack {
+  z-index: 1;
+  align-content: center;
+  text-align: center;
+  /* Top padding clears the fixed nav island: at the settled position the word
+     is at the top of the stack, and without this it runs under the pill. */
+  padding: 104px 20px 0;
+  gap: 20px;
+}
+@media (min-width: 640px) {
+  .hero-stack {
+    padding: 112px 32px 0;
+  }
+}
+.hero-copy {
+  max-width: 46rem;
+}
+
+/* The masthead word. In front of the stone, not behind it: it is the subject
+   of phase two and the stone is what it is standing on. Sized in `vw` rather
+   than the rem type scale on purpose — this is a graphic element that has to
+   span the viewport at every width, not a reading size, and the design-system
+   check exempts it for exactly that reason. The wide tracking is the
+   reference's, and it is safe here in a way it would not be on a section
+   heading: nothing parses a landing page's hero word. */
+.hero-mast {
+  font-size: clamp(2.75rem, 9vw, 7.5rem);
+  line-height: 0.95;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  /* Tracking is applied to the right of every glyph including the last, which
+     pushes a centred word off-centre by half of it. */
+  text-indent: 0.24em;
+  color: #ffffff;
+  text-shadow: 0 0 40px rgba(130, 209, 241, 0.6), 0 0 90px rgba(130, 209, 241, 0.3);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.hero-scroll-hint {
+  grid-area: 1 / 1;
+  z-index: 2;
+  align-self: end;
+  justify-self: center;
+  margin-bottom: 6vh;
+  font-size: 0.75rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+.hero-scroll-hint::after {
+  content: "";
+  display: block;
+  width: 1px;
+  height: 34px;
+  margin: 10px auto 0;
+  background: linear-gradient(to bottom, rgba(130, 209, 241, 0.7), transparent);
+}
+
+/* Without JS or with motion off, the whole narrative has to be legible at
+   rest: the stage collapses to one screen with the word and the copy already
+   in place, because a scroll animation nobody is going to see must not be the
+   only way to read the page. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-stage {
+    height: auto;
+  }
+  .hero-pin {
+    position: static;
+    height: auto;
+    padding: 8vh 0 10vh;
+  }
+  .hero-gem,
+  .hero-stack {
+    grid-area: auto;
+  }
+  .hero-scroll-hint {
+    display: none;
+  }
+}
+
+/* Flip cards for the four-word vocabulary. A click or hover rotates the card
    180° around the Y axis; the definition lives on the back rather than
-   appearing beneath the term, which is the interaction the reference mockup
-   uses for its own "what is X" cards. Built with a real button (not a div
-   with an onClick) so it stays a keyboard- and screen-reader-reachable
-   control — `aria-pressed` tracks the flip state and the back's content is
-   always in the DOM, just rotated out of view, so nothing here depends on
-   JS to be readable (the `flip-card` fallback rule near
-   `prefers-reduced-motion` below keeps the definition on-screen when motion
-   is off). */
+   appearing beneath the term, which is the interaction the reference uses for
+   its own "what is X" cards. A real button, not a div with an onClick, so it
+   stays keyboard- and screen-reader-reachable — `aria-pressed` tracks the flip
+   and the back is always in the DOM, merely rotated out of view, so nothing
+   here depends on JS to be readable. */
 .flip-card {
-  perspective: 1400px;
-  height: 12rem;
+  perspective: 1000px;
+  height: 16rem;
+  cursor: pointer;
 }
 .flip-card-inner {
   display: block;
   position: relative;
   width: 100%;
   height: 100%;
-  text-align: left;
   transition: transform 0.6s var(--ease-emph);
   transform-style: preserve-3d;
 }
@@ -2235,72 +2389,28 @@ body::before {
   width: 100%;
   height: 100%;
   backface-visibility: hidden;
-  border-radius: 16px;
+  -webkit-backface-visibility: hidden;
+  border-radius: 32px;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
+  text-align: center;
 }
 .flip-card-back {
   transform: rotateY(180deg);
+  border-color: rgba(130, 209, 241, 0.5);
+}
+.flip-card-glyph {
+  display: grid;
+  place-items: center;
+  color: var(--accent-text);
+  filter: drop-shadow(0 0 10px rgba(130, 209, 241, 0.8));
 }
 @media (prefers-reduced-motion: reduce) {
   .flip-card-inner {
     transition: none;
-  }
-}
-
-/* The masthead word behind the hero, page two of the scroll narrative. Sized
-   in `vw` rather than the `rem` type scale on purpose — this is a background
-   watermark, not a reading size, and it has to fill the viewport's width at
-   every breakpoint the way the reference's does. `-webkit-background-clip`
-   before the standard property for the same prefix-order reason as every
-   other vendor-prefixed rule in this file. */
-.hero-mast {
-  font-size: 22vw;
-  line-height: 0.85;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  background: linear-gradient(180deg, rgba(130, 209, 241, 0.5), rgba(130, 209, 241, 0.02));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  pointer-events: none;
-  user-select: none;
-  white-space: nowrap;
-}
-
-/* A slow conic sweep behind the hero/mast, on top of the three ambient blobs.
-   The blobs alone read as "a gradient" at rest; this is what gives the field
-   the sense of a light source turning, which is what the reference's WebGL
-   shader was doing at a cost this file's perf budget does not allow. Fixed
-   and `contain: strict` for the same reason every other `.ambient-*` layer
-   is — no `filter: blur()` on an element this large. */
-.landing-dark .ambient-sweep {
-  position: fixed;
-  inset: -20% -20%;
-  z-index: -2;
-  pointer-events: none;
-  contain: strict;
-  background: conic-gradient(
-    from 0deg at 50% 20%,
-    rgba(130, 209, 241, 0.1),
-    rgba(82, 224, 197, 0.05) 25%,
-    transparent 45%,
-    rgba(130, 209, 241, 0.07) 75%,
-    rgba(130, 209, 241, 0.1)
-  );
-  animation: mast-sweep 60s linear infinite;
-}
-@keyframes mast-sweep {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .landing-dark .ambient-sweep {
-    display: none;
   }
 }
 
@@ -2309,8 +2419,35 @@ body::before {
    level in — a grid track can be animated even though its content's height
    cannot. `[open]` still has to be set for the browser's own toggle logic;
    this only changes what that toggle looks like. */
-.landing-dark details.glass-card {
-  transition: box-shadow var(--t-fast) var(--ease);
+/* The secondary button is a paper control from the app's light theme, which
+   over the dark field rendered as near-invisible grey on white. It gets the
+   page's own material rather than a one-off colour. */
+.landing-dark .btn-default {
+  background: rgba(255, 255, 255, 0.06);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(130, 209, 241, 0.28);
+  box-shadow: none;
+  color: var(--text);
+}
+@media (hover: hover) {
+  .landing-dark .btn-default:hover {
+    background: rgba(130, 209, 241, 0.14);
+    border-color: rgba(130, 209, 241, 0.5);
+  }
+}
+
+.faq-item {
+  border-radius: 20px;
+}
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+/* Open is a state worth seeing from across the page: the rim brightens and
+   stays bright while the answer is out, so a half-read FAQ is legible as one. */
+.faq-item[open] {
+  border-color: rgba(130, 209, 241, 0.5);
+  box-shadow: inset 0 0 40px rgba(130, 209, 241, 0.14), 0 16px 50px rgba(0, 0, 0, 0.45);
 }
 .faq-body {
   display: grid;

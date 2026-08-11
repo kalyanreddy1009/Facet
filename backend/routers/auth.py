@@ -210,7 +210,7 @@ def _invite_problem(state: dict) -> dict | None:
         return {
             "reason": verdict,
             "error": "That link has already been used.",
-            "hint": "Your password is set — sign in with it. If you don't know it, "
+            "hint": "Your password is set - sign in with it. If you don't know it, "
                     "ask for a new link from the sign-in page.",
         }
 
@@ -219,13 +219,13 @@ def _invite_problem(state: dict) -> dict | None:
         return {
             "reason": verdict,
             "error": f"That link expired on {when}.",
-            "hint": "Ask for a new one from the sign-in page — it takes a moment.",
+            "hint": "Ask for a new one from the sign-in page - it takes a moment.",
         }
 
     return {
         "reason": store.INVITE_UNKNOWN,
         "error": "That link isn't one we recognise.",
-        "hint": "Links are long and easy to truncate — check you copied the whole "
+        "hint": "Links are long and easy to truncate - check you copied the whole "
                 "thing, including everything after `token=`.",
     }
 
@@ -328,7 +328,7 @@ async def accept_invite(body: AcceptInviteBody, request: Request, response: Resp
 def _not_active(user: dict) -> dict:
     return {
         "error": f"This account is {user['status']}, so it can't be signed into yet.",
-        "hint": "Your link is still good — ask whoever administers this Facet to "
+        "hint": "Your link is still good - ask whoever administers this Facet to "
                 "activate the account, then use it again.",
         "reason": "account_" + user["status"],
     }

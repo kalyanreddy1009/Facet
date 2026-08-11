@@ -109,7 +109,7 @@ async def tailor(body: TailorRequest):
             detail=f"Job description exceeds the {JD_MAX_CHARS} character cap",
         )
     if not paths.PROFILE_PATH.exists():
-        raise HTTPException(status_code=404, detail="No profile yet — import a resume first")
+        raise HTTPException(status_code=404, detail="No profile yet - import a resume first")
 
     # Resolve the template here, not in the worker. The user picked it in this
     # request; if they change the default a minute later while this job is

@@ -106,11 +106,11 @@ for (const platform of platforms) {
   // rather than a matter of nobody having added one yet.
   const serialized = JSON.stringify(map).toLowerCase();
   assert.ok(!serialized.includes("submit"),
-    `${platform}.json mentions submit — the extension must never submit`);
+    `${platform}.json mentions submit - the extension must never submit`);
 }
 
 // The README's support table has to agree with the selector maps. It drifted
-// once already — claiming Workday autofilled when its map was empty, which is
+// once already - claiming Workday autofilled when its map was empty, which is
 // the kind of wrong that only shows up mid-application.
 const readme = read("README.md");
 for (const platform of platforms) {
@@ -132,7 +132,7 @@ for (const file of ["content_script.js", "background.js"]) {
   const code = stripComments(read(file));
   for (const forbidden of [/\.submit\s*\(/, /requestSubmit/, /\bsubmit_selector\b/]) {
     assert.ok(!forbidden.test(code),
-      `${file} contains a submit path (${forbidden}) — this is a [GATE] item`);
+      `${file} contains a submit path (${forbidden}) - this is a [GATE] item`);
   }
 }
 

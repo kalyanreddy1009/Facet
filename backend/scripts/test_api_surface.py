@@ -281,7 +281,7 @@ def check_odd_text_is_data_not_code(client: TestClient) -> None:
     odd = [
         "Robert'); DROP TABLE applications;--",
         "<script>alert(1)</script>",
-        "Zoë Café — Ünïcödé ✨ 日本語",
+        "Zoë Café - Ünïcödé ✨ 日本語",
         "line\nbreak\ttab",
         "%00%2e%2e%2f",
         "{{7*7}}",

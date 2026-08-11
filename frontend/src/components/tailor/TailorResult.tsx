@@ -68,7 +68,7 @@ export default function TailorResult({ result }: TailorResultProps) {
               {application.role_title} · {application.company}
             </p>
             <p className="text-sm text-text-faint mt-0.5">
-              Same layout every time — only the emphasis changed.
+              Same layout every time - only the emphasis changed.
             </p>
           </div>
           <div className="flex flex-wrap justify-center sm:justify-start gap-2">
@@ -121,7 +121,7 @@ export default function TailorResult({ result }: TailorResultProps) {
                 {bullets.map((bullet, i) => (
                   <li key={i} className="text-sm text-text flex gap-2.5 text-pretty">
                     <span className="text-text-ghost select-none" aria-hidden>
-                      —
+                      -
                     </span>
                     <span>{bullet}</span>
                   </li>

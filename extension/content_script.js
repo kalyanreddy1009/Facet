@@ -207,7 +207,7 @@ function reportError(result, what) {
       return;
     case "not_found":
       showBanner(
-        "Facet has no profile yet — import a resume in The Stone first.",
+        "Facet has no profile yet - import a resume in The Stone first.",
         "warn"
       );
       return;
@@ -257,7 +257,7 @@ async function run() {
 
   if (!selectorMap.supported) {
     showBanner(
-      `Facet doesn't autofill ${platform} forms yet — fill this one in by hand.`,
+      `Facet doesn't autofill ${platform} forms yet - fill this one in by hand.`,
       "warn"
     );
     return;

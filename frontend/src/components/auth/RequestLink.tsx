@@ -53,7 +53,7 @@ export default function RequestLink({ defaultEmail = "" }: { defaultEmail?: stri
     return (
       <p role="status" className="text-sm text-text-dim text-pretty">
         Asked. Whoever administers this Facet will see the request and can send you a fresh
-        link. Nothing is emailed automatically — this deployment has no mail server, so it
+        link. Nothing is emailed automatically - this deployment has no mail server, so it
         reaches them as a note on their own screen.
       </p>
     );

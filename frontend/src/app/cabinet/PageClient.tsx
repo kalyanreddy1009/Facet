@@ -118,7 +118,7 @@ export default function CabinetPage() {
         <EmptyState
           icon={PlugZap}
           title="Couldn't reach the backend"
-          body="The Cabinet lives in your own database on the server, and nothing answered. Your data is fine — this page just can't read it right now."
+          body="The Cabinet lives in your own database on the server, and nothing answered. Your data is fine - this page just can't read it right now."
           action={
             <Button variant="primary" icon={RefreshCw} onClick={loadAll}>
               Try again
@@ -146,7 +146,7 @@ export default function CabinetPage() {
                   label="Response rate"
                   value={
                     summary.response_rate === null
-                      ? "—"
+                      ? "-"
                       : `${Math.round(summary.response_rate * 100)}%`
                   }
                   hint="Interviewing plus offers, over everything you actually sent."

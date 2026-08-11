@@ -63,7 +63,7 @@ def migrate(email: str, apply: bool) -> None:
     if user is None:
         raise SystemExit(
             f"{email} is not a registered user. Add them in the admin portal "
-            "first — this script moves data to an account, it does not create one."
+            "first - this script moves data to an account, it does not create one."
         )
 
     slug = paths.validate_user_id(user["slug"])
@@ -112,7 +112,7 @@ def migrate(email: str, apply: bool) -> None:
     print()
 
     if not apply:
-        print("dry run — nothing was written. Re-run with --apply to do it.")
+        print("dry run - nothing was written. Re-run with --apply to do it.")
         return
 
     target_data.mkdir(parents=True, exist_ok=True)
@@ -141,7 +141,7 @@ def migrate(email: str, apply: bool) -> None:
 
     print()
     print(f"done. {slug} now has their own copy.")
-    print("The originals are untouched — delete them yourself once you have")
+    print("The originals are untouched - delete them yourself once you have")
     print("signed in as this user and confirmed the record looks right.")
 
 

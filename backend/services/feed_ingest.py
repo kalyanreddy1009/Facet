@@ -24,15 +24,15 @@ PRUNE_AFTER = timedelta(days=60)
 
 
 DEFAULT_FEEDS = [
-    {"url": "https://weworkremotely.com/categories/remote-programming-jobs.rss", "label": "We Work Remotely — Programming"},
-    {"url": "https://weworkremotely.com/categories/remote-front-end-programming-jobs.rss", "label": "We Work Remotely — Front-End"},
-    {"url": "https://weworkremotely.com/categories/remote-back-end-programming-jobs.rss", "label": "We Work Remotely — Back-End"},
-    {"url": "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss", "label": "We Work Remotely — DevOps & SysAdmin"},
-    {"url": "https://www.python.org/jobs/feed/rss/", "label": "Python.org — Official Job Board"},
-    {"url": "https://himalayas.app/jobs/rss", "label": "Himalayas — Remote Tech Jobs"},
-    {"url": "https://jobspresso.co/feed/?post_type=job_listing", "label": "Jobspresso — Software & Tech"},
-    {"url": "https://remotefirstjobs.com/rss/jobs/python.rss", "label": "RemoteFirstJobs — Python Developer"},
-    {"url": "https://workanywhere.pro/rss/developer.xml", "label": "WorkAnywhere — Software Engineering"},
+    {"url": "https://weworkremotely.com/categories/remote-programming-jobs.rss", "label": "We Work Remotely - Programming"},
+    {"url": "https://weworkremotely.com/categories/remote-front-end-programming-jobs.rss", "label": "We Work Remotely - Front-End"},
+    {"url": "https://weworkremotely.com/categories/remote-back-end-programming-jobs.rss", "label": "We Work Remotely - Back-End"},
+    {"url": "https://weworkremotely.com/categories/remote-devops-sysadmin-jobs.rss", "label": "We Work Remotely - DevOps & SysAdmin"},
+    {"url": "https://www.python.org/jobs/feed/rss/", "label": "Python.org - Official Job Board"},
+    {"url": "https://himalayas.app/jobs/rss", "label": "Himalayas - Remote Tech Jobs"},
+    {"url": "https://jobspresso.co/feed/?post_type=job_listing", "label": "Jobspresso - Software & Tech"},
+    {"url": "https://remotefirstjobs.com/rss/jobs/python.rss", "label": "RemoteFirstJobs - Python Developer"},
+    {"url": "https://workanywhere.pro/rss/developer.xml", "label": "WorkAnywhere - Software Engineering"},
 ]
 # Removed after probing each one three times and inspecting the HTTP status,
 # not just the parse error:

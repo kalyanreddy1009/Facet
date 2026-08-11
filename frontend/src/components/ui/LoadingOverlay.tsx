@@ -46,7 +46,7 @@ export default function LoadingOverlay({
   const phrase = waiting
     ? queuePosition === 1
       ? "Next in line…"
-      : `Waiting — ${queuePosition} in the queue…`
+      : `Waiting - ${queuePosition} in the queue…`
     : reduced
       ? PHRASES[PHRASES.length - 1]
       : PHRASES[index];
@@ -78,7 +78,7 @@ export default function LoadingOverlay({
         <p className="text-xs text-text-faint text-center text-pretty">
           {waiting
             ? "Facet runs one cut at a time. This one is queued and will start on its own."
-            : "This runs a local model — it can take a minute."}
+            : "This runs a local model - it can take a minute."}
           <br />
           <span className="tnum">
             {formatElapsed(elapsed)} elapsed

@@ -534,7 +534,7 @@ def demo() -> None:
     assert state["users"][0]["age_hours"] is not None
 
     runtime.capabilities = real_capabilities
-    print("backup: restore drill passed — backed up, destroyed, restored, verified")
+    print("backup: restore drill passed - backed up, destroyed, restored, verified")
 
 
 if __name__ == "__main__":

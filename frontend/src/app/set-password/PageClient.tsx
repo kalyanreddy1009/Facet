@@ -85,7 +85,7 @@ function SetPasswordForm() {
         usable: false,
         reason: "offline",
         error: "Could not reach Facet.",
-        hint: "It may be restarting. Your link is probably fine — reload in a moment.",
+        hint: "It may be restarting. Your link is probably fine - reload in a moment.",
       });
     }
   }, [token]);
@@ -125,7 +125,7 @@ function SetPasswordForm() {
     } catch {
       setError({
         error: "Could not reach Facet.",
-        hint: "It may be restarting. Try again in a moment — your link is still good.",
+        hint: "It may be restarting. Try again in a moment - your link is still good.",
       });
     } finally {
       setBusy(false);
@@ -136,7 +136,7 @@ function SetPasswordForm() {
     return (
       <Problem
         title="This link is incomplete"
-        body="Open the whole link you were sent — it ends in a long code after `token=`. Chat apps and mail clients sometimes cut it short, so copying it rather than tapping it can help."
+        body="Open the whole link you were sent - it ends in a long code after `token=`. Chat apps and mail clients sometimes cut it short, so copying it rather than tapping it can help."
       />
     );
   }
@@ -169,7 +169,7 @@ function SetPasswordForm() {
     return (
       <Problem
         title="This account isn't active yet"
-        body={`Your link is good and will keep working — the account is ${status.status}. Ask whoever administers this Facet to activate it, then open the link again.`}
+        body={`Your link is good and will keep working - the account is ${status.status}. Ask whoever administers this Facet to activate it, then open the link again.`}
         retry={check}
       />
     );
@@ -183,7 +183,7 @@ function SetPasswordForm() {
             link is the right one — it catches a link forwarded to the wrong
             person before a password is set on somebody else's account. */}
         For <span className="text-text">{status.email}</span>. At least {MIN_LENGTH} characters
-        — a short phrase you can remember beats a short password you cannot.
+        - a short phrase you can remember beats a short password you cannot.
       </p>
 
       <form onSubmit={submit} className="mt-7 space-y-4">

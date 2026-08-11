@@ -19,7 +19,7 @@ export default function GroupSection({ group }: { group: CheckGroup }) {
         </div>
         <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-2xs text-text-faint tnum">
-            {applicable.length > 0 ? `${healthy}/${applicable.length}` : "—"}
+            {applicable.length > 0 ? `${healthy}/${applicable.length}` : "-"}
           </span>
           <span className={`badge ${style.badge}`}>{STATUS_LABEL[worst]}</span>
         </div>

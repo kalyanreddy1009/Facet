@@ -70,7 +70,7 @@ export default function MatchPreflight({
               the end of a line, and without it this rendered as "69%of". */}
           <span className="mono tnum font-semibold">{percent}%</span>{" "}
           of your Stone&apos;s terms appear in this posting
-          {weak && <span className="text-warn-text"> — thin, but you can still cut it</span>}
+          {weak && <span className="text-warn-text"> - thin, but you can still cut it</span>}
         </p>
         {result.hits.length > 0 && (
           <p className="text-xs text-text-faint">

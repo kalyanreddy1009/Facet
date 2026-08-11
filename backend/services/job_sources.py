@@ -494,12 +494,12 @@ def _fetch_feed(client: httpx.Client, url: str):
 
 
 HTTP_REASON = {
-    403: "— blocked (bot protection); this feed can't be read by a script",
-    404: "— not found; the feed URL has moved or the category was removed",
-    410: "— gone; the publisher has permanently retired this feed",
-    429: "— rate limited; it should recover on the next sync",
-    500: "— the feed's own server errored",
-    503: "— the feed's server is unavailable",
+    403: "- blocked (bot protection); this feed can't be read by a script",
+    404: "- not found; the feed URL has moved or the category was removed",
+    410: "- gone; the publisher has permanently retired this feed",
+    429: "- rate limited; it should recover on the next sync",
+    500: "- the feed's own server errored",
+    503: "- the feed's server is unavailable",
 }
 
 
@@ -658,14 +658,14 @@ def build_feed_urls(query: str, location: str = "") -> list[dict]:
             "kind": "alert",
             "label": f"Indeed — {q or 'jobs'}",
             "url": f"https://www.indeed.com/jobs?q={q_plus}&l={quote_plus(loc)}&fromage=1",
-            "instructions": "Open the search and click 'Create job alert' — Indeed retired public RSS, so alerts are the supported route.",
+            "instructions": "Open the search and click 'Create job alert' - Indeed retired public RSS, so alerts are the supported route.",
         },
         {
             "platform": "We Work Remotely",
             "kind": "rss",
             "label": f"We Work Remotely — {q or 'all'}",
             "url": f"https://weworkremotely.com/remote-jobs/search.rss?term={q_plus}",
-            "instructions": "Subscribable directly — click Add.",
+            "instructions": "Subscribable directly - click Add.",
         },
         # RemoteOK's RSS endpoints answer 410 Gone — offering one here would
         # hand someone a feed that can never work. Their JSON API is already a
@@ -675,14 +675,14 @@ def build_feed_urls(query: str, location: str = "") -> list[dict]:
             "kind": "rss",
             "label": f"Jobicy — {q or 'all'}",
             "url": f"https://jobicy.com/?feed=job_feed&search_keyword={q_plus}",
-            "instructions": "Subscribable directly — click Add.",
+            "instructions": "Subscribable directly - click Add.",
         },
         {
             "platform": "Himalayas",
             "kind": "rss",
-            "label": "Himalayas — all remote roles",
+            "label": "Himalayas - all remote roles",
             "url": "https://himalayas.app/jobs/rss",
-            "instructions": "Subscribable directly — click Add.",
+            "instructions": "Subscribable directly - click Add.",
         },
         {
             "platform": "Google Jobs",
@@ -702,7 +702,7 @@ def demo() -> None:
         title="  <b>Senior Engineer</b> ",
         company="Acme &amp; Co",
         url="https://x.test/job/1?utm_source=spam",
-        location="Remote — India",
+        location="Remote - India",
         summary="<p>Build   things</p>",
         posted_at="2026-07-01T10:00:00Z",
         salary_min="₹1,200,000",

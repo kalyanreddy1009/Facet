@@ -72,7 +72,7 @@ export default function SendingTrend({ summary }: { summary: DashboardSummary })
       <Panel>
         <p className="label mb-2">Sent per week</p>
         <p className="text-sm text-text-faint text-pretty">
-          Nothing sent in the last eight weeks. This fills in once you mark a facet as Set —
+          Nothing sent in the last eight weeks. This fills in once you mark a facet as Set -
           the point at which you have actually applied.
         </p>
       </Panel>

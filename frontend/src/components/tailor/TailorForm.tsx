@@ -49,13 +49,13 @@ const MODES: Option<NonNullable<TailorRequestBody["truthfulness_mode"]>>[] = [
     value: "strict",
     label: "Strict",
     blurb:
-      "Only claims stated outright in your Stone. Nothing inferred, nothing softened — the default for a reason.",
+      "Only claims stated outright in your Stone. Nothing inferred, nothing softened - the default for a reason.",
   },
   {
     value: "inferred_adjacent",
     label: "Infer adjacent skills",
     blurb:
-      "Also claims skills genuinely implied by a real accomplishment — flagged separately so you can cut anything you won't stand behind.",
+      "Also claims skills genuinely implied by a real accomplishment - flagged separately so you can cut anything you won't stand behind.",
   },
 ];
 
@@ -80,7 +80,7 @@ function countRequirements(text: string): number {
     .map((line) => line.trim())
     .filter((line) => {
       if (line.length < 12 || line.length > 400) return false;
-      const bulleted = /^[-–—•*·]|^\d+[.)]\s/.test(line);
+      const bulleted = /^[-–-•*·]|^\d+[.)]\s/.test(line);
       return bulleted || REQUIREMENT_HINTS.test(line);
     }).length;
 }
@@ -323,7 +323,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
           </Field>
         </div>
 
-        <Field label="Posting URL" hint="Optional — stored with the application in your Cabinet.">
+        <Field label="Posting URL" hint="Optional - stored with the application in your Cabinet.">
           <input
             className="field"
             type="url"
@@ -380,7 +380,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
           {truncated && (
             <p id="jd-truncated" role="status" className="text-xs text-danger-text">
               That was longer than {JD_MAX_CHARS.toLocaleString()} characters, so the end was cut.
-              Trim the boilerplate — benefits, legal, company blurb — and keep the requirements.
+              Trim the boilerplate - benefits, legal, company blurb - and keep the requirements.
             </p>
           )}
 
@@ -395,7 +395,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
                 <p className="text-xs text-text-faint text-pretty">
                   {[...new Set(trim.removed)].slice(0, 4).join(" · ")}
                   {new Set(trim.removed).size > 4 &&
-                    ` +${new Set(trim.removed).size - 4} more`} — none of it
+                    ` +${new Set(trim.removed).size - 4} more`} - none of it
                   describes the job.{" "}
                   <button
                     type="button"

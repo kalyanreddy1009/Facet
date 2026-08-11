@@ -1,6 +1,6 @@
 {
   "platform": "linkedin",
   "supported": false,
-  "notes": "Follow-on addition once Greenhouse and Lever are solid (spec Section 11) — LinkedIn's EasyApply modal is a multi-step, heavily obfuscated-class React form; needs real selector verification against a live modal before shipping. The content script shows a plain notice on LinkedIn pages instead of guessing at fields.",
+  "notes": "Follow-on addition once Greenhouse and Lever are solid (spec Section 11) - LinkedIn's EasyApply modal is a multi-step, heavily obfuscated-class React form; needs real selector verification against a live modal before shipping. The content script shows a plain notice on LinkedIn pages instead of guessing at fields.",
   "fields": {}
 }

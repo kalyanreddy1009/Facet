@@ -93,7 +93,7 @@ export default function SourcesSheet({
       const patch = Object.fromEntries(Object.entries(keys).filter(([, v]) => v));
       setSettings(await api.saveSettings(patch));
       setKeys((k) => ({ ...k, adzuna_app_id: "", adzuna_app_key: "", jooble_key: "" }));
-      notify("Keys saved — those sources are live on the next search.", "success");
+      notify("Keys saved - those sources are live on the next search.", "success");
       onChanged();
     } catch (err) {
       notify(err instanceof ApiError ? err.message : "Couldn't save settings", "error");
@@ -124,7 +124,7 @@ export default function SourcesSheet({
         {tab === "platforms" && (
           <div className="flex flex-col gap-2">
             <p className="text-sm text-text-dim text-pretty">
-              Facet never signs in to a job platform for you — that&apos;s how accounts get banned.
+              Facet never signs in to a job platform for you - that&apos;s how accounts get banned.
               Instead it builds the saved-search URL for
               {query ? ` “${query}”` : " your search"}. Feeds marked{" "}
               <span className="badge">RSS</span> can be added straight away; the rest open the
@@ -199,7 +199,7 @@ export default function SourcesSheet({
               <input
                 className="field"
                 aria-label="Feed name"
-                placeholder="Label — e.g. LinkedIn Python Remote"
+                placeholder="Label - e.g. LinkedIn Python Remote"
                 value={newFeed.label}
                 onChange={(e) => setNewFeed({ ...newFeed, label: e.target.value })}
               />
@@ -225,7 +225,7 @@ export default function SourcesSheet({
         {tab === "keys" && (
           <div className="flex flex-col gap-3">
             <p className="text-sm text-text-dim text-pretty">
-              Optional. Everything already works without these — they add coverage. Keys are stored
+              Optional. Everything already works without these - they add coverage. Keys are stored
               locally in <span className="mono text-xs">data/settings.json</span> and are only ever
               sent to the provider they belong to.
             </p>
@@ -238,7 +238,7 @@ export default function SourcesSheet({
                 </span>
               </div>
               <p className="text-xs text-text-faint text-pretty">
-                The one that reaches LinkedIn, Indeed and Naukri listings — their index already
+                The one that reaches LinkedIn, Indeed and Naukri listings - their index already
                 aggregates those boards. Free key at jooble.org/api/about.
               </p>
               <input

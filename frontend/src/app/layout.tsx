@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   // A template, so a route only has to name itself: "The Rough · Facet".
   title: { default: "Facet", template: "%s · Facet" },
   description:
-    "Search jobs across every major board and tailor a resume, cover letter and recruiter pitch from one honest record — without inventing a single thing.",
+    "Search jobs across every major board and tailor a resume, cover letter and recruiter pitch from one honest record - without inventing a single thing.",
 };
 
 export const viewport: Viewport = {

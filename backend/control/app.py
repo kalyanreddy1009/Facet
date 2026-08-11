@@ -29,7 +29,7 @@ from . import cloudflare, provision, store
 
 logger = logging.getLogger("facet.control")
 
-app = FastAPI(title="Facet — control plane")
+app = FastAPI(title="Facet - control plane")
 
 PAGE = Path(__file__).resolve().parent / "admin.html"
 
@@ -484,7 +484,7 @@ async def _purge_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     store.init_control_db()
-    logger.info("[Facet] control plane ready — host root %s", store.HOST_ROOT)
+    logger.info("[Facet] control plane ready - host root %s", store.HOST_ROOT)
     tasks = [asyncio.create_task(_purge_loop()), asyncio.create_task(_backup_loop())]
     yield
     for task in tasks:

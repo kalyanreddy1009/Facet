@@ -66,7 +66,7 @@ export default function StatusPage() {
           <h1 className="text-2xl font-semibold text-text">Service status</h1>
           <p className="text-sm text-text-dim mt-1 max-w-prose text-pretty">
             Every subsystem Facet depends on, checked live against the running backend. Nothing here
-            is cached or assumed — each row executed something just now.
+            is cached or assumed - each row executed something just now.
           </p>
         </div>
 
@@ -115,7 +115,7 @@ export default function StatusPage() {
           <span className="dot dot-warn dot-pulse !w-2.5 !h-2.5 mb-1" aria-hidden />
           <p className="text-base font-semibold text-text">Waiting for the backend</p>
           <p className="text-sm text-text-dim max-w-md text-pretty">
-            It takes about 15 seconds to start — retrying automatically.
+            It takes about 15 seconds to start - retrying automatically.
           </p>
           <p className="text-xs text-text-faint mt-1 tnum">
             Attempt {failures} of {STARTUP_GRACE_ATTEMPTS}
@@ -152,7 +152,7 @@ export default function StatusPage() {
             <div className="panel px-4 py-2.5 flex items-center gap-2.5 border-warn-border bg-warn-soft">
               <AlertTriangle className="w-4 h-4 text-warn shrink-0" aria-hidden />
               <p className="text-xs text-warn-text flex-1">
-                Showing the last successful report — {error.toLowerCase()}.
+                Showing the last successful report - {error.toLowerCase()}.
               </p>
             </div>
           )}
@@ -181,7 +181,7 @@ export default function StatusPage() {
               </div>
             </div>
             <p className="text-xs text-text-faint tnum">
-              {lastUpdated ? `Checked ${lastUpdated.toLocaleTimeString(undefined, { hour12: false })}` : "—"}
+              {lastUpdated ? `Checked ${lastUpdated.toLocaleTimeString(undefined, { hour12: false })}` : "-"}
               {" · "}
               report built in {Math.round(report.duration_ms)} ms
             </p>

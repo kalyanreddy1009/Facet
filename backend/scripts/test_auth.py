@@ -76,7 +76,7 @@ def check_login_and_isolation(client: TestClient) -> None:
                            json={"email": "nobody@example.com", "password": "wrong"})
     assert response.status_code == 401
     assert response.json() == wrong_password, (
-        "a missing account answers differently from a wrong password — "
+        "a missing account answers differently from a wrong password - "
         "this endpoint tells you who has an account here"
     )
 

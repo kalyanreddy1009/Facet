@@ -72,7 +72,7 @@ def referenced_exports(db_path: Path) -> set[str]:
         # Failing closed: an unreadable database means everything is treated
         # as referenced, so a sweep can never delete on the strength of a
         # query that did not work.
-        logger.warning("[Facet] retention: could not read %s (%s) — keeping everything",
+        logger.warning("[Facet] retention: could not read %s (%s) - keeping everything",
                        db_path, exc)
         raise
     finally:
@@ -167,7 +167,7 @@ def usage(data_dir: Path | None = None, workspace_dir: Path | None = None) -> di
         "over_quota": total > QUOTA_BYTES,
         # Warns only. Deleting under pressure is how you lose the file you
         # meant to keep.
-        "action": "none — quota warns, never deletes",
+        "action": "none - quota warns, never deletes",
     }
 
 

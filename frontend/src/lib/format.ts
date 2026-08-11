@@ -63,7 +63,7 @@ export function timeAgo(value: string | null | undefined): string {
 
 export function formatDate(value: string | null | undefined): string {
   const date = parseDate(value);
-  if (!date) return "—";
+  if (!date) return "-";
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 

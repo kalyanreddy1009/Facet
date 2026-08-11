@@ -31,7 +31,7 @@ const MAX_RESUME_BYTES = 8 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 15000;
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log("Facet Apply Assist installed — fills known fields, never submits.");
+  console.log("Facet Apply Assist installed - fills known fields, never submits.");
 });
 
 // No popup: clicking the icon opens the one screen there is.
@@ -94,7 +94,7 @@ async function facetFetch(path, { accept } = {}) {
   // bug in Facet rather than "you are signed out".
   const contentType = response.headers.get("Content-Type") || "";
   // `response.url` is normally the final URL after redirects, but it is
-  // empty for some synthetic responses — and `new URL("")` throws, which
+  // empty for some synthetic responses - and `new URL("")` throws, which
   // would turn a signed-out state into an unhandled rejection inside the
   // one function written to avoid exactly that.
   let redirectedOffHost = false;

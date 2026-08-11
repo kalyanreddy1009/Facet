@@ -50,7 +50,7 @@ export default function TailorPage() {
     (company: string) =>
       push(`Filled in from ${company || "the posting"}`, {
         tone: "info",
-        hint: "Paste the full description if the summary is thin — it makes a better facet.",
+        hint: "Paste the full description if the summary is thin - it makes a better facet.",
       }),
     [push]
   );
@@ -120,7 +120,7 @@ export default function TailorPage() {
           <div>
             <h1 className="text-2xl font-semibold text-text tracking-[-0.01em]">Cut a facet</h1>
             <p className="text-sm text-text-dim mt-1.5 max-w-prose text-pretty">
-              Your Stone doesn&apos;t change. This cuts one face of it — aimed at one posting, and
+              Your Stone doesn&apos;t change. This cuts one face of it - aimed at one posting, and
               claiming nothing your record doesn&apos;t already support.
             </p>
           </div>

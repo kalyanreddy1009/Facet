@@ -63,7 +63,7 @@ const MAX_HEADING_WORDS = 12;
 function isHeading(line: string): string | null {
   const bare = line
     .trim()
-    .replace(/^[#*\-–—•\d.)\s]+/, "")
+    .replace(/^[#*\-–-•\d.)\s]+/, "")
     .replace(/[:：]\s*$/, "")
     .trim();
   if (!bare || bare.split(/\s+/).length > MAX_HEADING_WORDS) return null;
@@ -146,7 +146,7 @@ const MAX_GENERIC_HEADING_WORDS = 6;
 function looksLikeAnyHeading(line: string): boolean {
   const bare = line.trim();
   if (!bare || bare.length > 60) return false;
-  if (/^[-–—•*]/.test(bare)) return false;
+  if (/^[-–-•*]/.test(bare)) return false;
   if (/[.,;]$/.test(bare)) return false;
   const words = bare.replace(/^#+\s*/, "").split(/\s+/);
   if (words.length > MAX_GENERIC_HEADING_WORDS) return false;

@@ -156,7 +156,7 @@ def build(template_id: str, skin: dict) -> Path:
     head_p.add_run("{{ role.start | when }} – {{ role.end | when }}")
 
     sub_p = doc.add_paragraph()
-    sub_run = sub_p.add_run(second + "{% if role.location %} — {{ role.location }}{% endif %}")
+    sub_run = sub_p.add_run(second + "{% if role.location %} - {{ role.location }}{% endif %}")
     sub_run.italic = skin["font"] in ("Georgia", "Garamond", "Cambria")
 
     tag(doc, "{% for bullet in role.bullets %}")
@@ -171,7 +171,7 @@ def build(template_id: str, skin: dict) -> Path:
     tag(doc, "{% for project in projects %}")
     proj_p = doc.add_paragraph()
     proj_p.add_run("{{ project.name }}").bold = True
-    proj_p.add_run("{% if project.stack %} — {{ project.stack }}{% endif %}")
+    proj_p.add_run("{% if project.stack %} - {{ project.stack }}{% endif %}")
     tag(doc, "{% if project.description %}")
     doc.add_paragraph().add_run("{{ project.description }}")
     tag(doc, "{% endif %}")

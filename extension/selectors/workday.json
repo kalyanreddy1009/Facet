@@ -1,6 +1,6 @@
 {
   "platform": "workday",
   "supported": false,
-  "notes": "Follow-on addition once Greenhouse and Lever are solid (spec Section 11) — Workday's tenant-specific, heavily componentized forms need real selector verification against a live posting before shipping. The content script shows a plain notice on Workday pages instead of guessing at fields.",
+  "notes": "Follow-on addition once Greenhouse and Lever are solid (spec Section 11) - Workday's tenant-specific, heavily componentized forms need real selector verification against a live posting before shipping. The content script shows a plain notice on Workday pages instead of guessing at fields.",
   "fields": {}
 }

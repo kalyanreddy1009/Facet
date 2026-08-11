@@ -113,7 +113,7 @@ def _check_integrity() -> dict:
     return {
         "status": "error",
         "detail": f"integrity_check reported: {result}"[:300],
-        "hint": "the database file is damaged — restore a copy of data/tracker.db",
+        "hint": "the database file is damaged - restore a copy of data/tracker.db",
     }
 
 
@@ -175,7 +175,7 @@ def _check_disk() -> dict:
     return {
         "status": status,
         "detail": f"{free_gb:.1f} GB free of {usage.total / 1024 ** 3:.0f} GB",
-        "hint": "free disk space — exports and the WAL need room" if status != "ok" else None,
+        "hint": "free disk space - exports and the WAL need room" if status != "ok" else None,
         "meta": {"free_bytes": usage.free, "total_bytes": usage.total},
     }
 
@@ -348,7 +348,7 @@ def _check_agy() -> dict:
             "install it, or set FACET_AGY_BIN to its full path."
         )
     else:
-        hint = "agy is installed but did not answer — check that it's authenticated"
+        hint = "agy is installed but did not answer - check that it's authenticated"
 
     return {
         "status": "ok" if available else "error",
@@ -426,7 +426,7 @@ def _check_weasyprint() -> dict:
         return {
             "status": "error",
             "detail": f"weasyprint unimportable: {type(exc).__name__}: {exc}"[:300],
-            "hint": "native GTK/Pango libs missing — PDF export won't work; everything else does",
+            "hint": "native GTK/Pango libs missing - PDF export won't work; everything else does",
         }
     return {
         "status": "ok",
@@ -532,7 +532,7 @@ def _check_counts() -> list[dict]:
             "status": "ok" if rows["seen_postings"] else "degraded",
             "detail": f"{rows['seen_postings']} postings — {postings['dismissed'] or 0} dismissed, "
                       f"{postings['promoted'] or 0} promoted",
-            "hint": None if rows["seen_postings"] else "no postings yet — wait for the first sync",
+            "hint": None if rows["seen_postings"] else "no postings yet - wait for the first sync",
             "meta": {
                 "total": rows["seen_postings"],
                 "dismissed": postings["dismissed"] or 0,
@@ -557,7 +557,7 @@ GROUPS = [
         ("disk.free", "Disk space", _check_disk),
         ("scheduler", "Scheduler", _check_scheduler),
     ]),
-    ("sources", "Job sources", "Aggregator providers and subscribed RSS feeds — last observed results, no live calls.", [
+    ("sources", "Job sources", "Aggregator providers and subscribed RSS feeds - last observed results, no live calls.", [
         ("sources.providers", "Providers", _check_providers),
         ("sources.feeds", "Subscribed feeds", _check_feeds),
         ("sources.sync", "Last sync", _check_last_sync),
@@ -587,7 +587,7 @@ def run_check(key: str, label: str, fn) -> list[dict]:
     except Exception as exc:  # noqa: BLE001 — a broken check is a red dot, not a 500
         logger.warning("status check %s failed: %r", key, exc)
         result = {"status": "error", "detail": f"{type(exc).__name__}: {exc}"[:300],
-                  "hint": "this check itself failed — see data/logs/facet.log"}
+                  "hint": "this check itself failed - see data/logs/facet.log"}
     latency = round((time.perf_counter() - started) * 1000, 1)
     items = result if isinstance(result, list) else [{"key": key, "label": label, **result}]
     now = _now()

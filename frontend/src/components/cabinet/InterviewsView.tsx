@@ -34,7 +34,7 @@ function downloadIcs(interview: Interview, application: Application) {
     `DTSTAMP:${stamp(new Date())}`,
     `DTSTART:${stamp(start)}`,
     `DTEND:${stamp(end)}`,
-    `SUMMARY:${icsEscape(`${interview.round_name || "Interview"} — ${application.company}`)}`,
+    `SUMMARY:${icsEscape(`${interview.round_name || "Interview"} - ${application.company}`)}`,
     `DESCRIPTION:${icsEscape(`${application.role_title} at ${application.company}`)}`,
     "END:VEVENT",
     "END:VCALENDAR",

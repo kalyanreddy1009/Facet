@@ -172,7 +172,7 @@ export default function TemplatePicker({
           {current && (
             <p className="col-span-2 md:col-span-4 text-xs text-text-faint text-pretty">
               {current.blurb} All seven are single-column with standard section headings, so they
-              parse the same way — what changes is how it reads to the person who opens it.
+              parse the same way - what changes is how it reads to the person who opens it.
             </p>
           )}
         </div>

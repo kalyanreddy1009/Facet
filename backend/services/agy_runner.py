@@ -95,7 +95,7 @@ def terminate_current(reason: str = "cancelled") -> bool:
             return False
         _cancelled = True
 
-        logger.info("[Facet] stopping agy (pid %s) — %s", process.pid, reason)
+        logger.info("[Facet] stopping agy (pid %s) - %s", process.pid, reason)
         try:
             if os.name == "nt":
                 # No POSIX process groups here; taskkill /T walks the tree.
@@ -174,7 +174,7 @@ def _run_agy_sync(instruction: str, output_filename: str,
     full_instruction = (
         f"{instruction}\n\n"
         f"Write your entire output to the file `{output_filename}` in the "
-        "current directory. Do not rely on printing to the terminal — "
+        "current directory. Do not rely on printing to the terminal - "
         "stdout is not read by the caller."
     )
 

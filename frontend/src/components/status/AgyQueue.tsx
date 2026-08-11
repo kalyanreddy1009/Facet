@@ -95,14 +95,14 @@ export default function AgyQueue({ refreshMs = 5000 }: { refreshMs?: number }) {
           <p key={job.id} className="text-sm flex items-center gap-2">
             <span className="dot dot-ok dot-pulse" aria-hidden />
             <span className="text-text">
-              {KIND_LABEL[job.kind] || job.kind} — running for {elapsed(job.started_at)}
+              {KIND_LABEL[job.kind] || job.kind} - running for {elapsed(job.started_at)}
             </span>
           </p>
         ))}
 
         {mine.queued.map((job) => (
           <p key={job.id} className="text-sm text-text-dim">
-            {KIND_LABEL[job.kind] || job.kind} —{" "}
+            {KIND_LABEL[job.kind] || job.kind} -{" "}
             {job.ahead === 0
               ? "next up"
               : `${job.ahead} job${job.ahead === 1 ? "" : "s"} ahead of yours`}
@@ -122,7 +122,7 @@ export default function AgyQueue({ refreshMs = 5000 }: { refreshMs?: number }) {
 
         {failed && (
           <p className="text-xs text-text-faint">
-            Last refresh failed — showing the previous reading.
+            Last refresh failed - showing the previous reading.
           </p>
         )}
       </div>

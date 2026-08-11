@@ -78,7 +78,7 @@ export default function CheckRow({ check }: { check: Check }) {
                 <div key={key} className="contents">
                   <dt className="text-2xs text-text-faint py-0.5">{key}</dt>
                   <dd className="text-2xs text-text-dim mono tnum py-0.5 break-all">
-                    {value === null ? "—" : String(value)}
+                    {value === null ? "-" : String(value)}
                   </dd>
                 </div>
               ))}

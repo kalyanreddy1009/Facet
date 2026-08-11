@@ -92,7 +92,7 @@ export function useStatus(intervalMs: number): UseStatusResult {
         setErrorHint(err.hint);
       } else if (err instanceof Error && err.name === "AbortError") {
         setError("The status endpoint timed out");
-        setErrorHint("It answered too slowly to be useful — the backend may be busy.");
+        setErrorHint("It answered too slowly to be useful - the backend may be busy.");
       } else {
         // Only a genuine transport failure is "unreachable".
         setError("Can't reach the Facet backend on :8000");

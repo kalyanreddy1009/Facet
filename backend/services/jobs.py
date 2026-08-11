@@ -247,7 +247,7 @@ def _reconcile() -> int:
         conn.execute(
             "UPDATE jobs SET status = ?, error = ?, error_kind = ?, finished_at = ? "
             "WHERE id = ?",
-            (FAILED, "Interrupted — Facet restarted while this was running.",
+            (FAILED, "Interrupted - Facet restarted while this was running.",
              "interrupted", time.time(), row["id"]),
         )
         failed += 1
@@ -518,7 +518,7 @@ async def _execute_scoped(job: dict, handlers: dict[str, Handler]) -> None:
 
         terminate_current("shutting down")
         await _run(_finish, job_id, FAILED, None,
-                   "Cancelled — Facet shut down while this was running.", "interrupted")
+                   "Cancelled - Facet shut down while this was running.", "interrupted")
         raise
     except Exception as exc:
         message, kind_hint = _describe(exc)

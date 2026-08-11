@@ -41,7 +41,7 @@ function explain(result) {
     case "timeout":
       return "That address did not answer in time.";
     case "not_found":
-      return "Connected, but no profile yet — import a resume in Facet first.";
+      return "Connected, but no profile yet - import a resume in Facet first.";
     case "bad_json":
       return "That address answered, but not with Facet data. Check the URL.";
     case "http_error":
@@ -114,7 +114,7 @@ async function connect() {
 
   if (!granted) {
     els.save.disabled = false;
-    setStatus("Permission denied — the extension cannot reach Facet without it.", "error");
+    setStatus("Permission denied - the extension cannot reach Facet without it.", "error");
     return;
   }
 
@@ -130,7 +130,7 @@ async function test() {
 
   if (result.ok) {
     const name = result.profile?.name;
-    setStatus(name ? `Connected — reading ${name}'s profile.` : "Connected.", "ok");
+    setStatus(name ? `Connected - reading ${name}'s profile.` : "Connected.", "ok");
     return;
   }
 

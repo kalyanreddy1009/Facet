@@ -79,7 +79,7 @@ TEMPLATES: tuple[ResumeTemplate, ...] = (
     ResumeTemplate(
         id="zurich",
         name="Zurich",
-        blurb="Sans-serif, ranged left, no rules — structure carried by whitespace.",
+        blurb="Sans-serif, ranged left, no rules - structure carried by whitespace.",
         best_for="Design, product, startups",
         traits={"family": "sans", "align": "left", "rules": "none", "density": "airy"},
     ),
@@ -385,7 +385,7 @@ def demo() -> None:
             (
                 "font-variant:small-caps",
                 "WeasyPrint synthesises small-caps as separate glyph runs, and the "
-                "extractor reads 'P rofessional s ummary' — the heading stops being "
+                "extractor reads 'P rofessional s ummary' - the heading stops being "
                 "recognisable. Use normal case or ordinary uppercase",
             ),
         ):
@@ -450,7 +450,7 @@ def demo() -> None:
         )
     else:
         print(
-            "resume_templates: no preview manifest — run templates/build_template_previews.py",
+            "resume_templates: no preview manifest - run templates/build_template_previews.py",
             flush=True,
         )
 

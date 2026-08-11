@@ -135,4 +135,4 @@ assert feed_ingest.rescore_stored_postings()[1] == 0, "rescore is not idempotent
 # And it never revisits a decision the user made.
 assert count("dismissed = 1") == 1, "rescoring cleared a dismissal"
 
-print("DEDUP OK — no duplicates, dismissals stick, stale postings dropped, rescore heals scores.")
+print("DEDUP OK - no duplicates, dismissals stick, stale postings dropped, rescore heals scores.")

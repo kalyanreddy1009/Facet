@@ -101,7 +101,7 @@ async def lifespan(app: FastAPI):
     app.state.agy_available = available
     app.state.agy_detail = detail
     if not available:
-        logger.warning("[Facet] WARNING: agy health check failed — %s", detail)
+        logger.warning("[Facet] WARNING: agy health check failed - %s", detail)
 
     yield
 

@@ -91,7 +91,7 @@ export default function RoughPage() {
       notify(
         report.new > 0
           ? `${pluralize(report.new, "new posting")} found`
-          : "No new postings — everything matching is already listed.",
+          : "No new postings - everything matching is already listed.",
         "success",
         failed.length ? `${failed.length} source(s) didn't respond: ${failed.map(([n]) => n).join(", ")}` : undefined
       );

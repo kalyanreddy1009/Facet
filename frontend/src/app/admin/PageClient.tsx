@@ -194,7 +194,7 @@ export default function AdminPage() {
           </h1>
           <p className="mt-2 text-sm text-text-dim max-w-prose text-pretty">
             Everyone here shares one Facet, and each has their own stone, cabinet and exports.
-            Nobody can see anyone else&rsquo;s — including you.
+            Nobody can see anyone else&rsquo;s - including you.
           </p>
         </div>
         {users && (
@@ -222,7 +222,7 @@ export default function AdminPage() {
           </h2>
           <p className="mt-1 text-xs text-text-faint text-pretty">
             Asked from the sign-in page. Facet sends no mail, so these reach you and
-            nobody else — issuing a link clears the entry.
+            nobody else - issuing a link clears the entry.
           </p>
           <ul className="mt-3 flex flex-col gap-2">
             {requests.map((request) => {
@@ -450,7 +450,7 @@ export default function AdminPage() {
                         user.id,
                         `/api/admin/users/${user.id}/suspend`,
                         undefined,
-                        `${user.display_name || user.email} is suspended — their data is untouched`
+                        `${user.display_name || user.email} is suspended - their data is untouched`
                       )
                     }
                     disabled={user.email === currentEmail || pending === user.id}
@@ -472,7 +472,7 @@ export default function AdminPage() {
       <Toaster toasts={toasts} onDismiss={dismiss} onHold={hold} onResume={resume} />
 
       <p className="text-xs text-text-faint max-w-prose text-pretty">
-        Deleting an account and restoring a backup are deliberately not here — they live in the
+        Deleting an account and restoring a backup are deliberately not here - they live in the
         control plane on port 9000, reachable over SSH. A button that destroys somebody&rsquo;s
         career record should take more than one click from a browser tab left open.
       </p>
@@ -488,7 +488,7 @@ function InviteLink({ email, url }: { email: string; url: string }) {
     <div className="mt-5 rounded-lg border border-accent-border bg-accent-soft p-4">
       <p className="text-sm font-medium">Sign-in link for {email}</p>
       <p className="mt-1 text-xs text-text-dim text-pretty">
-        Copy it now — only its digest is stored, so it cannot be shown again. Works once, expires in
+        Copy it now - only its digest is stored, so it cannot be shown again. Works once, expires in
         a week. Facet sends no email; pass it on yourself.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">

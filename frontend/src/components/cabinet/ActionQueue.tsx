@@ -93,7 +93,7 @@ export default function ActionQueue({
       rank: when.getTime(),
       kind: "Interview",
       title: `${application.company} · ${interview.round_name || "Interview"}`,
-      detail: `${daysUntil(when, now)} — ${when.toLocaleString()}`,
+      detail: `${daysUntil(when, now)} - ${when.toLocaleString()}`,
       action: (
         <Link href="#interviews" className="btn btn-default">
           <CalendarPlus className="w-3.5 h-3.5" aria-hidden />
@@ -166,7 +166,7 @@ export default function ActionQueue({
              started. */
           <p className="text-sm text-text-faint text-pretty">
             {hasSentAnything
-              ? "Nothing waiting on you — everything you've cut has been sent, and nothing has gone quiet long enough to chase."
+              ? "Nothing waiting on you - everything you've cut has been sent, and nothing has gone quiet long enough to chase."
               : "Nothing waiting on you yet. Cut a facet on The Rough and it will show up here until you've sent it."}
           </p>
         ) : (

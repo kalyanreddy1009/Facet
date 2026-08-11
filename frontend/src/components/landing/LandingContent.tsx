@@ -24,9 +24,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { ArrowRight, Check, Lock } from "lucide-react";
+import { motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
+import { Archive, ArrowRight, Check, Gem, Lock, Mountain, Scissors } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { heroProgress } from "@/lib/heroProgress";
 import { useSession } from "@/lib/useSession";
+import AmbientShader from "./AmbientShader";
 import ProductShowcase from "./ProductShowcase";
 import StoneGraphic from "./StoneGraphic";
 
@@ -64,11 +67,27 @@ const FAQ = [
 /** What the app is called internally, spelled out once. The vocabulary is
  *  load-bearing everywhere else in the UI, so the landing page is the one
  *  place it gets defined rather than assumed. */
-const VOCABULARY = [
-  ["Stone", "Your real background. Imported once, edited by you, never by the AI."],
-  ["Rough", "The unsorted pool of postings Facet has found for you."],
-  ["Facet", "One application, cut for one posting."],
-  ["Cabinet", "Everywhere you've applied, and what happened next."],
+const VOCABULARY: [string, string, LucideIcon][] = [
+  [
+    "Stone",
+    "Your real background, extracted once from your resume and edited only by you. The single source of truth: the AI never invents past it.",
+    Gem,
+  ],
+  [
+    "Rough",
+    "The pool of postings gathered for you, from public job APIs and the feeds you subscribed to yourself.",
+    Mountain,
+  ],
+  [
+    "Facet",
+    "One application cut for one posting: a tailored resume, a cover letter and a recruiter pitch.",
+    Scissors,
+  ],
+  [
+    "Cabinet",
+    "Everywhere you have applied and what happened next, with status, replies and interviews.",
+    Archive,
+  ],
 ];
 
 /** Reveal on scroll via IntersectionObserver — no animation library and no
@@ -196,10 +215,12 @@ function FlipCard({
   term,
   meaning,
   index,
+  Icon,
 }: {
   term: string;
   meaning: string;
   index: number;
+  Icon: LucideIcon;
 }) {
   const [pressed, setPressed] = useState(false);
   return (
@@ -210,17 +231,21 @@ function FlipCard({
       onClick={() => setPressed((v) => !v)}
     >
       <span className="flip-card-inner">
-        <span className="flip-card-face flip-card-front glass-card glass-card-lift">
-          <span className="mono tnum text-xs text-text-ghost" aria-hidden>
-            0{index + 1}
+        <span className="flip-card-face flip-card-front liquid-glass">
+          <span className="flip-card-glyph" aria-hidden>
+            <Icon className="w-7 h-7" strokeWidth={1.4} />
           </span>
-          <span className="mt-3 mono text-lg font-semibold uppercase tracking-[0.1em] text-accent-text">
+          <span className="mt-4 text-lg font-semibold uppercase tracking-[0.14em] text-text">
             {term}
           </span>
-          <span className="mt-2 text-xs text-text-faint">Tap to read</span>
+          <span className="mt-2 mono tnum text-xs text-accent-text" aria-hidden>
+            0{index + 1}
+          </span>
         </span>
-        <span className="flip-card-face flip-card-back glass-card glass-card-lift">
-          <span className="text-sm text-text-dim text-pretty leading-relaxed">{meaning}</span>
+        <span className="flip-card-face flip-card-back liquid-glass">
+          <span className="text-sm text-text-dim text-pretty leading-relaxed text-center">
+            {meaning}
+          </span>
         </span>
       </span>
     </button>
@@ -240,14 +265,63 @@ function FlipCard({
  *  touched; only the wrapper around it moves. */
 function useHeroScene(heroRef: React.RefObject<HTMLElement | null>) {
   const reduced = useReducedMotion();
-  const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
 
-  const mastOpacity = useTransform(scrollYProgress, [0.15, 0.85], [0, 1]);
-  const mastScale = useTransform(scrollYProgress, [0, 1], [0.9, 1.06]);
-  const gemScale = useTransform(scrollYProgress, [0, 1], [1, 0.82]);
-  const gemY = useTransform(scrollYProgress, [0, 1], [0, 64]);
+  // Progress is measured here rather than by `useScroll`, which on this
+  // layout returned a value that rose and then fell again over one downward
+  // scroll — see `lib/heroProgress.ts`. A passive scroll listener writing one
+  // MotionValue is the whole mechanism; everything below still maps off it
+  // with `useTransform`, so nothing else changes and the page still never
+  // touches the scroll position itself.
+  const scrollYProgress = useMotionValue(0);
+  useEffect(() => {
+    const node = heroRef.current;
+    if (!node) return;
+    const update = () => {
+      const rect = node.getBoundingClientRect();
+      scrollYProgress.set(heroProgress(rect.top, rect.height, window.innerHeight));
+    };
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [heroRef, scrollYProgress]);
 
-  return { reduced, mastOpacity, mastScale, gemScale, gemY };
+  // The gem retreats rather than leaves: it stays lit behind the word for the
+  // whole of phase two, which is the point of putting the word in front of it.
+  const gemScale = useTransform(scrollYProgress, [0, 0.55], [1, 0.72]);
+  const gemY = useTransform(scrollYProgress, [0, 0.55], [0, -110]);
+  const gemFade = useTransform(scrollYProgress, [0.2, 0.6], [1, 0.62]);
+
+  // The word rises from below the fold and settles. It is *in front of* the
+  // gem, not a watermark behind it, so it comes up at full weight.
+  const mastOpacity = useTransform(scrollYProgress, [0.12, 0.42], [0, 1]);
+  const mastY = useTransform(scrollYProgress, [0.12, 0.55], [220, 0]);
+  const mastScale = useTransform(scrollYProgress, [0.12, 0.55], [0.7, 1]);
+
+  // And the copy arrives only once the word has landed, which is what makes
+  // the two phases read as a sequence and not as one long fade.
+  const copyOpacity = useTransform(scrollYProgress, [0.55, 0.78], [0, 1]);
+  const copyY = useTransform(scrollYProgress, [0.55, 0.82], [48, 0]);
+
+  // The scroll hint is the inverse of the word arriving, by construction: it
+  // cannot still be on screen once the thing it was pointing at has happened.
+  const hintOpacity = useTransform(scrollYProgress, [0.02, 0.16], [1, 0]);
+
+  return {
+    reduced,
+    gemScale,
+    gemY,
+    gemFade,
+    mastOpacity,
+    mastY,
+    mastScale,
+    copyOpacity,
+    copyY,
+    hintOpacity,
+  };
 }
 
 export default function LandingContent() {
@@ -262,101 +336,142 @@ export default function LandingContent() {
     ? { href: "/tailor", label: "Open Facet" }
     : { href: "/login", label: "Sign in" };
 
+  // The nav and the ambient field are siblings of this `<main>` in the root
+  // layout, so a class on `.landing-dark` can never reach them — which is
+  // exactly why every `.landing-dark .nav-*` rule written for this page was
+  // styling nothing and the bar kept its app material. One flag on the root
+  // element is the only thing that can scope all three, and it comes off on
+  // unmount so a client-side navigation away does not leave the app dark.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("landing-route");
+    return () => root.classList.remove("landing-route");
+  }, []);
+
   const heroRef = useRef<HTMLElement>(null);
-  const { reduced, mastOpacity, mastScale, gemScale, gemY } = useHeroScene(heroRef);
+  const {
+    reduced,
+    gemScale,
+    gemY,
+    gemFade,
+    mastOpacity,
+    mastY,
+    mastScale,
+    copyOpacity,
+    copyY,
+    hintOpacity,
+  } = useHeroScene(heroRef);
 
   return (
     <main className="landing-dark">
-      <div className="ambient-sweep" aria-hidden />
+      <AmbientShader />
       {/* ---------------------------------------------------------- hero */}
-      <section
-        ref={heroRef}
-        className="relative max-w-shell mx-auto px-5 sm:px-8 min-h-[calc(100svh-var(--nav-block))] grid lg:grid-cols-[1.02fr_0.98fr] items-center gap-10 lg:gap-14 py-16 sm:py-20"
-      >
-        {/* Page two of the scroll narrative: the masthead word, behind
-            everything, fading and scaling in as the hero scrolls past. Spans
-            the whole section rather than sitting in the gem's column, so it
-            reads as the page's own watermark and not as part of the
-            illustration. */}
-        <motion.div
-          aria-hidden
-          className="hero-mast absolute inset-x-0 top-[8%] text-center select-none z-0"
-          style={reduced ? undefined : { opacity: mastOpacity, scale: mastScale }}
-        >
-          FACET
-        </motion.div>
-        {/* `z-10`, and that is the whole fix for the headline. The stone's fan
-            is drawn with `overflow-visible` so the light genuinely crosses the
-            page, which is the best thing on this screen and worth keeping,
-            but it was painting *over* the type, and "A facet for" sat under a
-            violet wash that read as a rendering fault rather than as light.
-            Raising the copy above the beam keeps the crossing and gives the
-            words back their contrast. Decoration never wins against text. */}
-        <div className="relative z-10 flex flex-col items-start gap-6">
-          {/* "Your record, your machine" was true of the single-user checkout
-              this page was written for and is not true of the deployment
-              anyone is reading it on: this Facet is shared, and the promise
-              that actually holds is isolation between accounts. The FAQ below
-              says exactly this — the badge was the one place still claiming
-              something the product had grown out of. */}
-          <p className="badge badge-accent">
-            <Lock className="w-3 h-3" aria-hidden />
-            Your record, yours alone
-          </p>
-          {/* The one expressive surface in the app. Leading under 1 is the
-              point — it only reads at this size, and this is the only page
-              that gets it. Everything else stays at 13–14px body. */}
-          <h1 className="text-hero font-semibold text-text text-balance">
-            One stone.
-            <br />
-            A facet for every job.
-          </h1>
-          <p className="text-lg text-text-dim max-w-prose text-pretty">
-            {/* "searches every major job board" was the one sentence on this
-                page making a claim the product does not keep: what it actually
-                queries is a set of public job APIs plus whatever feeds you have
-                subscribed to — which is what the "Every board, one search" card
-                below has always said. A page whose closing promise is "without
-                inventing a single thing" cannot open by inventing something. */}
-            Facet keeps one honest record of your real background, searches the public job boards
-            and your own subscribed feeds from a single bar, and cuts a tailored resume, cover letter
-            and recruiter pitch for each posting, then tracks what came of it. Without inventing a
-            single thing.
-          </p>
-          <div className="flex flex-wrap items-center gap-2.5 mt-1">
-            <Link href={primary.href} className="btn btn-lg btn-primary">
-              {primary.label}
-              <span className="btn-cap" aria-hidden>
-                <ArrowRight className="w-3 h-3" />
-              </span>
-            </Link>
-            <a href="#how" className="btn btn-lg btn-default">
-              How it works
-            </a>
-          </div>
-          <p className="text-sm text-text-faint">
-            {signedIn
-              ? "You're signed in, pick up where you left off."
-              : "Accounts are created by whoever administers this Facet."}
-          </p>
-        </div>
+      {/* Two screens of scroll, one pinned stage.
 
-        {/* The stone is the page, so it renders on every width including a
-            phone in portrait — which was the last viewport still getting the
-            copy and none of the thing the copy is about, and is most of the
-            traffic a landing page ever sees.
-            It sits *after* the text in the source, so on a single column it
-            lands below the buttons: the primary action keeps its place above
-            the fold and the stone rewards the first scroll instead of pushing
-            the page down. `z-0` pairs with the copy's `z-10` above, which is
-            what keeps the whole bracket — type and light both — from ever
-            painting over the headline. */}
-        <motion.div
-          className="relative z-0 grid place-items-center"
-          style={reduced ? undefined : { scale: gemScale, y: gemY }}
-        >
-          <StoneGraphic size="clamp(13rem, 40vw, 30rem)" />
-        </motion.div>
+          Phase one is the stone alone, lit, filling the viewport. Phase two
+          brings the word up from below and settles it in front of the stone,
+          and only then does the copy arrive. The section is twice the
+          viewport tall and its contents are `sticky`, so all of that happens
+          against ordinary document scroll: no scrolljacking, no wheel
+          handler, nothing that can fight the browser's own scroll
+          restoration or trap a trackpad gesture. `heroRef` is the tall
+          section, not the pinned stage, because it is the tall one that has
+          scroll range to measure. */}
+      <section ref={heroRef} className="hero-stage">
+        <div className="hero-pin">
+          {/* The stone, behind everything, and never unmounted: it is lit
+              through the whole of phase two, which is the entire reason the
+              word settles in front of it rather than replacing it. */}
+          <motion.div
+            className="hero-gem"
+            style={reduced ? undefined : { scale: gemScale, y: gemY, opacity: gemFade }}
+            aria-hidden
+          >
+            <StoneGraphic size="clamp(16rem, 46vw, 36rem)" />
+          </motion.div>
+
+          {/* The word and the copy share one column, in flow, one above the
+              other. They were two absolutely-positioned layers in the same
+              grid cell and the headline landed straight on top of the
+              masthead — the two most important things on the page, fighting
+              for one rectangle. Stacking them normally is what makes the word
+              a masthead *for* the copy rather than a second thing behind it,
+              and it also means the composition is already correct at every
+              intermediate scroll position rather than only at the two ends. */}
+          <div className="hero-stack">
+            {/* Page two: the masthead word. Decorative — the real heading is
+                the h1 below it — so it is hidden from assistive tech rather
+                than read out as a second title. */}
+            <motion.div
+              aria-hidden
+              className="hero-mast"
+              style={reduced ? undefined : { opacity: mastOpacity, y: mastY, scale: mastScale }}
+            >
+              FACET
+            </motion.div>
+
+            <motion.div
+              className="hero-copy"
+              style={reduced ? undefined : { opacity: copyOpacity, y: copyY }}
+            >
+            {/* "Your record, your machine" was true of the single-user
+                checkout this page was written for and is not true of the
+                deployment anyone is reading it on: this Facet is shared, and
+                the promise that actually holds is isolation between
+                accounts. */}
+            <p className="badge badge-accent">
+              <Lock className="w-3 h-3" aria-hidden />
+              Your record, yours alone
+            </p>
+            {/* Not `text-hero`. The masthead above it is now the display
+                element on this screen, and two competing display sizes in one
+                pinned viewport left no room for the paragraph or the buttons
+                under them. */}
+            <h1 className="mt-4 text-3xl sm:text-4xl font-semibold text-accent-text text-balance tracking-[-0.02em]">
+              One stone. A facet for every job.
+            </h1>
+            <p className="mt-4 text-lg text-text-dim max-w-prose mx-auto text-pretty">
+              {/* "searches every major job board" was the one sentence on this
+                  page making a claim the product does not keep: what it
+                  actually queries is a set of public job APIs plus whatever
+                  feeds you have subscribed to. A page whose closing promise is
+                  "without inventing a single thing" cannot open by inventing
+                  something. */}
+              Facet keeps one honest record of your real background, searches the public job APIs
+              and your own subscribed feeds from a single bar, and cuts a tailored resume, cover
+              letter and recruiter pitch for each posting, then tracks what came of it. Without
+              inventing a single thing.
+            </p>
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-2.5">
+              <Link href={primary.href} className="btn btn-lg btn-primary">
+                {primary.label}
+                <span className="btn-cap" aria-hidden>
+                  <ArrowRight className="w-3 h-3" />
+                </span>
+              </Link>
+              <a href="#how" className="btn btn-lg btn-default">
+                How it works
+              </a>
+            </div>
+            <p className="mt-4 text-sm text-text-faint">
+              {signedIn
+                ? "You're signed in, pick up where you left off."
+                : "Accounts are created by whoever administers this Facet."}
+            </p>
+            </motion.div>
+          </div>
+
+          {/* The one instruction phase one needs: it is a full screen with a
+              gem on it and no visible affordance otherwise. Fades out as soon
+              as the word starts to rise. */}
+          <motion.div
+            className="hero-scroll-hint"
+            style={reduced ? undefined : { opacity: hintOpacity }}
+            aria-hidden
+          >
+            Scroll
+          </motion.div>
+        </div>
       </section>
 
       {/* ---------------------------------------------------- the product */}
@@ -388,9 +503,9 @@ export default function LandingContent() {
             vocabulary — the word first, on its own, everywhere else in the
             app. */}
         <div className="mt-10 grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {VOCABULARY.map(([term, meaning], i) => (
+          {VOCABULARY.map(([term, meaning, Icon], i) => (
             <Reveal key={term} delay={i * 70}>
-              <FlipCard term={term} meaning={meaning} index={i} />
+              <FlipCard term={term} meaning={meaning} index={i} Icon={Icon} />
             </Reveal>
           ))}
         </div>
@@ -404,7 +519,7 @@ export default function LandingContent() {
         <div className="mt-10 flex flex-col gap-2.5">
           {FAQ.map((item, i) => (
             <Reveal key={item.q} delay={Math.min(i * 45, 180)}>
-              <details className="glass-card group p-5 sm:p-6">
+              <details className="liquid-glass faq-item group p-5 sm:p-6">
                 <summary className="text-base font-medium text-text cursor-pointer list-none flex items-center justify-between gap-4">
                   {item.q}
                   <span
@@ -433,7 +548,7 @@ export default function LandingContent() {
       {/* --------------------------------------------------------------- CTA */}
       <LitSection index={2} className="max-w-shell mx-auto px-5 sm:px-8 pb-28 pt-4">
         <Reveal>
-          <div className="glass-card relative overflow-hidden p-10 sm:p-16 flex flex-col items-center gap-4 text-center">
+          <div className="liquid-glass relative overflow-hidden p-10 sm:p-16 flex flex-col items-center gap-4 text-center">
             {/* One glint behind the closing card, echoing the hero stone. The
                 only decoration on the page that is not the ambient field. */}
             <div
