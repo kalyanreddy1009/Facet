@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
 import { AlertTriangle, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/useSession";
@@ -9,7 +8,6 @@ import { useSession } from "@/lib/useSession";
 /** agy missing / unauthenticated / out of quota surfaces here, once, instead
  *  of as a confusing failure later when someone tries to cut a facet. */
 export default function AgyHealthBanner() {
-  const pathname = usePathname();
   const { session } = useSession();
   const [detail, setDetail] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
@@ -29,9 +27,6 @@ export default function AgyHealthBanner() {
     // about — pages surface that themselves when their own calls fail.
     api.agyHealth().then((res) => !res.available && setDetail(res.detail)).catch(() => {});
   }, [signedIn]);
-
-  // v2 pages surface agy health their own way rather than sharing v1's banner.
-  if (pathname.startsWith("/v2")) return null;
 
   if (!detail || dismissed) return null;
 

@@ -29,10 +29,6 @@ import { join, relative } from "node:path";
 
 const ROOT = new URL("..", import.meta.url).pathname;
 const CSS = join(ROOT, "src/app/globals.css");
-// v2 is a second, deliberately unrelated design system (see app/v2/v2.css) —
-// its own tokens and component classes, all under a "v2-" prefix so they
-// never collide with the names above. Scanned the same way, from its own file.
-const V2_CSS = join(ROOT, "src/app/v2/v2.css");
 
 /** Class-name prefixes this design system owns. A class starting with one of
  *  these must be defined in globals.css; anything else is assumed to be a
@@ -68,9 +64,6 @@ const OWNED = [
   "tpl-",
   "tnum",
   "trend-",
-  // Everything v2 owns is under this one stem — it's a separate file/system,
-  // not a family of names to enumerate here.
-  "v2-",
 ];
 
 /** Custom properties supplied by the caller at the call site rather than
@@ -104,13 +97,6 @@ const rootBlock = css.slice(css.indexOf(":root {"), css.indexOf("html {"));
 const declaredVars = new Set(
   [...rootBlock.matchAll(/^\s*(--[a-z0-9-]+):/gm)].map((match) => match[1])
 );
-
-// v2's tokens and classes, folded into the same two sets. Its file only ever
-// declares `--v2-*` properties on `:root`, so — unlike globals.css, which has
-// other selectors to stop the scan at — the whole file can be matched safely.
-const v2css = readFileSync(V2_CSS, "utf8");
-for (const match of v2css.matchAll(/\.([a-z][a-z0-9-]*)/g)) definedClasses.add(match[1]);
-for (const match of v2css.matchAll(/^\s*(--v2-[a-z0-9-]+):/gm)) declaredVars.add(match[1]);
 
 const failures = [];
 
@@ -166,7 +152,6 @@ for (const use of css.matchAll(/var\((--[a-z0-9-]+)/g)) {
 const CONFIG = CSS.replace(/src\/app\/globals\.css$/, "tailwind.config.ts");
 for (const [where, source] of [
   ["globals.css", css],
-  ["v2.css", v2css],
   ["tailwind.config.ts", readFileSync(CONFIG, "utf8")],
 ]) {
   for (const m of source.matchAll(/font-size:\s*([\d.]+px)/g))
