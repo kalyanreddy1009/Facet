@@ -23,6 +23,20 @@ interface AgyQueueData {
   system: { queued: number; running: number; busy_with_someone_else: boolean };
 }
 
+/** Only the fields this component dereferences — a shape guard, not a schema
+ *  validator. Anything past these four accesses is the backend's contract to
+ *  keep, and duplicating the whole interface here would just be a second copy
+ *  to forget to update. */
+function isQueueData(body: unknown): body is AgyQueueData {
+  const d = body as AgyQueueData | null;
+  return Boolean(
+    d &&
+      Array.isArray(d.mine?.running) &&
+      Array.isArray(d.mine?.queued) &&
+      typeof d.system?.running === "number"
+  );
+}
+
 const KIND_LABEL: Record<string, string> = {
   tailor: "Cutting a facet",
   extract_profile: "Reading your resume",
@@ -46,6 +60,13 @@ export default function AgyQueue({ refreshMs = 5000 }: { refreshMs?: number }) {
         const response = await fetch("/api/queue/agy", { credentials: "include" });
         if (!response.ok) throw new Error(String(response.status));
         const body = await response.json();
+        // A 200 carrying the wrong shape is rarer than a 5xx and worse: the
+        // render reads `mine.running` off `undefined` and takes the entire
+        // status page down with an error boundary. The one page that must
+        // survive its dependencies misbehaving cannot be the page that dies
+        // because one of them answered oddly, so the shape is checked rather
+        // than assumed.
+        if (!isQueueData(body)) throw new Error("unexpected shape");
         if (alive) {
           setData(body);
           setFailed(false);

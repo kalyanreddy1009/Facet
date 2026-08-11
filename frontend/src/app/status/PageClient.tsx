@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { AlertTriangle, RefreshCw, ServerCrash } from "lucide-react";
 import AgyQueue from "@/components/status/AgyQueue";
 import GroupSection from "@/components/status/GroupSection";
+import HealthRibbon from "@/components/status/HealthRibbon";
 import LogList from "@/components/status/LogList";
 import TrafficTable from "@/components/status/TrafficTable";
+import { useCountUp } from "@/lib/countUp";
 import { OVERALL_LABEL, type OverallStatus } from "@/lib/status";
 import { REFRESH_OPTIONS, useStatus } from "@/lib/useStatus";
 
@@ -28,11 +30,33 @@ function formatUptime(seconds: number): string {
   return `${m}m`;
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+/**
+ * One key metric.
+ *
+ * Takes the raw number and its formatter rather than a finished string,
+ * because the animation has to interpolate the *value* — handed "1,204" there
+ * is nothing to count through, and the four figures would go back to swapping
+ * silently in step. `tnum` keeps the digits from reflowing while they travel,
+ * which is the difference between a number counting and a number twitching.
+ */
+function Stat({
+  label,
+  value,
+  format,
+  tone,
+  index,
+}: {
+  label: string;
+  value: number;
+  format: (n: number) => string;
+  tone?: string;
+  index: number;
+}) {
+  const shown = useCountUp(value);
   return (
-    <div className="px-4 py-3">
+    <div className="px-4 py-3 rise" style={{ "--i": index } as React.CSSProperties}>
       <p className="label">{label}</p>
-      <p className={`text-lg font-semibold tnum mt-1 ${tone ?? "text-text"}`}>{value}</p>
+      <p className={`text-lg font-semibold tnum mt-1 ${tone ?? "text-text"}`}>{format(shown)}</p>
     </div>
   );
 }
@@ -43,8 +67,17 @@ export default function StatusPage() {
      have called the state setter instead, and the failure would have looked
      like the page silently not refreshing rather than like a name collision. */
   const [refreshMs, setRefreshMs] = useState<number>(15_000);
-  const { report, error, errorHint, initialLoading, refreshing, lastUpdated, failures, refresh } =
-    useStatus(refreshMs);
+  const {
+    report,
+    error,
+    errorHint,
+    initialLoading,
+    refreshing,
+    lastUpdated,
+    failures,
+    history,
+    refresh,
+  } = useStatus(refreshMs);
 
   const errorRate = report ? report.traffic.error_rate : 0;
   const totalChecks = useMemo(
@@ -110,6 +143,21 @@ export default function StatusPage() {
         </div>
       </header>
 
+      {/* How long until the page asks again. Without it, auto-refresh is an
+          invisible setting: a figure that has not moved in twenty seconds
+          could equally be a steady system or a poll that quietly stopped, and
+          the difference matters more here than anywhere else in the app.
+          Keyed on the last update so the travel restarts with each poll. */}
+      {refreshMs > 0 && !unreachable && (
+        <div className="h-px w-full bg-border mb-5 overflow-hidden" aria-hidden>
+          <div
+            key={lastUpdated?.getTime() ?? 0}
+            className="poll-track h-px w-full bg-accent"
+            style={{ "--poll-ms": `${refreshMs}ms` } as React.CSSProperties}
+          />
+        </div>
+      )}
+
       {stillStarting ? (
         <div className="panel px-6 py-14 flex flex-col items-center text-center gap-2">
           <span className="dot dot-warn dot-pulse !w-2.5 !h-2.5 mb-1" aria-hidden />
@@ -157,10 +205,14 @@ export default function StatusPage() {
             </div>
           )}
 
+          {/* Keyed on the report's own timestamp, so the panel flashes once
+              per genuinely new report — not on every React render, which
+              would make the highlight meaningless within a minute. */}
           <section
-            className={`panel px-5 py-4 flex flex-wrap items-center justify-between gap-4 ${
+            key={report.generated_at}
+            className={`panel relative overflow-hidden flash-update px-5 py-4 flex flex-wrap items-center justify-between gap-4 ${
               OVERALL_STYLE[report.overall].border
-            }`}
+            } ${refreshing ? "scan-line" : ""}`}
             aria-label="Overall status"
           >
             <div className="flex items-center gap-3">
@@ -191,12 +243,29 @@ export default function StatusPage() {
             className="panel grid grid-cols-2 md:grid-cols-4 divide-x divide-border"
             aria-label="Key metrics"
           >
-            <Stat label="Uptime" value={formatUptime(report.uptime_seconds)} />
-            <Stat label="Checks passing" value={`${report.counts.ok}/${totalChecks}`} />
-            <Stat label="Requests served" value={report.traffic.total_requests.toLocaleString()} />
+            <Stat
+              label="Uptime"
+              index={0}
+              value={report.uptime_seconds}
+              format={formatUptime}
+            />
+            <Stat
+              label="Checks passing"
+              index={1}
+              value={report.counts.ok}
+              format={(n) => `${Math.round(n)}/${totalChecks}`}
+            />
+            <Stat
+              label="Requests served"
+              index={2}
+              value={report.traffic.total_requests}
+              format={(n) => Math.round(n).toLocaleString()}
+            />
             <Stat
               label="Error rate"
-              value={`${(errorRate * 100).toFixed(errorRate > 0 && errorRate < 0.001 ? 3 : 1)}%`}
+              index={3}
+              value={errorRate * 100}
+              format={(n) => `${n.toFixed(errorRate > 0 && errorRate < 0.001 ? 3 : 1)}%`}
               tone={
                 report.traffic.total_errors === 0
                   ? "text-text"
@@ -207,14 +276,27 @@ export default function StatusPage() {
             />
           </section>
 
+          {/* The session's own history, which nothing on this page carried
+              before: every figure above is a snapshot, so one bad poll in
+              twenty was invisible unless you happened to be looking. */}
+          <section className="panel px-4 py-3" aria-label="Recent polls">
+            <h2 className="label mb-2">Recent polls</h2>
+            <HealthRibbon samples={history} />
+          </section>
+
           {/* Above the subsystem groups on purpose: "what is happening to my
               work right now" is the question someone opens this page with.
               Whether every dependency is healthy is the follow-up. */}
           <AgyQueue />
 
           <div className="grid lg:grid-cols-2 gap-3 items-start">
-            {report.groups.map((group) => (
-              <GroupSection key={group.key} group={group} />
+            {report.groups.map((group, i) => (
+              /* Staggered on first paint only — `.rise` runs once per mounted
+                 node, and the key is the group, so a refresh re-renders these
+                 in place rather than replaying the entrance every poll. */
+              <div key={group.key} className="rise" style={{ "--i": i } as React.CSSProperties}>
+                <GroupSection group={group} />
+              </div>
             ))}
           </div>
 

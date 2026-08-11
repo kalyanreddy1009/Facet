@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "check": "node src/lib/format.check.ts && node src/lib/api.check.ts && node src/lib/clipboard.check.ts && node src/lib/match.check.ts && node src/lib/jdTrim.check.ts && node src/lib/heroProgress.check.ts && node scripts/check-design-system.mjs && node scripts/check-interface.mjs"
+    "check": "node src/lib/format.check.ts && node src/lib/api.check.ts && node src/lib/clipboard.check.ts && node src/lib/match.check.ts && node src/lib/jdTrim.check.ts && node src/lib/heroProgress.check.ts && node src/lib/countUp.check.ts && node scripts/check-design-system.mjs && node scripts/check-interface.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

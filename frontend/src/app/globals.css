@@ -8,14 +8,13 @@
 @config "../../tailwind.config.ts";
 
 /* ============================================================================
-   Facet 3.0 — lit paper.
+   Facet 3.0 — dark glass.
 
    Design rules this file enforces, and every component must respect:
-   1. Cool blue-slate neutrals carry the interface. Colour means something.
-   2. ONE accent (indigo), used for the primary action and current state.
-      Never for decoration. `--glint` (cyan) is the single exception and is
-      allowed ONLY in the ambient background and the hero — never on a control,
-      never as the meaning of anything.
+   1. Dark teal-slate neutrals carry the interface. Colour means something.
+   2. ONE accent (cyan), used for the primary action and current state.
+      Never for decoration. Decorative light belongs to the ambient shader and
+      the hero only — never on a control, never as the meaning of anything.
    3. Depth comes from a 1px border, a translucent surface, and one neutral
       shadow. No glows, no gradient text, no coloured shadows on controls.
    4. Semantic colour (green/amber/red) is reserved for status. If it isn't
@@ -175,6 +174,11 @@
   --t: 200ms;
   --t-slow: 320ms;
   --t-slower: 520ms;
+
+  /* The status page's poll countdown overrides this per-element with the
+     interval the user actually chose. Declared here so the bar still travels
+     at a sane rate if it is ever rendered without one. */
+  --poll-ms: 15s;
 
   /* The hero's clock. Every part of the strike sequence and every beam sweep
      on the landing page runs for exactly this long, so they stay in phase
@@ -963,6 +967,59 @@ body::before {
   /* Only ever on a live-updating "checking" state, never decoration. */
   .dot-pulse {
     animation: dot-pulse 1.6s var(--ease) infinite;
+  }
+
+  /* ---- The status page ---------------------------------------------------
+     Motion here is load-bearing: every figure re-renders on a timer, and
+     without it a poll that changed nothing looks exactly like a poll that
+     changed everything. Each of these marks a real event. */
+
+  /* A poll landed. One pass, not a loop — a permanently breathing panel is
+     ambience, and ambience is what you stop seeing. */
+  .flash-update {
+    animation: flash-update 1.1s var(--ease-out);
+  }
+
+  /* The sweep along the top edge of the overall banner while a fetch is in
+     flight. Says "asking now", which a spinner in the corner of the header
+     does not say about *this* panel. */
+  .scan-line::after {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--accent) 45%,
+      var(--glint) 55%,
+      transparent
+    );
+    animation: scan-line 1.15s var(--ease) infinite;
+  }
+
+  /* How much of the interval until the next automatic poll has elapsed.
+     Restarted by keying the element on the last update. */
+  .poll-track {
+    transform-origin: left center;
+    animation: poll-track var(--poll-ms, 15s) linear both;
+  }
+
+  /* A history bar arriving. Grows from the baseline it is measured against,
+     staggered so a session's worth reads left to right on first paint. */
+  .ribbon-bar {
+    transform-origin: bottom center;
+    animation: ribbon-grow var(--t-slow) var(--ease-emph) both;
+    animation-delay: calc(min(var(--i, 0) * 18ms, 500ms));
+  }
+  /* A poll that never answered. It is full height and red, which is loud
+     enough; the stripe stops it being read as a slow-but-fine report. */
+  .ribbon-bar-failed {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent 0 3px,
+      rgba(0, 0, 0, 0.35) 3px 6px
+    );
   }
 
   /* The wordmark.
@@ -1840,6 +1897,50 @@ body::before {
   }
   50% {
     opacity: 0.35;
+  }
+}
+
+/* ---- Status page motion ---------------------------------------------------
+   Only `transform` and `opacity` animate, plus one background-position, so
+   every one of these composites — the page runs them on a 5-second timer for
+   as long as it is open, and a layout-triggering keyframe would make an idle
+   tab expensive. */
+
+@keyframes flash-update {
+  from {
+    box-shadow: inset 0 0 0 1px var(--accent-border);
+  }
+  to {
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+
+@keyframes scan-line {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+@keyframes poll-track {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes ribbon-grow {
+  from {
+    opacity: 0;
+    transform: scaleY(0.05);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
   }
 }
 

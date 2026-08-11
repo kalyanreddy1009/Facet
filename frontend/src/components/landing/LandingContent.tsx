@@ -541,7 +541,7 @@ export default function LandingContent() {
               className="absolute -top-24 left-1/2 -translate-x-1/2 w-[36rem] h-[36rem] rounded-full blur-3xl pointer-events-none"
               style={{
                 background:
-                  "radial-gradient(circle, rgba(74,118,240,0.16), rgba(23,164,187,0.08) 45%, transparent 70%)",
+                  "radial-gradient(circle, rgba(130,209,241,0.16), rgba(23,164,187,0.08) 45%, transparent 70%)",
               }}
               aria-hidden
             />

@@ -26,6 +26,18 @@ class HttpError extends Error {
  *  red error and then sitting idle for a full poll interval. */
 const STARTUP_RETRIES_MS = [1_500, 3_000, 5_000, 8_000];
 
+/** One poll's outcome, kept so the page can draw where it has been. */
+export interface StatusSample {
+  at: number;
+  /** `null` means the poll failed — an absence is a data point here. */
+  overall: StatusReport["overall"] | null;
+  durationMs: number;
+}
+
+/** ponytail: in-memory only, so it resets on reload. Persist to
+ *  sessionStorage if watching across a restart ever matters. */
+const HISTORY_LIMIT = 40;
+
 interface UseStatusResult {
   report: StatusReport | null;
   error: string | null;
@@ -37,6 +49,8 @@ interface UseStatusResult {
   lastUpdated: Date | null;
   /** Consecutive failures; drives the "backend unreachable" state. */
   failures: number;
+  /** Every poll this session, oldest first. Failed polls included. */
+  history: StatusSample[];
   refresh: () => void;
 }
 
@@ -55,7 +69,12 @@ export function useStatus(intervalMs: number): UseStatusResult {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [failures, setFailures] = useState(0);
+  const [history, setHistory] = useState<StatusSample[]>([]);
   const inFlight = useRef<AbortController | null>(null);
+
+  const record = useCallback((sample: StatusSample) => {
+    setHistory((past) => [...past, sample].slice(-HISTORY_LIMIT));
+  }, []);
 
   const refresh = useCallback(async () => {
     inFlight.current?.abort();
@@ -79,7 +98,9 @@ export function useStatus(intervalMs: number): UseStatusResult {
           `The backend is running but /api/status failed. Check data/logs/facet.log.`
         );
       }
-      setReport((await res.json()) as StatusReport);
+      const next = (await res.json()) as StatusReport;
+      setReport(next);
+      record({ at: Date.now(), overall: next.overall, durationMs: next.duration_ms });
       setLastUpdated(new Date());
       setError(null);
       setErrorHint(null);
@@ -87,6 +108,7 @@ export function useStatus(intervalMs: number): UseStatusResult {
     } catch (err) {
       if (controller.signal.aborted && inFlight.current !== controller) return; // superseded
       setFailures((n) => n + 1);
+      record({ at: Date.now(), overall: null, durationMs: 0 });
       if (err instanceof HttpError) {
         setError(err.message);
         setErrorHint(err.hint);
@@ -105,7 +127,7 @@ export function useStatus(intervalMs: number): UseStatusResult {
         setInitialLoading(false);
       }
     }
-  }, []);
+  }, [record]);
 
   useEffect(() => {
     refresh();
@@ -139,6 +161,7 @@ export function useStatus(intervalMs: number): UseStatusResult {
     refreshing,
     lastUpdated,
     failures,
+    history,
     refresh,
   };
 }
