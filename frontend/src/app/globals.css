@@ -129,6 +129,12 @@
      anything, so it never appears on a control. */
   --glint: #9ae7ff;
 
+  /* The white that arrives before the stone touches it, on `/test`'s narrative
+     hero. Not `#fff`: a pure white beam on that field blooms into a flat disc,
+     and the faint cyan cast is what keeps it reading as light rather than as
+     paper. Decoration, like --glint, and never on a control. */
+  --story-white: #eaf7ff;
+
   /* Status — the only other colours in the system. `-text` variants are the
      form for status colour used AS text: lightened here rather than darkened,
      same reason as the accent ink. The dots and fills keep the saturated
@@ -2044,8 +2050,16 @@ body::before {
    inner glow is the difference between this and a frosted rectangle.
    `-webkit-` first, or the minifier keeps only the prefixed form and Firefox
    silently gets no blur at all. */
+/* `position` sits in the components layer while the rest of the class stays
+   unlayered: this class is otherwise unlayered, and unlayered rules beat
+   `@layer utilities`, so a `liquid-glass fixed` pane silently laid out in flow.
+   Same trap as `.tab-bar`'s `display` above. */
+@layer components {
+  .liquid-glass {
+    position: relative;
+  }
+}
 .liquid-glass {
-  position: relative;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.05);
   -webkit-backdrop-filter: blur(48px) saturate(130%);
@@ -2181,6 +2195,225 @@ body::before {
   }
   .hero-scroll-hint {
     display: none;
+  }
+}
+
+/* ---- The story: five scenes, one stone, one scroll -------------------- */
+/* Same mechanism as `.hero-stage` above and for the same reason: a tall
+   element with a sticky child, so the browser does the pinning and the page
+   keeps a normal document scroll. Five scenes at roughly a screen and a bit
+   each — shorter and the beams have no time to draw, longer and the stone
+   sits still while the reader waits. */
+.story-scroll {
+  position: relative;
+  height: 620svh;
+  /* Pulled up under the nav. The bar is a floating glass pill over the scene,
+     but it sits in normal flow above `main`, so the sticky stage started one
+     nav-height down the document: until the stage stuck, the bottom of the
+     first screen — which is where every caption sits — was below the fold, and
+     on a phone that was the whole body paragraph of scene 01. */
+  margin-top: calc(-1 * var(--nav-block));
+}
+.story-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* The beams and the cards share one coordinate space — see StoryHero.tsx. */
+.story-beams,
+.story-nodes {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+/* Explicit, because `inset: 0` alone does not size an `<svg>`: it is a
+   replaced element, so with `height: auto` it falls back to intrinsic sizing
+   and takes its aspect ratio from the viewBox. A square viewBox on a landscape
+   stage gave a 1440×1440 canvas whose top half was the only part on screen,
+   and every beam pointed somewhere plausible but wrong. */
+.story-beams {
+  width: 100%;
+  height: 100%;
+}
+.story-nodes {
+  z-index: 2;
+}
+
+.story-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0.75rem 0.875rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  text-align: left;
+}
+.story-node-eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.story-node-title {
+  margin-top: 0.125rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.story-node-meta {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+/* The words sit in a band along the bottom, clear of the corners the beams
+   travel to. One caption is legible at a time; they overlap in the box and
+   are separated by opacity, not by layout. */
+.story-copy {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+.story-caption {
+  position: absolute;
+  /* Centred by margin, not by `left: 50%` + `translateX(-50%)`: the caption
+     carries a framer `y`, framer writes that as `transform`, and it replaces
+     the whole property — so the centring half of the transform disappeared the
+     moment the caption started animating. Every caption on the page was half a
+     block right of where it looked like it should be, and on a phone the right
+     half of every line was clipped by the stage. */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  bottom: 7svh;
+  width: min(34rem, calc(100vw - 3rem));
+  text-align: center;
+}
+.story-index {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+.story-claim {
+  margin-top: 0.5rem;
+  font-size: clamp(1.375rem, 3.2vw, 2rem);
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  text-wrap: balance;
+}
+.story-body {
+  margin-top: 0.75rem;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+  text-wrap: pretty;
+  max-width: 34rem;
+}
+/* Low in the frame, not centred: the constellation owns the middle of scene
+   05 and body copy laid over it is unreadable. */
+.story-payoff {
+  position: absolute;
+  left: 50%;
+  bottom: 7svh;
+  width: min(40rem, calc(100vw - 3rem));
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: auto;
+}
+.story-payoff-claim {
+  font-size: clamp(2rem, 6vw, 4rem);
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  text-shadow: 0 0 40px rgba(130, 209, 241, 0.55), 0 0 90px rgba(130, 209, 241, 0.28);
+}
+.story-payoff .story-body {
+  margin-top: 1.25rem;
+}
+.story-hint {
+  position: absolute;
+  right: 2rem;
+  bottom: 2rem;
+  z-index: 3;
+  font-size: 0.75rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  pointer-events: none;
+}
+
+/* The cards crowd the stone below about a tablet, and the beams get shorter
+   than the things they connect. Narrow screens get the stone and the words:
+   the copy is the argument, the beams are the illustration. */
+@media (max-width: 900px) {
+  .story-beams,
+  .story-nodes {
+    display: none;
+  }
+  /* The stage is a phone screen with a large stone on it, so the copy gets the
+     bottom of the frame rather than a share of the middle. Smaller and lower:
+     at the desktop size the body ran off the bottom edge, and the part that
+     was cut was the part that says what the scene means. */
+  .story-caption {
+    bottom: 3svh;
+    width: calc(100vw - 2rem);
+  }
+  .story-caption .story-claim {
+    font-size: clamp(1.25rem, 5.6vw, 1.625rem);
+  }
+  .story-caption .story-body {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  /* No room for it: at this width the hint lands on top of the body copy. */
+  .story-hint {
+    display: none;
+  }
+
+}
+
+/* Motion off: the stage stops pinning and every caption is simply present, in
+   order, under a still stone. The `!important` is unavoidable — the opacity it
+   overrides is an inline style written by a motion value. */
+@media (prefers-reduced-motion: reduce) {
+  .story-scroll {
+    height: auto;
+  }
+  .story-stage {
+    position: static;
+    height: auto;
+    padding: 0 0 6svh;
+  }
+  .story-stage > .absolute.inset-0 {
+    position: relative;
+    height: 70svh;
+  }
+  .story-beams,
+  .story-nodes,
+  .story-hint {
+    display: none;
+  }
+  .story-copy {
+    position: static;
+    display: grid;
+    gap: 3rem;
+    padding: 3rem 1.5rem 0;
+    justify-items: center;
+  }
+  .story-caption,
+  .story-payoff {
+    position: static;
+    transform: none;
+    opacity: 1 !important;
   }
 }
 
