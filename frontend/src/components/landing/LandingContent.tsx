@@ -279,11 +279,7 @@ export default function LandingContent() {
       <StoryHero
         payoff={
           <>
-            <p className="badge badge-accent">
-              <Lock className="w-3 h-3" aria-hidden />
-              Your record, yours alone
-            </p>
-            <h1 className="story-payoff-claim mt-4">
+            <h1 className="story-payoff-claim">
               One stone.
               <br />
               A facet for every job.
@@ -308,6 +304,13 @@ export default function LandingContent() {
               {signedIn
                 ? "You're signed in, pick up where you left off."
                 : "Accounts are created by whoever administers this Facet."}
+            </p>
+            {/* Under the buttons, not above the claim. Above the claim it sat
+                across the stone's crown, and a glass pill on a lit gem is the
+                one place on this page where small text cannot be read. */}
+            <p className="badge badge-accent mt-5">
+              <Lock className="w-3 h-3" aria-hidden />
+              Your record, yours alone
             </p>
           </>
         }
