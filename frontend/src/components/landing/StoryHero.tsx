@@ -47,7 +47,7 @@
    arrays. The number of hooks and their order are therefore fixed for the life
    of the component, which is the property the rule exists to protect; the
    alternative is thirty near-identical inline `useTransform` calls. */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import Link from "next/link";
 import {
   motion,
@@ -241,7 +241,7 @@ const STOP_IN = [0.22, 0.36, 0.64, 0.72];
 
 /* ------------------------------------------------------------------- page */
 
-export default function StoryHero() {
+export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
   const reduced = useReducedMotion();
   const wrap = useRef<HTMLDivElement>(null);
 
@@ -364,8 +364,7 @@ export default function StoryHero() {
   const payoffOpacity = useTransform(p, [0.9, 0.97], [0, 1]);
 
   return (
-    <main className="landing-dark relative">
-      <div ref={wrap} className="story-scroll">
+    <div ref={wrap} className="story-scroll">
         <div className="story-stage">
           {/* The stone. One canvas, mounted once, for the whole page. */}
           <div className="absolute inset-0" aria-hidden>
@@ -511,32 +510,41 @@ export default function StoryHero() {
               y={capY[3]}
             />
 
+            {/* The last screen belongs to whoever is hosting the story. On the
+                live page that is the product's own heading and its real call
+                to action, arriving exactly where the bridge opens; on /test it
+                is the fallback below, because that route has nothing to sell.
+                One component, two endings, and the choreography — which is the
+                part that is hard to get right — is shared rather than copied. */}
             <motion.div className="story-payoff" style={{ opacity: payoffOpacity }}>
-              <h2 className="story-payoff-claim">
-                One stone.
-                <br />
-                Infinite facets.
-              </h2>
-              <p className="story-body mx-auto">
-                Your record stays the same. Every opportunity gets its own cut.
-              </p>
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                <Link href="/tailor" className="btn btn-primary">
-                  Cut your first facet
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </Link>
-                <Link href="/" className="btn btn-ghost">
-                  Back to the live page
-                </Link>
-              </div>
+              {payoff ?? (
+                <>
+                  <h2 className="story-payoff-claim">
+                    One stone.
+                    <br />
+                    Infinite facets.
+                  </h2>
+                  <p className="story-body mx-auto">
+                    Your record stays the same. Every opportunity gets its own cut.
+                  </p>
+                  <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+                    <Link href="/tailor" className="btn btn-primary">
+                      Cut your first facet
+                      <ArrowRight className="h-4 w-4" aria-hidden />
+                    </Link>
+                    <Link href="/" className="btn btn-ghost">
+                      Back to the live page
+                    </Link>
+                  </div>
+                </>
+              )}
             </motion.div>
           </div>
 
-          <motion.p className="story-hint" style={{ opacity: useTransform(s0, [0.03, 0.2], [1, 0]) }} aria-hidden>
-            Scroll
-          </motion.p>
-        </div>
+        <motion.p className="story-hint" style={{ opacity: useTransform(s0, [0.03, 0.2], [1, 0]) }} aria-hidden>
+          Scroll
+        </motion.p>
       </div>
-    </main>
+    </div>
   );
 }

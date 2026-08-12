@@ -936,18 +936,38 @@ export default function GemLightning({
     };
     frame = requestAnimationFrame(loop);
 
-    const onVisibility = () => {
+    // Two ways to stop tracing: the tab going away, and the stone scrolling
+    // away. The second one matters now that the story opens a landing page
+    // rather than owning a route — without it a raytracer runs at 55fps for
+    // the whole of the page below it, which nobody is looking at.
+    let hidden = false;
+    let offscreen = false;
+    const sync = () => {
       cancelAnimationFrame(frame);
-      if (!document.hidden) {
-        last = performance.now();
-        frame = requestAnimationFrame(loop);
-      }
+      if (hidden || offscreen) return;
+      last = performance.now();
+      frame = requestAnimationFrame(loop);
+    };
+
+    const onVisibility = () => {
+      hidden = document.hidden;
+      sync();
     };
     document.addEventListener("visibilitychange", onVisibility);
+
+    const onScreen = new IntersectionObserver(
+      ([entry]) => {
+        offscreen = !entry.isIntersecting;
+        sync();
+      },
+      { rootMargin: "10%" }
+    );
+    onScreen.observe(canvas);
 
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      onScreen.disconnect();
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pointermove", onPointer);
       gl.deleteProgram(scene);

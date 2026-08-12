@@ -15,5 +15,9 @@ export const metadata: Metadata = {
  *  knobs exposed, which is the right page when the question is about the
  *  render rather than about the story. */
 export default function TestPage() {
-  return <StoryHero />;
+  return (
+    <main className="landing-dark relative">
+      <StoryHero />
+    </main>
+  );
 }
