@@ -20,19 +20,19 @@ export const SCENE_COUNT = 5;
 /** The stone's state at each scene boundary, p = 0, 0.2, 0.4, 0.6, 0.8, 1. */
 export const GEM_KEYS: GemSettings[] = [
   // 01 The Stone — dormant, close, the column standing on it at full strength.
-  { dispersion: 0.008, beam: 1.0, exposure: 1.3, bloom: 0.6, spin: 0.012, camDist: 9.0, camHeight: 0.95, zoom: 2.35, light: 0.7 },
+  { dispersion: 0.008, beam: 1.0, exposure: 1.3, bloom: 0.6, spin: 0.004, camDist: 9.0, camHeight: 0.95, zoom: 2.35, light: 0.7 },
   // 02 The Rough — the stone wakes: it turns, and it starts to split the light.
-  { dispersion: 0.03, beam: 0.95, exposure: 1.5, bloom: 0.8, spin: 0.045, camDist: 8.6, camHeight: 0.9, zoom: 2.5, light: 1.15 },
+  { dispersion: 0.03, beam: 0.95, exposure: 1.5, bloom: 0.8, spin: 0.015, camDist: 8.6, camHeight: 0.9, zoom: 2.5, light: 1.15 },
   // 03 The Cut — fastest turn, widest spectrum, one facet doing the work.
-  { dispersion: 0.055, beam: 0.85, exposure: 1.6, bloom: 0.95, spin: 0.07, camDist: 8.9, camHeight: 1.15, zoom: 2.7, light: 1.35 },
+  { dispersion: 0.055, beam: 0.85, exposure: 1.6, bloom: 0.95, spin: 0.024, camDist: 8.9, camHeight: 1.15, zoom: 2.7, light: 1.35 },
   // 04 The Cabinet — settles. The interest has moved off the stone and onto
   // what is travelling away from it, so the stone stops competing.
-  { dispersion: 0.03, beam: 0.6, exposure: 1.5, bloom: 0.8, spin: 0.03, camDist: 9.8, camHeight: 0.8, zoom: 2.4, light: 1.1 },
+  { dispersion: 0.03, beam: 0.6, exposure: 1.5, bloom: 0.8, spin: 0.010, camDist: 9.8, camHeight: 0.8, zoom: 2.4, light: 1.1 },
   // 05 Infinite Facets — the pull back; the beam recedes with the camera.
-  { dispersion: 0.05, beam: 0.45, exposure: 1.75, bloom: 1.25, spin: 0.08, camDist: 12.6, camHeight: 1.5, zoom: 2.0, light: 1.4 },
+  { dispersion: 0.05, beam: 0.45, exposure: 1.75, bloom: 1.25, spin: 0.026, camDist: 12.6, camHeight: 1.5, zoom: 2.0, light: 1.4 },
   // …and the convergence at the very end: the column returns to full and
   // everything the story drew comes back into the stone.
-  { dispersion: 0.03, beam: 1.0, exposure: 2.0, bloom: 1.45, spin: 0.04, camDist: 11.0, camHeight: 1.1, zoom: 2.2, light: 1.6 },
+  { dispersion: 0.03, beam: 1.0, exposure: 2.0, bloom: 1.45, spin: 0.013, camDist: 11.0, camHeight: 1.1, zoom: 2.2, light: 1.6 },
 ];
 
 // Spelled out rather than derived from GEM_DEFAULTS: this file is checked by

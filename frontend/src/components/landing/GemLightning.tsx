@@ -78,7 +78,7 @@ export const GEM_DEFAULTS: GemSettings = {
   beam: 1.0,
   exposure: 1.45,
   bloom: 0.70,
-  spin: 0.055,
+  spin: 0.018,
   camDist: 7.20,
   camHeight: 0.95,
   zoom: 2.35,
