@@ -20,19 +20,23 @@ export const SCENE_COUNT = 5;
 /** The stone's state at each scene boundary, p = 0, 0.2, 0.4, 0.6, 0.8, 1. */
 export const GEM_KEYS: GemSettings[] = [
   // 01 The Stone — dormant, close, the column standing on it at full strength.
-  { dispersion: 0.008, beam: 1.0, exposure: 1.3, bloom: 0.6, spin: 0.004, camDist: 9.0, camHeight: 0.95, zoom: 2.35, light: 0.7 },
+  { dispersion: 0.008, beam: 1.0, exposure: 1.3, bloom: 0.6, spin: 0.004, camDist: 9.0, camHeight: 0.95, zoom: 2.35, light: 0.7, arc: 0 },
   // 02 The Rough — the stone wakes: it turns, and it starts to split the light.
-  { dispersion: 0.03, beam: 0.95, exposure: 1.5, bloom: 0.8, spin: 0.015, camDist: 8.6, camHeight: 0.9, zoom: 2.5, light: 1.15 },
+  { dispersion: 0.03, beam: 0.95, exposure: 1.5, bloom: 0.8, spin: 0.015, camDist: 8.6, camHeight: 0.9, zoom: 2.5, light: 1.15, arc: 0 },
   // 03 The Cut — fastest turn, widest spectrum, one facet doing the work.
-  { dispersion: 0.055, beam: 0.85, exposure: 1.6, bloom: 0.95, spin: 0.024, camDist: 8.9, camHeight: 1.15, zoom: 2.7, light: 1.35 },
+  { dispersion: 0.055, beam: 0.85, exposure: 1.6, bloom: 0.95, spin: 0.024, camDist: 8.9, camHeight: 1.15, zoom: 2.7, light: 1.35, arc: 0 },
   // 04 The Cabinet — settles. The interest has moved off the stone and onto
   // what is travelling away from it, so the stone stops competing.
-  { dispersion: 0.03, beam: 0.6, exposure: 1.5, bloom: 0.8, spin: 0.010, camDist: 9.8, camHeight: 0.8, zoom: 2.4, light: 1.1 },
-  // 05 Infinite Facets — the pull back; the beam recedes with the camera.
-  { dispersion: 0.05, beam: 0.45, exposure: 1.75, bloom: 1.25, spin: 0.026, camDist: 12.6, camHeight: 1.5, zoom: 2.0, light: 1.4 },
-  // …and the convergence at the very end: the column returns to full and
-  // everything the story drew comes back into the stone.
-  { dispersion: 0.03, beam: 1.0, exposure: 2.0, bloom: 1.45, spin: 0.013, camDist: 11.0, camHeight: 1.1, zoom: 2.2, light: 1.6 },
+  { dispersion: 0.03, beam: 0.6, exposure: 1.5, bloom: 0.8, spin: 0.010, camDist: 9.8, camHeight: 0.8, zoom: 2.4, light: 1.1, arc: 0 },
+  // 05 Infinite Facets — the pull back. The bridge is still shut here on
+  // purpose: it opens across this scene alone, so nothing of it leaks into
+  // scene 04, and the camera has retreated before it does. The Bifröst runs
+  // twenty units out, and from nine units away only its mouth is on screen.
+  { dispersion: 0.05, beam: 0.45, exposure: 1.75, bloom: 1.25, spin: 0.026, camDist: 12.6, camHeight: 1.5, zoom: 2.0, light: 1.4, arc: 0 },
+  // …and the ending: the column returns to full, the stone slows to almost
+  // still, and the bridge is at strength. Nothing converges back into the
+  // stone any more — the last thing on screen is light leaving it.
+  { dispersion: 0.03, beam: 1.0, exposure: 1.85, bloom: 1.4, spin: 0.008, camDist: 14.5, camHeight: 1.75, zoom: 1.85, light: 1.2, arc: 1.35 },
 ];
 
 // Spelled out rather than derived from GEM_DEFAULTS: this file is checked by
@@ -48,6 +52,7 @@ const KEYS: (keyof GemSettings)[] = [
   "camHeight",
   "zoom",
   "light",
+  "arc",
 ];
 
 export function clamp01(v: number): number {
@@ -77,15 +82,4 @@ export function gemAt(p: number): GemSettings {
 export function gemInto(target: GemSettings, p: number): void {
   const next = gemAt(p);
   for (const k of KEYS) target[k] = next[k];
-}
-
-/** The constellation of scene 05: every ray the story has drawn, plus the ones
- *  it implies, on a golden-angle spiral so no two land on the same spoke.
- *  Coordinates are the same 0..100 space the beams and cards share. */
-export function constellation(n: number): { x: number; y: number; hue: number }[] {
-  return Array.from({ length: n }, (_, i) => {
-    const a = i * 2.399963229728653;
-    const r = 12 + (i % 9) * 2.6 + (i / n) * 10;
-    return { x: 50 + Math.cos(a) * r * 1.55, y: 50 + Math.sin(a) * r, hue: i % 6 };
-  });
 }

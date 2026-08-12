@@ -2277,6 +2277,25 @@ body::before {
   z-index: 3;
   pointer-events: none;
 }
+/* A scrim under the words. The floor's caustics are a moving pattern at
+   roughly the luminance of body text, so a caption over them is legible in one
+   frame and not in the next — and the fix cannot be a darker floor, because the
+   caustics are the stone doing the thing the page is about. Behind the copy
+   (`z-index: -1` inside the copy's own stacking context) and above the beams,
+   so nothing the stone throws is dimmed except where the reading happens. */
+.story-copy::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 48svh;
+  z-index: -1;
+  background: linear-gradient(
+    to top,
+    rgba(3, 8, 13, 0.86),
+    rgba(3, 8, 13, 0.5) 44%,
+    transparent
+  );
+}
 .story-caption {
   position: absolute;
   /* Centred by margin, not by `left: 50%` + `translateX(-50%)`: the caption

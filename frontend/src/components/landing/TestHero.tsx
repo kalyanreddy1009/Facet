@@ -79,7 +79,7 @@ const KNOBS: {
     key: "camDist",
     label: "Camera distance",
     min: 3,
-    max: 9,
+    max: 16,
     step: 0.05,
     hint: "How far back the eye sits. Closer crops the floor out of the frame.",
   },
@@ -106,6 +106,14 @@ const KNOBS: {
     max: 3,
     step: 0.05,
     hint: "The two studio sources and the overhead fill. The beam is unaffected.",
+  },
+  {
+    key: "arc",
+    label: "Bifröst",
+    min: 0,
+    max: 2.5,
+    step: 0.05,
+    hint: "The spectral bridge leaving the stone. Only the last scene opens it; pull the camera back past 13 to see its length.",
   },
 ];
 

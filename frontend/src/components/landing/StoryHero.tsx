@@ -57,7 +57,7 @@ import {
   type MotionValue,
 } from "framer-motion";
 import { ArrowRight } from "lucide-react";
-import { constellation, gemInto, sceneProgress } from "@/lib/gemStory";
+import { gemInto, sceneProgress } from "@/lib/gemStory";
 import GemLightning, { GEM_DEFAULTS, type GemSettings } from "./GemLightning";
 
 /* ---------------------------------------------------------------- palette */
@@ -239,8 +239,6 @@ const MILESTONES: {
  *  The two branch outcomes wait for the branch beams to reach them. */
 const STOP_IN = [0.22, 0.36, 0.64, 0.72];
 
-const STARS = constellation(54);
-
 /* ------------------------------------------------------------------- page */
 
 export default function StoryHero() {
@@ -319,7 +317,6 @@ export default function StoryHero() {
     useTransform(p, [at(i, from), at(i, to)], [0, 1], { clamp: true });
 
   const s0 = s(0);
-  const s4 = s(4);
 
   const capOpacity = [band(0.0, 0.2), band(0.2, 0.4), band(0.4, 0.6), band(0.6, 0.8), band(0.8, 1.0)];
   const capY = [0, 1, 2, 3, 4].map((i) => useTransform(p, [i / 5, i / 5 + 0.08], [26, 0]));
@@ -362,11 +359,8 @@ export default function StoryHero() {
   );
   const cabOpacity = band(0.6, 0.8);
 
-  // 05 — the pull back, then the convergence. `starScale` is the camera
-  // retreating; below 1 at the very end is the light returning to the stone.
-  const starOpacity = useTransform(p, [at(4, -0.05), at(4, 0.35), at(4, 0.7), at(4, 1)], [0, 0.9, 0.75, 0.3]);
-  const starDraw = drawIn(4, 0.05, 0.55);
-  const starScale = useTransform(s4, [0, 0.55, 1], [0.55, 1, 0.16]);
+  // 05 — the pull back and the bridge, both of which are the shader's. The one
+  // thing left here is the payoff copy, which waits until the Bifröst is open.
   const payoffOpacity = useTransform(p, [0.9, 0.97], [0, 1]);
 
   return (
@@ -437,23 +431,12 @@ export default function StoryHero() {
               )}
             </motion.g>
 
-            {/* 05 — all of it at once, then back into the stone */}
-            <motion.g
-              style={{ opacity: starOpacity, scale: starScale, originX: 0.5, originY: 0.5 }}
-            >
-              {STARS.map((star, i) => (
-                <Beam
-                  key={i}
-                  from={GEM}
-                  to={[star.x, star.y]}
-                  colour={HUES[star.hue]}
-                  draw={starDraw}
-                  start={0.3}
-                  width={1.3}
-                  soft={false}
-                />
-              ))}
-            </motion.g>
+            {/* 05 has no SVG at all. The ending is the Bifröst, and it is a
+                sheet of light with a normal, a spectrum across its width and a
+                thickness the view ray travels through — none of which an SVG
+                stroke has. It is drawn by the shader, in the same space as the
+                stone it leaves. The fan of fifty-four strokes that used to be
+                here read as fifty-four lines, because that is what it was. */}
           </svg>
 
           {/* The cards, in the beams' coordinate space */}

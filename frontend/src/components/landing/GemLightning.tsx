@@ -71,6 +71,9 @@ export interface GemSettings {
   zoom: number;
   /** Strength of the studio sources and the overhead fill. */
   light: number;
+  /** The Bifröst: strength of the spectral bridge leaving the stone. 0 is no
+   *  bridge, which is every scene but the last. */
+  arc: number;
 }
 
 export const GEM_DEFAULTS: GemSettings = {
@@ -83,6 +86,7 @@ export const GEM_DEFAULTS: GemSettings = {
   camHeight: 0.95,
   zoom: 2.35,
   light: 1.0,
+  arc: 0.0,
 };
 
 const VERT = `#version 300 es
@@ -107,6 +111,7 @@ uniform vec2 uPointer;     // -1..1, parallax only
 uniform vec4 uPlanes[NP];
 uniform vec3 uCam;         // distance, height, focal
 uniform float uLight;      // studio + fill multiplier
+uniform float uArc;        // strength of the Bifröst bridge leaving the stone
 
 const float IOR = 2.417;                 // diamond, sodium D line
 const float F0 = 0.172;                  // ((1-n)/(1+n))^2 at normal incidence
@@ -248,6 +253,70 @@ vec3 beamGlow(vec3 ro, vec3 rd) {
   return (beamColumn(ro, rd) + land) * uBeam * beamPulse();
 }
 
+// ---------------------------------------------------------------- Bifröst
+//
+// The ending. Everything the story split is finally *going* somewhere: a sheet
+// of spectral light leaves the stone, arcs up out of the frame, and holds —
+// the bridge, not a diagram of one.
+//
+// It is a sheet, and that is the whole trick. Fifty-four straight lines drawn
+// from the gem to fifty-four points is a fan of hairlines: no volume, no
+// falloff, no reason for the eye to read light rather than geometry. A sheet
+// of light has a normal, so it is intersected analytically in one step instead
+// of marched — cost of a plane hit and a handful of sines, per pixel, and it
+// gets the one thing the fan could never have: it brightens where the view ray
+// looks along it and thins where the ray cuts across, which is what makes an
+// aurora look like it is made of nothing.
+//
+// The spectrum runs across the width, not along the length, because that is
+// what the stone did to the light: the bridge is the dispersion, laid out.
+vec3 bifrost(vec3 ro, vec3 rd) {
+  if (uArc <= 0.001) return vec3(0.0);
+  vec3 A = GEM_POS;
+  vec3 D = normalize(vec3(0.94, 0.30, -0.22));     // where the bridge is headed
+  vec3 V = normalize(cross(D, vec3(0.0, 1.0, 0.0)));  // the sheet's normal
+  vec3 U = cross(V, D);                            // in-plane "up", the width
+
+  float dv = dot(rd, V);
+  if (abs(dv) < 1e-4) return vec3(0.0);
+  float t = -dot(ro - A, V) / dv;
+  if (t <= 0.05) return vec3(0.0);
+  // Clamped rather than raw: an exactly edge-on ray has an infinite path
+  // through a zero-thickness sheet, and the honest answer there is a bright
+  // line across the screen that nobody wants.
+  float graze = 1.0 / max(abs(dv), 0.22);
+
+  vec3 q = ro + rd * t - A;
+  float s = dot(q, D);
+  if (s < 0.0 || s > 30.0) return vec3(0.0);
+  // The arc. Rises out of the stone and flattens as it goes, which is the
+  // difference between a bridge and a searchlight.
+  float u = dot(q, U) - (0.30 * s - 0.013 * s * s);
+  float halfW = 0.40 + 0.155 * s;                  // it widens as it travels
+  float n = u / halfW;
+  if (abs(n) > 1.3) return vec3(0.0);
+
+  float tm = uTime * (1.0 - uStill);
+  // Spectral across the width: one sweep, red edge to violet edge.
+  float k = clamp(n * 0.5 + 0.5, 0.0, 1.0);
+  vec3 hue = 0.55 + 0.45 * cos(6.2831853 * (vec3(0.00, 0.33, 0.67) + k * 0.92));
+  float band = 0.74 + 0.26 * sin(k * 26.0);        // the bands, softly
+  // Energy travelling outward, plus a slow shimmer so the sheet is never flat.
+  float flow = 0.68 + 0.32 * sin(s * 1.8 - tm * 1.9 + n * 2.2);
+  flow *= 0.86 + 0.14 * vnoise(vec2(s * 1.4 - tm * 0.8, n * 2.2));
+
+  float across = exp(-n * n * 2.4) * smoothstep(1.28, 0.72, abs(n));
+  float along = smoothstep(0.0, 1.5, s) * exp(-s * 0.075);
+  float sheet = across * along * band * flow * graze * 0.40;
+
+  // White at the mouth: the light has not travelled far enough to have
+  // separated yet, and a bridge that is already a rainbow at the stone reads
+  // as painted on rather than thrown.
+  vec3 c = mix(vec3(1.0, 1.0, 1.0), hue, smoothstep(0.5, 3.4, s)) * sheet;
+  c += vec3(0.80, 0.93, 1.00) * exp(-s * s * 0.45) * across * graze * 0.16;
+  return c * uArc;
+}
+
 // ------------------------------------------------------------- environment
 
 /** The cheap environment, used for the fifteen lookups an interior path makes.
@@ -385,6 +454,7 @@ vec3 envFull(vec3 ro, vec3 d, float energy) {
   // it outright — so a beam added earlier was erased everywhere the view ray
   // reached the plate, which is most of the frame below the horizon.
   c += beamGlow(ro, d);
+  c += bifrost(ro, d);
   return c;
 }
 
@@ -634,7 +704,13 @@ function program(gl: WebGL2RenderingContext, frag: string) {
   gl.attachShader(p, fs);
   gl.bindAttribLocation(p, 0, "pos");
   gl.linkProgram(p);
-  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) return null;
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+    // Same reason the compile log is unconditional: a link failure and a canvas
+    // that has not painted yet look identical from the outside, and a link
+    // failure is what you get for one uniform past the driver's limit.
+    console.warn("gem program failed to link:", gl.getProgramInfoLog(p));
+    return null;
+  }
   return p;
 }
 
@@ -706,6 +782,7 @@ export default function GemLightning({
       spin: uni(scene, "uSpin"),
       cam: uni(scene, "uCam"),
       light: uni(scene, "uLight"),
+      arc: uni(scene, "uArc"),
       still: uni(scene, "uStill"),
       pointer: uni(scene, "uPointer"),
       // Array uniforms are named "uPlanes[0]" by some drivers and "uPlanes" by
@@ -794,6 +871,7 @@ export default function GemLightning({
       gl.uniform1f(S.spin, s.spin);
       gl.uniform3f(S.cam, s.camDist, s.camHeight, s.zoom);
       gl.uniform1f(S.light, s.light);
+      gl.uniform1f(S.arc, s.arc ?? 0);
       gl.uniform1f(S.still, still ? 1 : 0);
       gl.uniform2f(S.pointer, pointer.x, pointer.y);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

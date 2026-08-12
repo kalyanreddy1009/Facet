@@ -1,6 +1,6 @@
 /** Run: node src/lib/gemStory.check.ts */
 import assert from "node:assert/strict";
-import { GEM_KEYS, clamp01, constellation, gemAt, gemInto, sceneProgress } from "./gemStory.ts";
+import { GEM_KEYS, clamp01, gemAt, gemInto, sceneProgress } from "./gemStory.ts";
 
 // The boundaries land exactly on their keyframes, which is the whole contract:
 // a scene's start looks like what the keyframe says it looks like.
@@ -47,16 +47,23 @@ gemInto(live, 1);
 assert.equal(live, same);
 assert.ok(Math.abs(live.camDist - GEM_KEYS[GEM_KEYS.length - 1].camDist) < 1e-9);
 
-// The constellation stays on screen and spreads: all points inside a generous
-// frame, and no two on the same spoke.
-const pts = constellation(48);
-assert.equal(pts.length, 48);
-for (const p of pts) {
-  assert.ok(p.x > -35 && p.x < 135, `x out of frame: ${p.x}`);
-  assert.ok(p.y > -10 && p.y < 110, `y out of frame: ${p.y}`);
-  assert.ok(p.hue >= 0 && p.hue < 6);
+// The Bifröst is the ending and only the ending: no bridge anywhere in the
+// first four scenes, opening through the fifth, at strength at the very end.
+// A stray arc earlier would be a rainbow over the matching scene.
+for (let s = 0; s <= 0.8001; s += 0.02) {
+  assert.ok(gemAt(s).arc < 1e-9, `arc leaked at ${s}`);
 }
-const angles = new Set(pts.map((p) => Math.round(Math.atan2(p.y - 50, p.x - 50) * 100)));
-assert.ok(angles.size > 40, `spokes collapsed: ${angles.size}`);
+let prevArc = 0;
+for (let s = 0.8; s <= 1.0001; s += 0.01) {
+  const arc = gemAt(Math.min(1, s)).arc;
+  assert.ok(arc >= prevArc - 1e-9, `arc dips at ${s}`);
+  prevArc = arc;
+}
+assert.ok(gemAt(1).arc > 1, "the bridge never reaches strength");
+
+// And the camera is far enough back to have a bridge in frame at all: the
+// sheet runs twenty units out, and from nine units away only its mouth is on
+// screen. This is the one coupling between the two files worth asserting.
+assert.ok(gemAt(1).camDist > 13, "too close for the bridge to read");
 
 console.log("gemStory: ok");
