@@ -11,14 +11,14 @@
  * What changed is that the page now helps while you fill it in rather than
  * only after you submit. The improvements, each marked where it lives:
  *
- *   1. MatchPreflight — the overlap score and its evidence, as you paste,
+ *   1. MatchPreflight the overlap score and its evidence, as you paste,
  *      instead of a warning that arrives after a five-minute run.
- *   2. Keyboard — ⌘/Ctrl+Enter cuts from anywhere in the form.
- *   3. Draft notice — the restore is now visible and reversible.
- *   4. Boilerplate trim — offered when the description is long.
- *   5. Sticky action bar — the primary action stays reachable on a long form.
- *   6. Requirements digest — what the posting actually asks for, counted.
- *   7. Field grouping — the form is three labelled steps, not one wall.
+ *   2. Keyboard ⌘/Ctrl+Enter cuts from anywhere in the form.
+ *   3. Draft notice the restore is now visible and reversible.
+ *   4. Boilerplate trim offered when the description is long.
+ *   5. Sticky action bar the primary action stays reachable on a long form.
+ *   6. Requirements digest what the posting actually asks for, counted.
+ *   7. Field grouping the form is three labelled steps, not one wall.
  *
  * (The template picker is the eighth and lives in its own component.)
  */
@@ -60,11 +60,11 @@ const MODES: Option<NonNullable<TailorRequestBody["truthfulness_mode"]>>[] = [
 ];
 
 /**
- * IMPROVEMENT 6 — the requirements digest.
+ * IMPROVEMENT 6 the requirements digest.
  *
  * A long posting hides what it is actually asking for inside a wall of prose.
- * This counts the requirement-shaped lines — bullets, and sentences built
- * around "must have" / "you will" / "experience with" — so you can see at a
+ * This counts the requirement-shaped lines bullets, and sentences built
+ * around "must have" / "you will" / "experience with" so you can see at a
  * glance whether you have pasted a posting with ten requirements or one with
  * fifty, and whether the part that matters made it in before the cap.
  *
@@ -86,7 +86,7 @@ function countRequirements(text: string): number {
 }
 
 /** A labelled step. Three of them, so the form reads as a sequence rather than
- *  as one long panel of inputs — which is most of the revamp. */
+ *  as one long panel of inputs which is most of the revamp. */
 function Step({
   index,
   title,
@@ -102,14 +102,18 @@ function Step({
 }) {
   return (
     <section className={`panel p-5 flex flex-col gap-4 ${className}`}>
-      <div className="flex items-baseline gap-2.5">
-        <span className="mono text-2xs text-text-ghost tnum shrink-0">
-          {String(index).padStart(2, "0")}
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-base font-semibold text-text">{title}</h2>
-          {hint && <p className="text-xs text-text-faint mt-0.5 text-pretty">{hint}</p>}
-        </div>
+      {/* The step number is a marker on the title's own line, not a column
+          beside the header. As a column it indented the title and its hint by
+          the number's width while every field below started at the panel's
+          padding edge three different left edges inside one panel. */}
+      <div className="min-w-0">
+        <h2 className="text-base font-semibold text-text flex items-baseline gap-2.5">
+          <span className="mono text-2xs text-text-ghost tnum shrink-0">
+            {String(index).padStart(2, "0")}
+          </span>
+          {title}
+        </h2>
+        {hint && <p className="text-xs text-text-faint mt-0.5 text-pretty">{hint}</p>}
       </div>
       {children}
     </section>
@@ -147,7 +151,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
   const formRef = useRef<HTMLFormElement>(null);
   const atCap = jobDescription.length >= JD_MAX_CHARS;
 
-  // Arriving from a posting in The Rough — fill everything we already know.
+  // Arriving from a posting in The Rough fill everything we already know.
   // A handoff always wins over a restored draft: it is the more recent
   // intention, and it is the reason this page was opened.
   useEffect(() => {
@@ -162,8 +166,8 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
     }
     // Otherwise pick up whatever was being typed before. Pasting a full job
     // description is the most tedious thing this app asks anyone to do, and
-    // losing it to a mis-click on the nav — with no undo and nothing in the
-    // back button — was the worst small failure left in the product.
+    // losing it to a mis-click on the nav with no undo and nothing in the
+    // back button was the worst small failure left in the product.
     try {
       const saved = sessionStorage.getItem(DRAFT_KEY);
       if (!saved) return;
@@ -174,7 +178,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
       setJobDescription(draft.jobDescription ?? "");
       // IMPROVEMENT 3. The restore used to be silent, which is unnerving when
       // you meant to start fresh and instead find someone else's posting in
-      // the box — and there was no way back to empty except selecting it all.
+      // the box and there was no way back to empty except selecting it all.
       if (Object.values(draft).some(Boolean)) setRestored(true);
     } catch {
       // A corrupt draft is not worth a message; an empty form is the fallback.
@@ -182,7 +186,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
   }, [onPrefilled]);
 
   // The Stone's vocabulary for the live pre-check. One request, not one per
-  // keystroke — see lib/match.ts.
+  // keystroke see lib/match.ts.
   useEffect(() => {
     let live = true;
     api
@@ -223,7 +227,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
       job_description: jobDescription,
       truthfulness_mode: mode,
       job_url: jobUrl.trim() || undefined,
-      // Omitted rather than guessed if the picker never loaded — the server
+      // Omitted rather than guessed if the picker never loaded the server
       // then applies whichever template the last cut used.
       resume_template: template ?? undefined,
     });
@@ -244,12 +248,12 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
     return () => window.removeEventListener("keydown", onKey);
   }, [submit]);
 
-  // IMPROVEMENT 4. Only computed when it could matter — the trim is cheap but
+  // IMPROVEMENT 4. Only computed when it could matter the trim is cheap but
   // pointless on a short posting, and the offer should not appear at all
   // unless it would actually save something worth having.
   const trim = useMemo(() => {
     // 1,500 rather than 3,000. The first threshold was set by guesswork and a
-    // realistic posting — role, requirements, benefits, an EEO paragraph —
+    // realistic posting role, requirements, benefits, an EEO paragraph 
     // came to 2,200 characters, so the offer never appeared on exactly the
     // kind of posting it was built for. What actually decides whether the
     // offer is worth making is how much it would remove, which is the second
@@ -298,7 +302,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
         </div>
       )}
 
-      {/* IMPROVEMENT 7 — three labelled steps. The form was one long panel of
+      {/* IMPROVEMENT 7 three labelled steps. The form was one long panel of
           six inputs; it is the same six inputs, grouped by what they are for,
           so the page can be scanned rather than read. */}
       <Step index={1} title="The posting" hint="What you are applying to, and where it came from.">
@@ -431,7 +435,7 @@ export default function TailorForm({ onSubmit, disabled, onPrefilled }: TailorFo
         <TemplatePicker value={template} onChange={setTemplate} disabled={disabled} />
       </Step>
 
-      {/* IMPROVEMENT 5 — the action bar sticks to the bottom of the viewport.
+      {/* IMPROVEMENT 5 the action bar sticks to the bottom of the viewport.
           The form is now three panels tall and the primary action used to sit
           below all of them, so on a laptop you pasted a description, scrolled
           past everything, and hunted for the button. */}

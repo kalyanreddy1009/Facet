@@ -2,19 +2,19 @@
    `@config` keeps the existing `tailwind.config.ts` as the source of theme
    truth. v4's native form is a CSS `@theme` block, but every token here
    already lives in `:root` below and the JS config only maps utility names
-   onto those variables — porting it would be a large diff whose entire
+   onto those variables porting it would be a large diff whose entire
    upside is syntax. Revisit when a v4-only feature actually needs it. */
 @import "tailwindcss";
 @config "../../tailwind.config.ts";
 
 /* ============================================================================
-   Facet 3.0 — dark glass.
+   Facet 3.0 dark glass.
 
    Design rules this file enforces, and every component must respect:
    1. Dark teal-slate neutrals carry the interface. Colour means something.
    2. ONE accent (cyan), used for the primary action and current state.
       Never for decoration. Decorative light belongs to the ambient shader and
-      the hero only — never on a control, never as the meaning of anything.
+      the hero only never on a control, never as the meaning of anything.
    3. Depth comes from a 1px border, a translucent surface, and one neutral
       shadow. No glows, no gradient text, no coloured shadows on controls.
    4. Semantic colour (green/amber/red) is reserved for status. If it isn't
@@ -27,7 +27,7 @@
    ========================================================================== */
 
 :root {
-  /* Surfaces — dark teal glass, the landing page's material, now the whole
+  /* Surfaces dark teal glass, the landing page's material, now the whole
      app's. The reversal it replaces (paper page, dark instrument) needed the
      nav to be the one dark object in a light room; here the room itself is
      dark and lit from behind by the shader field, so "up" means *more light
@@ -35,8 +35,8 @@
      translucent white over that field rather than an opaque tone, which is
      what makes a stack of panels read as panes over one light source instead
      of as tiles.
-     `--surface-1` is the one opaque value, because a handful of surfaces —
-     the tab bar, the resume preview page — sit over moving content and cannot
+     `--surface-1` is the one opaque value, because a handful of surfaces 
+     the tab bar, the resume preview page sit over moving content and cannot
      be seen through at all. */
   --bg: #101416;
   --surface-1: #181c1e;
@@ -51,14 +51,14 @@
      Raised hard from 0.76/0.84. Transparency does opposite things in the two
      themes: on black, whatever shows through a panel is *darker* than the
      panel, so the text keeps its contrast and only the surface changes. On
-     paper, what shows through is the ambient tint — which is darker than the
-     white panel — so every translucent surface loses contrast against its own
+     paper, what shows through is the ambient tint which is darker than the
+     white panel so every translucent surface loses contrast against its own
      text, and a card sitting over one of the glows goes visibly grey in one
      corner. That is the muddiness, and it is not fixable by darkening the
      text: the surface itself has to hold still.
 
-     At 0.93 there is still glass — the blur, the saturate, the edge highlight
-     and a hint of the field underneath all survive — but the panel is a
+     At 0.93 there is still glass the blur, the saturate, the edge highlight
+     and a hint of the field underneath all survive but the panel is a
      surface first and an effect second. `prefers-reduced-transparency` still
      drops to fully opaque below.
 
@@ -71,7 +71,7 @@
   --glass-2: rgba(255, 255, 255, 0.08);
   --glass-3: rgba(255, 255, 255, 0.04);
   /* Deep enough that what is behind a pane becomes colour rather than shapes.
-     Only the surfaces that are *not* composited on every scroll frame pay it —
+     Only the surfaces that are *not* composited on every scroll frame pay it 
      see `.cut-bar` and `.tab-bar`, which still deliberately do not. */
   --glass-blur: 32px;
   /* The top highlight that makes a translucent panel read as a pane of glass
@@ -91,27 +91,27 @@
   --text-faint: #96a6ae;
   --text-ghost: #8b9ba3; /* also the placeholder colour, so it clears 4.5:1 */
 
-  /* Borders. `--border` and `--border-strong` are the depth cue — decorative,
+  /* Borders. `--border` and `--border-strong` are the depth cue decorative,
      so WCAG 1.4.11's 3:1 doesn't reach them. `--border-control` is the visible
      boundary of an actual control (a field, a secondary button); that one does
      have to clear 3:1 or a low-vision user can't find the input. */
   /* Cyan rather than plain white, because on this field an edge is the light
      the pane is catching and the light in this room has a hue. Still one pixel
-     — the fix is contrast, not weight. A 2px border is a box; this is an
+     the fix is contrast, not weight. A 2px border is a box; this is an
      edge. */
   --border: rgba(130, 209, 241, 0.22);
   --border-strong: rgba(130, 209, 241, 0.3);
   --border-control: rgba(160, 215, 238, 0.52); /* 3.3:1 on --bg */
 
   /* The one accent. Indigo dark enough for white label text is too dark to BE
-     text on a dark surface, and vice versa — that is colour maths, not a
+     text on a dark surface, and vice versa that is colour maths, not a
      preference, so the accent is one hue at two lightnesses: the fill and the
      ink. Do not use --accent for text, or --accent-text for a fill.
-     The fill is unchanged from the dark theme — white on it measures 4.9:1
+     The fill is unchanged from the dark theme white on it measures 4.9:1
      either way, because a filled button carries its own background. The ink
      is the half that had to move: on this field the ink lightens to #82d1f1
      (9.9:1 on --bg) while the fill stays dark enough to carry `--on-accent`
-     type at 8.6:1. Indigo is gone from the system entirely — it was the paper
+     type at 8.6:1. Indigo is gone from the system entirely it was the paper
      workbench's accent, and one interface gets one hue. */
   --accent: #4fb4dc; /* fills: buttons, checkbox, nav indicator, focus ring */
   --accent-hover: #6cc6e6;
@@ -125,7 +125,7 @@
   --on-accent: #06232c;
 
   /* Decoration only. The second hue exists so the ambient field has somewhere
-     to travel — a one-hue gradient is just a brightness ramp. It never means
+     to travel a one-hue gradient is just a brightness ramp. It never means
      anything, so it never appears on a control. */
   --glint: #9ae7ff;
 
@@ -135,7 +135,7 @@
      paper. Decoration, like --glint, and never on a control. */
   --story-white: #eaf7ff;
 
-  /* Status — the only other colours in the system. `-text` variants are the
+  /* Status the only other colours in the system. `-text` variants are the
      form for status colour used AS text: lightened here rather than darkened,
      same reason as the accent ink. The dots and fills keep the saturated
      value, so a green dot still reads as green at 8px. */
@@ -143,7 +143,7 @@
   --ok-text: #6ee7a0;
   --ok-soft: rgba(53, 196, 106, 0.14);
   --ok-border: rgba(53, 196, 106, 0.34);
-  --warn: #e0a32a; /* a dot and an icon are graphics — WCAG 1.4.11, not 1.4.3 */
+  --warn: #e0a32a; /* a dot and an icon are graphics WCAG 1.4.11, not 1.4.3 */
   --warn-text: #f0c674;
   --warn-soft: rgba(224, 163, 42, 0.14);
   --warn-border: rgba(224, 163, 42, 0.38);
@@ -160,7 +160,7 @@
   --radius-lg: 13px;
   --radius-xl: 18px;
 
-  /* Easing — the whole set, and there is no sixth curve.
+  /* Easing the whole set, and there is no sixth curve.
      --ease       state changes in place (colour, border, opacity on a control)
      --ease-out   entrances: something arriving on screen
      --ease-emph  emphasised movement: a panel, a sheet, a layout shift. Has
@@ -191,7 +191,7 @@
      forever with nothing coordinating them. */
   --strike: 9s;
 
-  /* Shadows. Neutral and near-black — a coloured shadow is the fastest way to
+  /* Shadows. Neutral and near-black a coloured shadow is the fastest way to
      look fake. Deeper than the paper build's: on a dark field a shadow has to
      out-darken a background that is already dark before it separates anything,
      which is why 0.07 of black did nothing here and 0.4 does. */
@@ -209,7 +209,7 @@
   --nav-block: calc(var(--nav-h) + var(--nav-inset) * 2);
 
   /* Control heights. Buttons, fields and anything that has to line up with
-     one share these — the numbers were already duplicated across `.btn` and
+     one share these the numbers were already duplicated across `.btn` and
      `.field`, which is how a 26px and a 27px control end up side by side.
 
      In `rem` so that a control grows with the label inside it. The type scale
@@ -223,13 +223,13 @@
 }
 
 /* A finger is not a cursor. 26px is a comfortable button for a mouse and a
-   coin-toss for a thumb, and the densest screens here — a Cabinet row, the
-   actions on an account — are made entirely of the small size.
+   coin-toss for a thumb, and the densest screens here a Cabinet row, the
+   actions on an account are made entirely of the small size.
    Sizes go up on touch pointers only, so the desktop density that makes this
    app feel like a tool is untouched. Not the full 44px: that is the target
    including its surrounding margin, and these controls sit in flex rows with
    6px of gap. */
-/* Touch. Every control clears 44px — Apple's *default*, not the 28pt floor.
+/* Touch. Every control clears 44px Apple's *default*, not the 28pt floor.
    The floor is what a control must never go below; the default is what a
    thumb actually wants, and a job hunt happens on a phone on a commute. The
    audit found 27 of 27 controls on The Rough under 44px, which is the single
@@ -258,7 +258,7 @@
     min-height: 2.75rem;
   }
 
-  /* Inline links are the exception, and they include headings — a job title
+  /* Inline links are the exception, and they include headings a job title
      in The Rough is an <a> inside an <h3>, and it is the primary action of
      that row. A 44px `min-height` on an inline element breaks the line box
      and pushes the text apart; padding grows the hit region without touching
@@ -307,7 +307,7 @@ body {
 
 /* Tailwind 4's preflight sets `button { cursor: default }`, following the CSS
    spec. v3 shipped `cursor: pointer`, and every control in this app was drawn
-   against that — anchors kept the hand, buttons silently lost it, which is
+   against that anchors kept the hand, buttons silently lost it, which is
    exactly the kind of difference nobody notices until it feels wrong. Restored
    here once rather than as `cursor-pointer` on ~40 call sites.
    `.btn:disabled` still wins with `not-allowed`. */
@@ -365,7 +365,7 @@ button:not(:disabled),
    buys the right *look* at the worst possible price: the browser cannot scroll
    such a background, so it repaints the full viewport on every frame of every
    scroll. Measured on the landing page that put the 95th-percentile frame at
-   46ms — a third of a second of visible stutter across a flick — while the
+   46ms a third of a second of visible stutter across a flick while the
    median frame was fine, which is exactly the signature of "the animations
    aren't smooth enough" even though not one animation was at fault.
 
@@ -388,14 +388,14 @@ body::before {
 
   /* ---- The ambient field -------------------------------------------
      Was three drifting radial gradients, a lattice, a grain tile and a
-     vignette — six composited layers that between them read as "a gradient".
+     vignette six composited layers that between them read as "a gradient".
      It is now one WebGL canvas (`components/ui/AmbientShader`), which is one
      draw call of two triangles a frame and no DOM at all. `.ambient-shader`
      below is the whole of what is left in CSS. */
 
   /* ---- Surfaces ---------------------------------------------------- */
   /* Every surface is translucent over the ambient field. The `background-color`
-     fallback fires wherever `backdrop-filter` is unsupported — without it the
+     fallback fires wherever `backdrop-filter` is unsupported without it the
      panel is a flat wash of the ambient glow and body text loses contrast. */
   .panel {
     background: var(--glass-1);
@@ -429,15 +429,15 @@ body::before {
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(130%);
     backdrop-filter: blur(var(--glass-blur)) saturate(130%);
     /* The strong border, not the hairline. A 6%-white pane over a dark field
-       has almost no fill of its own to define it, so on a card — the one
-       surface that is the subject of its screen — the edge is what says there
+       has almost no fill of its own to define it, so on a card the one
+       surface that is the subject of its screen the edge is what says there
        is an object here at all. */
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-xl);
     box-shadow: inset 0 0 30px rgba(130, 209, 241, 0.06), var(--shadow-raised);
   }
 
-  /* The glass edge — one hairline of light along the top, the thing that
+  /* The glass edge one hairline of light along the top, the thing that
      separates "a pane of glass" from "a hole in the page". */
   .card::before,
   .panel-lit::before {
@@ -461,12 +461,12 @@ body::before {
   }
 
   /* Chrome: every surface that floats *above* the work rather than being part
-     of it — toasts, popovers, the loading panel, the mobile nav sheet.
+     of it toasts, popovers, the loading panel, the mobile nav sheet.
 
      Same material as everything else, one step brighter and one step further
      from the field: it is nearer the viewer, and a pane at the panel's own
      opacity sitting on top of a panel reads as a smudge rather than as a
-     second object. The step is small on purpose — the difference between
+     second object. The step is small on purpose the difference between
      chrome and content here is elevation, not colour.
 
      Scoping the tokens is what keeps this a one-line change at each call site:
@@ -492,7 +492,7 @@ body::before {
      different room: on paper, translucent white chrome has no contrast to
      spend, so the bar had to go dark to make the controls on it legible. The
      room is dark now. The same argument, run again, gives the opposite result
-     — the bar is the one *lit* object, and the thing that reads instantly is
+     the bar is the one *lit* object, and the thing that reads instantly is
      an edge catching the light rather than a block of graphite.
 
      It is the one permanently on-screen element that pays for a
@@ -504,12 +504,12 @@ body::before {
     /* Horizontal padding matches the page gutter (`px-5 sm:px-8`) rather than
        the vertical inset, so the island's edges land on the same two vertical
        lines as every card below it. At 1920 the island used to start 32px
-       outside the content column — close enough to look like a mistake rather
+       outside the content column close enough to look like a mistake rather
        than a margin, which is most of what "the layout is inconsistent on a
        large screen" was pointing at. */
     padding: var(--nav-inset) max(20px, env(safe-area-inset-left));
     background: transparent;
-    /* The header is a positioning frame, nothing else — anything real inside
+    /* The header is a positioning frame, nothing else anything real inside
        it opts back into pointer events. */
     pointer-events: none;
   }
@@ -517,7 +517,7 @@ body::before {
   /* The scroll edge.
 
      The island floats, so the page runs underneath it and out through the
-     gutters either side — and a line of body copy was being guillotined by the
+     gutters either side and a line of body copy was being guillotined by the
      top of the viewport at full contrast, which is the one moment this
      interface looked like a document in a frame rather than a surface with
      depth. Apple's scroll edge effect is the fix, and every system bar gets it
@@ -563,7 +563,7 @@ body::before {
     min-height: var(--nav-h);
     /* Fully rounded. The pill is the shape that says "floating object" without
        any shadow work, and it is the one place in the system that is not on
-       the 6/9/13/18px radius ladder — because it is not a box with rounded
+       the 6/9/13/18px radius ladder because it is not a box with rounded
        corners, it is a capsule. */
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.05);
@@ -581,7 +581,7 @@ body::before {
     --surface-2: rgba(255, 255, 255, 0.07);
     --surface-3: rgba(255, 255, 255, 0.11);
     /* Set on the element, not only as a token: anything inside that does not
-       name a colour — an inline SVG using currentColor, most of all the mark —
+       name a colour an inline SVG using currentColor, most of all the mark 
        has to inherit it. */
     color: var(--text);
   }
@@ -598,7 +598,7 @@ body::before {
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
-  /* At rest a destination is a label on the instrument — legible, and not
+  /* At rest a destination is a label on the instrument legible, and not
      pretending to be a raised button. The contrast between the well and the
      face already separates them; adding a pane to each one as well is the
      stack of tricks that made the light version look cheap. */
@@ -645,7 +645,7 @@ body::before {
     }
   }
 
-  /* Floating overlay panels — the account menu, the mobile nav sheet. The
+  /* Floating overlay panels the account menu, the mobile nav sheet. The
      same material as `.chrome`, which is what it is; the two class names are
      kept because half the app asks for one and half for the other. */
   .glass {
@@ -670,8 +670,8 @@ body::before {
      rectangle.
 
      The blur is back, having been removed when this was a light interface. It
-     was removed for a real reason — sixteen of these re-sampling the page every
-     frame is what made scrolling crawl — and the reason no longer holds: what
+     was removed for a real reason sixteen of these re-sampling the page every
+     frame is what made scrolling crawl and the reason no longer holds: what
      is behind a pane now is one composited canvas rather than four drifting
      gradient layers, and the material stops working entirely without it. The
      surfaces that are still composited on every scroll frame (`.cut-bar`,
@@ -690,7 +690,7 @@ body::before {
   }
 
   /* Lifts on hover, for the cards worth pointing at. Deliberately not every
-     card — a page where everything rises as the cursor passes is a page that
+     card a page where everything rises as the cursor passes is a page that
      flinches. Transform and shadow only, so it never repaints its content. */
   .glass-card-lift {
     transition: transform var(--t-slow) var(--ease-emph), box-shadow var(--t-slow) var(--ease-emph);
@@ -727,7 +727,7 @@ body::before {
     opacity: 0.55;
   }
 
-  /* Rows in a list. Background shift only — no transform, no shadow: those
+  /* Rows in a list. Background shift only no transform, no shadow: those
      force a repaint of every sibling on a long list. */
   .row-hover {
     transition: background-color var(--t-fast) var(--ease),
@@ -754,7 +754,7 @@ body::before {
     border: 1px solid transparent;
     /* `transform` is in the list for the press: 1px of travel on pointer-down
        is what makes a button feel like it has a mechanism behind it. Scale,
-       not translate — translate on a button in a row nudges its neighbours'
+       not translate translate on a button in a row nudges its neighbours'
        optical alignment. */
     transition: background-color var(--t-fast) var(--ease),
       border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
@@ -781,14 +781,14 @@ body::before {
 
   .btn-primary {
     /* A shallow gradient, not a flat fill: every other surface in this
-       interface is now lit from the upper left — the ambient field, the gem,
-       the nav's top lip — and a primary action that ignores that reads as
+       interface is now lit from the upper left the ambient field, the gem,
+       the nav's top lip and a primary action that ignores that reads as
        pasted on. Two stops, six percent apart. If you can see it as a
        gradient it has gone too far. */
     background: linear-gradient(to bottom, #6cc6e6, var(--accent));
     color: var(--on-accent);
     /* An inner top hairline, the same trick as `.card::before`, plus a shadow
-       tinted with the accent rather than neutral — a coloured shadow under a
+       tinted with the accent rather than neutral a coloured shadow under a
        coloured button is the one place it is not a costume, because that is
        the light the button itself is throwing. */
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 1px 2px rgba(0, 0, 0, 0.3),
@@ -806,7 +806,7 @@ body::before {
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
   }
 
-  /* Trailing affordance cap — a 20px circle holding ONE 12px icon, on the one
+  /* Trailing affordance cap a 20px circle holding ONE 12px icon, on the one
      primary action a view is about. Never on a secondary or ghost button, and
      never more than once per screen.
 
@@ -865,7 +865,7 @@ body::before {
   .btn-danger {
     background: transparent;
     /* The ink, not the fill. A badge and a ghost-danger button are both TEXT
-       on a pale tint, and the saturated fill value only clears 2–3.5:1 there —
+       on a pale tint, and the saturated fill value only clears 2–3.5:1 there 
        it is legible as an 8px dot and not as 11px type. */
     color: var(--danger-text);
     border-color: var(--danger-border);
@@ -878,7 +878,7 @@ body::before {
   .field {
     width: 100%;
     min-height: var(--control-h);
-    /* Darker than the panel it sits on — an input reads as a well, not a
+    /* Darker than the panel it sits on an input reads as a well, not a
        tile, and on this field "recessed" means letting *less* light through
        rather than more. Translucent for the same reason everything else is. */
     background: rgba(0, 0, 0, 0.22);
@@ -951,7 +951,7 @@ body::before {
     border-color: var(--accent-border);
   }
 
-  /* Status dot — the smallest possible state indicator. */
+  /* Status dot the smallest possible state indicator. */
   .dot {
     width: 7px;
     height: 7px;
@@ -980,7 +980,7 @@ body::before {
      without it a poll that changed nothing looks exactly like a poll that
      changed everything. Each of these marks a real event. */
 
-  /* A poll landed. One pass, not a loop — a permanently breathing panel is
+  /* A poll landed. One pass, not a loop a permanently breathing panel is
      ambience, and ambience is what you stop seeing. */
   .flash-update {
     animation: flash-update 1.1s var(--ease-out);
@@ -1032,7 +1032,7 @@ body::before {
      
      A slow, continuous travel rather than the quick sweep this was: the glint
      used to cross in 1.6s and then sit still for 6.4s, which reads as a blink
-     — you notice it having happened rather than watching it happen. Now the
+     you notice it having happened rather than watching it happen. Now the
      highlight drifts across the letters over 18 seconds and never stops, so it
      is always somewhere and never anywhere abruptly. Only `background-position`
      animates, so it composites. */
@@ -1071,7 +1071,7 @@ body::before {
   }
 
   /* The mark breathes: a long, calm swell. Paired with the wordmark's drift
-     this is the brand's whole idle gesture — a stone sitting in slowly moving
+     this is the brand's whole idle gesture a stone sitting in slowly moving
      light, not a logo doing a trick. */
   @media (prefers-reduced-motion: no-preference) {
     .nav-mark {
@@ -1174,7 +1174,7 @@ body::before {
    the action bar that keeps the primary control reachable on a long form. */
 
 /* A quiet advisory attached to a field: the match pre-check, the draft notice,
-   the boilerplate offer. Inset rather than raised — it is a note about the
+   the boilerplate offer. Inset rather than raised it is a note about the
    input above it, not a card of its own, and giving it a panel's weight made
    the form read as six competing boxes. */
 .preflight {
@@ -1197,24 +1197,27 @@ body::before {
 
 /* The action bar. Sticks to the bottom of the viewport so "Cut a facet" is
    always one glance away on a form that is now three panels tall, and stops
-   sticking once the page has been scrolled to its end — a bar that floats over
+   sticking once the page has been scrolled to its end a bar that floats over
    the footer of a finished page is just something in the way. */
 .cut-bar {
   position: sticky;
   bottom: 0;
   z-index: 5;
-  padding: 12px 14px;
+  /* 20px across, which is `.panel`'s `p-5`: the bar sits directly under the
+     step panels and its button has to start on the same left edge their
+     fields do. At 14px it was six pixels adrift the whole column. */
+  padding: 12px 20px;
   margin-top: 4px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   /* `--glass-2` and no blur. A sticky bar is composited on every scroll
-     frame, and `backdrop-filter` is the most expensive property in this file —
+     frame, and `backdrop-filter` is the most expensive property in this file 
      it was deliberately removed from the nav and from the landing cards for
      exactly this reason. At 96% opaque the bar already separates from whatever
      passes under it, and it costs nothing to move. */
-  /* Opaque, for the same reason `.tab-bar` is: without a backdrop blur — which
+  /* Opaque, for the same reason `.tab-bar` is: without a backdrop blur which
      this bar deliberately does not pay for, being composited on every scroll
-     frame — 6% of transparency is enough to read the line passing underneath
+     frame 6% of transparency is enough to read the line passing underneath
      straight through the label on top of it. */
   background: #141a1c;
   box-shadow: 0 -1px 0 rgba(130, 209, 241, 0.12), 0 -12px 28px -20px rgba(0, 0, 0, 0.6);
@@ -1229,7 +1232,7 @@ body::before {
 
    `position: fixed`, not sticky: the bar belongs to the app frame, not to the
    document, and a sticky element inside a scrolling column leaves the last row
-   of a list stranded underneath it. The document pays for the space instead —
+   of a list stranded underneath it. The document pays for the space instead 
    see the `body` padding below.
 
    No `backdrop-filter`, for the same reason `.cut-bar` has none: this element
@@ -1249,8 +1252,8 @@ body::before {
      with the document and only ever has a little under it. This bar is
      permanent chrome with a whole page sliding beneath it, and 4% of
      transparency was enough to read the rejection line straight through the
-     tabs. Without a backdrop blur to hide behind — which this bar deliberately
-     does not pay for, being composited every scroll frame — the only honest
+     tabs. Without a backdrop blur to hide behind which this bar deliberately
+     does not pay for, being composited every scroll frame the only honest
      answer is a solid surface. */
   background: var(--surface-1);
   border-top: 1px solid var(--border);
@@ -1263,7 +1266,7 @@ body::before {
 /* The breakpoint lives here, not in a `md:hidden` on the element.
 
    This class is unlayered, and Tailwind's utilities sit inside `@layer
-   utilities` — unlayered rules beat layered ones regardless of specificity, so
+   utilities` unlayered rules beat layered ones regardless of specificity, so
    `display: grid` above quietly won and the bar stayed on screen at 1440px
    underneath the inline nav. Caught by the check, not by reading it. Anything
    else in this file that sets `display` has the same trap waiting. */
@@ -1280,7 +1283,7 @@ body::before {
   justify-content: center;
   gap: 4px;
   /* 56px, comfortably past Apple's 44pt floor, and the whole column is the
-     target rather than the glyph — a tab you have to hit precisely is a tab
+     target rather than the glyph a tab you have to hit precisely is a tab
      that has misunderstood what a thumb is. */
   min-height: 56px;
   padding: 8px 4px;
@@ -1293,7 +1296,7 @@ body::before {
   color: var(--accent-text);
 }
 
-/* Colour alone must not be the only signal — deuteranopia is the most common
+/* Colour alone must not be the only signal deuteranopia is the most common
    colour blindness and accent-vs-dim is exactly the distinction it flattens.
    The active tab is also the only one whose icon is filled. */
 .tab-item-on .tab-icon {
@@ -1372,7 +1375,7 @@ body::before {
    swatch. */
 /* The rendered page. `object-position: top` because the header and the first
    section heading are what distinguish these seven, and the foot of a page is
-   where they all look alike — if a card has to crop, crop the bottom. */
+   where they all look alike if a card has to crop, crop the bottom. */
 .tpl-page {
   display: block;
   width: 100%;
@@ -1395,7 +1398,7 @@ body::before {
 
 
 /* The sending-trend bars. A week with nothing sent gets a 2px rule rather
-   than nothing at all — an absent bar reads as missing data, and "you sent
+   than nothing at all an absent bar reads as missing data, and "you sent
    nothing that week" is data. */
 .trend-bar {
   background: linear-gradient(to top, #4fb4dc, #9cdcf5);
@@ -1407,7 +1410,7 @@ body::before {
 /* ---- The Rough: density and the keyboard cursor -------------------------
 
    Compact is not "the same card, smaller". It removes the two lines that are
-   context rather than content — the summary and the source strip — and keeps
+   context rather than content the summary and the source strip and keeps
    the title, the company, the score and its evidence. A density toggle that
    only shrank the padding would make a list you can fit more of and read
    less of. */
@@ -1427,7 +1430,7 @@ body::before {
 /* The keyboard cursor. A ring, not a fill: a filled row would compete with the
    match badge, which is the only element on the card allowed to carry colour.
    `outline` rather than `border` so the row does not shift by a pixel as the
-   cursor passes over it — the classic jitter in a keyboard-navigable list. */
+   cursor passes over it the classic jitter in a keyboard-navigable list. */
 .job-card-active {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
@@ -1474,7 +1477,7 @@ body::before {
   padding: 16px;
 }
 /* A grid item's automatic minimum size is its min-content width, and the rows
-   inside use `truncate` — which is `white-space: nowrap`, so their min-content
+   inside use `truncate` which is `white-space: nowrap`, so their min-content
    is the *untruncated* line. The stage therefore grew to 383px inside a 348px
    window on a phone and the actions were clipped away by the overflow rule
    below. Declaring the floor here fixes every beat at once, rather than each
@@ -1528,15 +1531,15 @@ body::before {
   background: var(--accent-soft);
 }
 
-/* The marked clause — the added phrase, drawn in as the sentence is read.
+/* The marked clause the added phrase, drawn in as the sentence is read.
 
    This was first built as an absolutely-positioned fill scaled on X, which is
    the compositor-friendly way to do it and was wrong here for a reason worth
    recording: a `position: relative` INLINE element does not establish a
    reliable containing block, because when the text wraps the inline is several
    fragments rather than one box. The fill collapsed to a sliver at the wrap
-   point. A background on the inline itself has no such problem — it is painted
-   per fragment by definition, which is exactly the behaviour wanted — and
+   point. A background on the inline itself has no such problem it is painted
+   per fragment by definition, which is exactly the behaviour wanted and
    `box-decoration-break: clone` gives every fragment its own rounded ends.
 
    The cost is that `background-size` is a paint, not a composite. Over a
@@ -1591,8 +1594,8 @@ body::before {
 }
 
 /* Reduced motion: neutralise every scroll-driven value in one place.
-   The component still computes them — it has no way to know the preference at
-   render time on the server — so the stylesheet takes them back. `!important`
+   The component still computes them it has no way to know the preference at
+   render time on the server so the stylesheet takes them back. `!important`
    is load-bearing here and is the reason this works at all: a stylesheet
    declaration marked important is the one thing that outranks an inline
    style. Without it the fallback would render three invisible beats. */
@@ -1621,7 +1624,7 @@ body::before {
   transform: none;
   pointer-events: auto;
 }
-/* Finished, and leaving upward — the opposite direction from the one waiting,
+/* Finished, and leaving upward the opposite direction from the one waiting,
    so the two never look like the same element sliding back and forth. */
 .beat-cell.is-past {
   transform: translate3d(0, -26px, 0);
@@ -1661,12 +1664,12 @@ body::before {
 
 /* Two conditions, one fallback. The sequence is pinned only where there is
    room to put a paragraph beside a screenshot, so below `lg` the beats become
-   an ordinary stack — which is exactly what reduced motion already asked for.
+   an ordinary stack which is exactly what reduced motion already asked for.
    Both need the choreography taken back in full, so they share one rule
    instead of each growing a copy that can drift out of step. */
 @media (prefers-reduced-motion: reduce), (max-width: 1023.98px) {
-  /* The selectors above are compound — `.beat-cell.is-active .beat-rise` is
-     three classes deep — so a bare `.beat-rise` here loses the cascade and the
+  /* The selectors above are compound `.beat-cell.is-active .beat-rise` is
+     three classes deep so a bare `.beat-rise` here loses the cascade and the
      stagger kept running under reduced motion. Seventeen animations were still
      on the page. Matching the same shapes, and marking them, is what actually
      turns the choreography off; this is a preference the user has stated, so
@@ -1683,7 +1686,7 @@ body::before {
     pointer-events: auto;
   }
   /* The highlight is drawn by `background-size`, which neither opacity nor
-     transform reaches — without this the marked clause renders blank, and it
+     transform reaches without this the marked clause renders blank, and it
      is the one thing that beat exists to show. */
   .showcase-mark,
   .beat-cell.is-active .showcase-mark {
@@ -1697,7 +1700,7 @@ body::before {
 
    The previous version was an event on a 9s loop: a bolt, a flash, a fan, then
    six seconds of nothing. Captured frame by frame in a browser, five of eight
-   frames were completely dark — which is why it read as "no animation" no
+   frames were completely dark which is why it read as "no animation" no
    matter how carefully the strike itself was timed. Everything below is always
    on and always moving, on long coprime periods that never re-align, so the
    scene drifts forever instead of looping. */
@@ -1715,7 +1718,7 @@ body::before {
   }
 }
 
-/* Its core swells and thins — a beam of light in air is never even. */
+/* Its core swells and thins a beam of light in air is never even. */
 .beam-core {
   animation: beam-breathe 11s var(--ease) infinite alternate;
 }
@@ -1731,7 +1734,7 @@ body::before {
 }
 
 /* Colour crossing the inside of the stone. Two passes, opposite directions,
-   different speeds — one band sliding across reads as a wiper. */
+   different speeds one band sliding across reads as a wiper. */
 .fire-a {
   animation: fire-drift-a 17s linear infinite;
   /* Tempered from 0.85. Fire is what makes a stone alive; too much of it and
@@ -1836,12 +1839,16 @@ body::before {
    uniformly lit and never still. */
 .beam-sweep {
   position: absolute;
-  top: -25%;
+  /* Exactly the section, so the mask's fade and the section's clip are the
+     same two edges. Rotated and overhanging (it was 150% tall at -25%, turned
+     13deg) the clip cut the band at full brightness, and every section
+     boundary was a hard horizontal seam with a lit rectangle above it. The
+     slant now comes from the gradient's angle rather than a transform. */
+  top: 0;
   left: -55%;
   width: 70%;
-  height: 150%;
+  height: 100%;
   pointer-events: none;
-  transform: rotate(13deg);
   background: linear-gradient(
     100deg,
     transparent 0%,
@@ -1850,19 +1857,36 @@ body::before {
     rgba(122, 152, 255, 0.08) 70%,
     transparent 100%
   );
+  /* The section clips this band. Without a vertical fade the clip is a hard
+     horizontal edge across the page a lit rectangle rather than light.
+     `-webkit-` first, or the minifier drops the standard property. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    #000 18%,
+    #000 82%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    #000 18%,
+    #000 82%,
+    transparent 100%
+  );
   animation: beam-cross 34s linear infinite;
 }
 
 @keyframes beam-cross {
   from {
-    transform: translate3d(0, 0, 0) rotate(13deg);
+    transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translate3d(215%, 0, 0) rotate(13deg);
+    transform: translate3d(215%, 0, 0);
   }
 }
 
-/* The glint crosses once/* The glint crosses once/* The glint crosses once, then rests for most of the cycle. A continuous
+/* The glint crosses once, then rests for most of the cycle. A continuous
    sweep in the corner of the eye is the thing people disable. */
 @keyframes wordmark-drift {
   from {
@@ -1908,7 +1932,7 @@ body::before {
 
 /* ---- Status page motion ---------------------------------------------------
    Only `transform` and `opacity` animate, plus one background-position, so
-   every one of these composites — the page runs them on a 5-second timer for
+   every one of these composites the page runs them on a 5-second timer for
    as long as it is open, and a layout-triggering keyframe would make an idle
    tab expensive. */
 
@@ -1974,7 +1998,7 @@ body::before {
 /* Increase Contrast.
 
    Apple treats this as one of the three settings a custom component has to be
-   tested against — the system adapts its own controls automatically and
+   tested against the system adapts its own controls automatically and
    anything hand-built, which is everything here, simply ignores it. Facet had
    no answer to it at all: someone who had asked the OS for more contrast got
    the identical interface.
@@ -1983,7 +2007,7 @@ body::before {
    request is about what is *behind* a surface; this one is about the surface's
    own edges and its quieter type. Supporting text stops being a step below
    body and becomes body, and every border that draws the boundary of a control
-   goes to full strength — the hairline is the thing that disappears first for
+   goes to full strength the hairline is the thing that disappears first for
    anyone who needs this. Layout is untouched: nothing moves, nothing reflows,
    only the ink and the edges change. */
 @media (prefers-contrast: more) {
@@ -2135,7 +2159,7 @@ body::before {
 
 /* The masthead word. In front of the stone, not behind it: it is the subject
    of phase two and the stone is what it is standing on. Sized in `vw` rather
-   than the rem type scale on purpose — this is a graphic element that has to
+   than the rem type scale on purpose this is a graphic element that has to
    span the viewport at every width, not a reading size, and the design-system
    check exempts it for exactly that reason. The wide tracking is the
    reference's, and it is safe here in a way it would not be on a section
@@ -2202,7 +2226,7 @@ body::before {
 /* Same mechanism as `.hero-stage` above and for the same reason: a tall
    element with a sticky child, so the browser does the pinning and the page
    keeps a normal document scroll. Five scenes at roughly a screen and a bit
-   each — shorter and the beams have no time to draw, longer and the stone
+   each shorter and the beams have no time to draw, longer and the stone
    sits still while the reader waits. */
 .story-scroll {
   position: relative;
@@ -2210,7 +2234,7 @@ body::before {
   /* Pulled up under the nav. The bar is a floating glass pill over the scene,
      but it sits in normal flow above `main`, so the sticky stage started one
      nav-height down the document: until the stage stuck, the bottom of the
-     first screen — which is where every caption sits — was below the fold, and
+     first screen which is where every caption sits was below the fold, and
      on a phone that was the whole body paragraph of scene 01. */
   margin-top: calc(-1 * var(--nav-block));
 }
@@ -2221,7 +2245,7 @@ body::before {
   overflow: hidden;
   isolation: isolate;
 }
-/* The beams and the cards share one coordinate space — see StoryHero.tsx. */
+/* The beams and the cards share one coordinate space see StoryHero.tsx. */
 .story-beams,
 .story-nodes {
   position: absolute;
@@ -2279,7 +2303,7 @@ body::before {
 }
 /* A scrim under the words. The floor's caustics are a moving pattern at
    roughly the luminance of body text, so a caption over them is legible in one
-   frame and not in the next — and the fix cannot be a darker floor, because the
+   frame and not in the next and the fix cannot be a darker floor, because the
    caustics are the stone doing the thing the page is about. Behind the copy
    (`z-index: -1` inside the copy's own stacking context) and above the beams,
    so nothing the stone throws is dimmed except where the reading happens. */
@@ -2300,7 +2324,7 @@ body::before {
   position: absolute;
   /* Centred by margin, not by `left: 50%` + `translateX(-50%)`: the caption
      carries a framer `y`, framer writes that as `transform`, and it replaces
-     the whole property — so the centring half of the transform disappeared the
+     the whole property so the centring half of the transform disappeared the
      moment the caption started animating. Every caption on the page was half a
      block right of where it looked like it should be, and on a phone the right
      half of every line was clipped by the stage. */
@@ -2401,7 +2425,7 @@ body::before {
 }
 
 /* Motion off: the stage stops pinning and every caption is simply present, in
-   order, under a still stone. The `!important` is unavoidable — the opacity it
+   order, under a still stone. The `!important` is unavoidable the opacity it
    overrides is an inline style written by a motion value. */
 @media (prefers-reduced-motion: reduce) {
   .story-scroll {
@@ -2440,7 +2464,7 @@ body::before {
    180° around the Y axis; the definition lives on the back rather than
    appearing beneath the term, which is the interaction the reference uses for
    its own "what is X" cards. A real button, not a div with an onClick, so it
-   stays keyboard- and screen-reader-reachable — `aria-pressed` tracks the flip
+   stays keyboard- and screen-reader-reachable `aria-pressed` tracks the flip
    and the back is always in the DOM, merely rotated out of view, so nothing
    here depends on JS to be readable. */
 .flip-card {
@@ -2497,7 +2521,7 @@ body::before {
 
 /* The FAQ's open/close, animated. `<details>` has no transitionable "height:
    auto", so the trick is a `grid-template-rows: 0fr → 1fr` on a wrapper one
-   level in — a grid track can be animated even though its content's height
+   level in a grid track can be animated even though its content's height
    cannot. `[open]` still has to be set for the browser's own toggle logic;
    this only changes what that toggle looks like. */
 .faq-item {
@@ -2530,12 +2554,12 @@ details[open] .faq-body {
 }
 
 /* Someone who has asked for less transparency gets an opaque interface and no
-   ambient field — that request is about legibility, and a "tasteful" amount of
+   ambient field that request is about legibility, and a "tasteful" amount of
    glass is still glass. Every surface reverts in one place. */
 @media (prefers-reduced-transparency: reduce) {
-  /* Every glass surface goes to one of two opaque tones — `#1c2124` for
+  /* Every glass surface goes to one of two opaque tones `#1c2124` for
      anything that floats (chrome, the nav, a card) and `#141a1c` for anything
-     recessed — and every blur comes off. Note that `--surface-2/-3` are
+     recessed and every blur comes off. Note that `--surface-2/-3` are
      themselves translucent whites, so the hover states resolve against these
      fills rather than against the field, which is exactly what is wanted:
      nothing behind a surface should be visible through it. */

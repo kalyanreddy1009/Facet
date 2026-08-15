@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * The product page at the domain root — the first thing anyone sees, signed in
+ * The product page at the domain root the first thing anyone sees, signed in
  * or not.
  *
  * It has three jobs at once: explain what Facet is to someone who has never
@@ -12,12 +12,12 @@
  * who is already in.
  *
  * The page is a stack of floating glass panes over the ambient field, which is
- * the only reason that field exists — the surfaces above it are translucent
+ * the only reason that field exists the surfaces above it are translucent
  * *to* something. Sections alternate between a full-width rhythm and a bento
  * grid, so it never becomes six identical bands of centred text.
  *
  * Nothing here blocks on the session. The page renders its full content
- * immediately and the button's label settles when /api/auth/me returns — a
+ * immediately and the button's label settles when /api/auth/me returns a
  * landing page that shows a spinner while it decides what to call a button is
  * worse than one whose button briefly says the more common thing.
  */
@@ -87,13 +87,13 @@ const VOCABULARY: [string, string, LucideIcon][] = [
   ],
 ];
 
-/** Reveal on scroll via IntersectionObserver — no animation library and no
+/** Reveal on scroll via IntersectionObserver no animation library and no
  *  scroll listener.
  *
  *  It starts at opacity 0, which means that without JavaScript the entire page
  *  below the hero is invisible rather than merely unanimated. The `.reveal`
  *  class exists for the `scripting: none` rule in globals.css that undoes
- *  that — a landing page has to survive a blocked bundle, and this one
+ *  that a landing page has to survive a blocked bundle, and this one
  *  silently did not. */
 function Reveal({
   children,
@@ -154,8 +154,13 @@ function Reveal({
  *  the difference between an animated illustration with a page under it and a
  *  page that is lit by the illustration.
  *
- *  `overflow-hidden` matters — without it the sweep escapes its section and
- *  paints a diagonal band across the whole document. */
+ *  `overflow-hidden` matters without it the sweep escapes its section and
+ *  paints a diagonal band across the whole document. But the clip has to
+ *  happen at the viewport, not at the content column: `className` (which
+ *  carries `max-w-shell mx-auto`) goes on the inner div, so the section stays
+ *  full-bleed. Clipped to the column, the band's own edges became a visible
+ *  lit rectangle sitting over the page. The vertical fade is a mask on
+ *  `.beam-sweep`. */
 function LitSection({
   children,
   className = "",
@@ -169,13 +174,13 @@ function LitSection({
   index: number;
 }) {
   return (
-    <section id={id} className={`relative overflow-hidden ${className}`}>
+    <section id={id} className="relative overflow-hidden">
       <div
         className="beam-sweep hidden motion-safe:block"
         style={{ animationDelay: `${0.35 + index * 0.55}s` }}
         aria-hidden
       />
-      <div className="relative">{children}</div>
+      <div className={`relative ${className}`}>{children}</div>
     </section>
   );
 }
@@ -203,7 +208,7 @@ function SectionHead({
 }
 
 /** A term/definition pair, flippable. Front carries the term and its index,
- *  back carries the meaning — a click or hover rotates between them. A real
+ *  back carries the meaning a click or hover rotates between them. A real
  *  `<button>` with `aria-pressed`, so a keyboard or screen-reader user gets
  *  the same control a mouse user gets, and the back is always in the DOM
  *  (just rotated away) rather than conditionally rendered, so nothing here
@@ -269,7 +274,7 @@ export default function LandingContent() {
           What stood here was a stone drawn in CSS with a masthead rising
           behind it: two screens of scroll that said the product's name and
           nothing about the product. The same scroll now runs the optical
-          argument — a real stone, one beam, and the spectrum it throws — and
+          argument a real stone, one beam, and the spectrum it throws and
           arrives at exactly the heading and buttons that used to be at the
           top. Nothing below this line changed; the page still opens on a dark
           screen with a stone on it and still hands off to the showcase.
@@ -321,7 +326,7 @@ export default function LandingContent() {
           flow, and a static before/after card demonstrating the constraint.
           Both were the page telling you about the product in prose. The
           showcase is the product, on the real screens, doing the same four
-          things in the order you meet them — including the cut, which is now
+          things in the order you meet them including the cut, which is now
           demonstrated rather than quoted. */}
       <ProductShowcase />
 
@@ -336,13 +341,13 @@ export default function LandingContent() {
         </Reveal>
         {/* Four flip cards rather than four ruled rows.
 
-            These are definitions — a term, its meaning, and its place in the
-            sequence — and the reference this sprint is following showcases
+            These are definitions a term, its meaning, and its place in the
+            sequence and the reference this sprint is following showcases
             exactly this kind of "what is X" content as a card you turn over
             rather than a row you scan. The term sits alone on the front so
             the four read as a set at a glance; the definition is one flip
             away, which is closer to how someone actually meets this
-            vocabulary — the word first, on its own, everywhere else in the
+            vocabulary the word first, on its own, everywhere else in the
             app. */}
         <div className="mt-10 grid grid-cols-2 lg:grid-cols-4 gap-4">
           {VOCABULARY.map(([term, meaning, Icon], i) => (

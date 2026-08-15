@@ -13,7 +13,7 @@
  * The brief asked for R3F, drei's <MeshTransmissionMaterial>, postprocessing
  * and GSAP. That is four dependencies and roughly three quarters of a megabyte
  * on the first screen of a page whose entire existing motion budget is one
- * fragment shader — and it buys a *worse* diamond. Transmission materials are
+ * fragment shader and it buys a *worse* diamond. Transmission materials are
  * a screen-space trick: they sample a render target behind the object and
  * offset the three colour channels to imply dispersion. There is no ray inside
  * the stone, so there is no total internal reflection, and TIR is the whole
@@ -22,10 +22,10 @@
  * So this traces the light instead. `lib/gemSolid.ts` gives the stone as 41
  * half-spaces, which a fragment shader intersects exactly by the slab method:
  * one linear pass returns entry point, exit point and both normals with no
- * marching and no rounded edges. From there it is real optics — Fresnel at
+ * marching and no rounded edges. From there it is real optics Fresnel at
  * every interface, an independent path per wavelength at diamond's actual
  * dispersion (n = 2.407 red to 2.451 blue), five internal bounces with proper
- * TIR — in one WebGL2 program, no dependencies, and the same
+ * TIR in one WebGL2 program, no dependencies, and the same
  * `requestAnimationFrame`-with-a-kill-switch shape as `AmbientShader`.
  *
  * WHAT KEEPS IT AFFORDABLE
@@ -35,7 +35,7 @@
  *   - Interior bounces light themselves from a cheap environment; only the
  *     primary ray and the mirror reflection pay for the full one.
  *   - Resolution is adaptive. The frame time is measured and the render scale
- *     walks between 0.5 and 1.0 to hold the target — a fixed scale is a guess
+ *     walks between 0.5 and 1.0 to hold the target a fixed scale is a guess
  *     about hardware nobody has, and this scene is genuinely heavy on an
  *     integrated GPU and genuinely trivial on a discrete one.
  *
@@ -105,7 +105,7 @@ uniform vec2 uRes;
 uniform float uTime;
 uniform float uDisp;
 uniform float uBeam;       // strength of the Bifrost column
-uniform float uSpin;
+uniform float uAngle;      // turns, integrated on the CPU (see "turns")
 uniform float uStill;      // 1.0 under prefers-reduced-motion
 uniform vec2 uPointer;     // -1..1, parallax only
 uniform vec4 uPlanes[NP];
@@ -256,14 +256,14 @@ vec3 beamGlow(vec3 ro, vec3 rd) {
 // ---------------------------------------------------------------- Bifröst
 //
 // The ending. Everything the story split is finally *going* somewhere: a sheet
-// of spectral light leaves the stone, arcs up out of the frame, and holds —
+// of spectral light leaves the stone, arcs up out of the frame, and holds 
 // the bridge, not a diagram of one.
 //
 // It is a sheet, and that is the whole trick. Fifty-four straight lines drawn
 // from the gem to fifty-four points is a fan of hairlines: no volume, no
 // falloff, no reason for the eye to read light rather than geometry. A sheet
 // of light has a normal, so it is intersected analytically in one step instead
-// of marched — cost of a plane hit and a handful of sines, per pixel, and it
+// of marched cost of a plane hit and a handful of sines, per pixel, and it
 // gets the one thing the fan could never have: it brightens where the view ray
 // looks along it and thins where the ray cuts across, which is what makes an
 // aurora look like it is made of nothing.
@@ -332,7 +332,7 @@ vec3 envLite(vec3 d, float energy, float fill) {
   // A studio backdrop rather than a sky: darkest overhead, lifting to a soft
   // glow that sits *on* the horizon. The first version graded the other way and
   // the result was a bright plate above a black one, meeting in a hard
-  // horizontal line across the frame — the most visible thing on the page, and
+  // horizontal line across the frame the most visible thing on the page, and
   // it was the horizon, not the stone.
   // Backdrop and key light are separated on purpose, the way a stone is
   // actually photographed: the room is black, the lights are hard and narrow.
@@ -345,7 +345,7 @@ vec3 envLite(vec3 d, float energy, float fill) {
 
   // A broad overhead source on top of the pinpoints. Without it a facet only
   // catches light when it happens to aim at one of the three hard sources, and
-  // the stone spends most of its rotation black — which is exactly what a
+  // the stone spends most of its rotation black which is exactly what a
   // diamond under a single bare lamp does look like, and not what anyone means
   // by a diamond. The wide lobe is the softbox; the pinpoints are the sparkle.
   c += vec3(0.05, 0.10, 0.14) * pow(max(d.y, 0.0), 2.2) * 1.2 * fill * uLight;
@@ -403,7 +403,7 @@ vec3 envFull(vec3 ro, vec3 d, float energy) {
 
       // How much floor one pixel covers here. A plane seen at a grazing angle
       // compresses enormously toward the horizon, so a lattice that is a clean
-      // pattern underfoot is far finer than a pixel further out — and sampling
+      // pattern underfoot is far finer than a pixel further out and sampling
       // it with one point per pixel is where moire and crawling come from. This
       // is the texture-filtering problem, and without a mip chain the honest
       // answer is to fade each detail into its own average as it stops being
@@ -450,8 +450,8 @@ vec3 envFull(vec3 ro, vec3 d, float energy) {
   }
 
   // The column, added last. Everything above this line writes the colour
-  // rather than accumulating into it — the floor branch in particular replaces
-  // it outright — so a beam added earlier was erased everywhere the view ray
+  // rather than accumulating into it the floor branch in particular replaces
+  // it outright so a beam added earlier was erased everywhere the view ray
   // reached the plate, which is most of the frame below the horizon.
   c += beamGlow(ro, d);
   c += bifrost(ro, d);
@@ -487,8 +487,9 @@ bool convexHit(vec3 ro, vec3 rd, out float tN, out vec3 nN, out float tF, out ve
 }
 
 mat3 gemRotation(float t) {
-  float a = t * uSpin * 6.2831853;
-  float b = 0.10 * sin(t * 0.21) + 0.06;          // slow nutation, so the
+  float a = uAngle * 6.2831853;
+  float b = 0.10 * sin(t * 0.21) + 0.035 * sin(t * 0.083) + 0.06;
+                                                  // slow nutation, so the
   float ca = cos(a), sa = sin(a);                 // facets never settle into
   float cb = cos(b), sb = sin(b);                 // one static arrangement
   mat3 spin = mat3(ca, 0.0, -sa, 0.0, 1.0, 0.0, sa, 0.0, ca);
@@ -588,7 +589,7 @@ void main() {
       // stairsteps. Assigning the stone colour outright inside the hit test made
       // every pixel
       // wholly stone or wholly backdrop, so the silhouette can only ever land on
-      // a pixel boundary — raising the resolution buys smaller stairs, not an
+      // a pixel boundary raising the resolution buys smaller stairs, not an
       // edge. For a *convex* solid there is an exact signal to hand: the chord
       // the ray cuts, tF - tN, falls to zero precisely at the silhouette. Compare
       // it against the width of the pixel's own footprint at that distance and
@@ -619,7 +620,7 @@ uniform float uSuper;
 
 /** Resolve the scene buffer down to the display. A single bilinear tap reads at
  *  most a 2x2 neighbourhood, so at 1.6x it throws away most of the extra samples
- *  it cost us to trace — exactly on the facet edges the supersampling was for.
+ *  it cost us to trace exactly on the facet edges the supersampling was for.
  *  Four taps on a rotated grid keep them. At uSuper 0 the offsets vanish and all
  *  four taps land on the same texel, so this costs nothing when not needed. */
 vec3 resolve(vec2 uv) {
@@ -722,7 +723,7 @@ export default function GemLightning({
   className?: string;
   /** Pin the clock to one instant. The strike is a fraction of a second inside
    *  a multi-second cycle, so a screenshot taken at wall-clock time almost
-   *  never contains one — which made "is the bolt right" unanswerable from a
+   *  never contains one which made "is the bolt right" unanswerable from a
    *  machine with no display. `/test?t=2.35` answers it. */
   fixedTime?: number;
   /** Read every frame. Pass a ref's `.current` shape via this object; changing
@@ -759,8 +760,8 @@ export default function GemLightning({
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-    // A half-float target if the driver has one. The scene is genuinely HDR —
-    // the bolt core is tens of times brighter than the plate — and on an 8-bit
+    // A half-float target if the driver has one. The scene is genuinely HDR 
+    // the bolt core is tens of times brighter than the plate and on an 8-bit
     // target the bloom threshold has nothing above 1.0 left to find.
     const hdr = gl.getExtension("EXT_color_buffer_half_float") !== null;
     const tex = gl.createTexture();
@@ -779,7 +780,7 @@ export default function GemLightning({
       time: uni(scene, "uTime"),
       disp: uni(scene, "uDisp"),
       beam: uni(scene, "uBeam"),
-      spin: uni(scene, "uSpin"),
+      angle: uni(scene, "uAngle"),
       cam: uni(scene, "uCam"),
       light: uni(scene, "uLight"),
       arc: uni(scene, "uArc"),
@@ -853,8 +854,28 @@ export default function GemLightning({
 
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // Turns completed so far. The shader used to compute the angle as
+    // `time * spin`, and `spin` is a scroll-driven setting: changing the rate
+    // at t = 40s teleported the stone through most of a revolution, which is
+    // the judder you saw on every scene change. Rate is integrated instead, so
+    // the angle is continuous no matter what the scroll does to the rate.
+    let turns = 0;
+    let spunAt = performance.now();
+
     const draw = (seconds: number) => {
       const s = live.current;
+      const now = performance.now();
+      if (fixedTime !== undefined) {
+        // Deterministic path (capture, and the reduced-motion still frame):
+        // one frame from nothing, so there is no history to integrate.
+        turns = seconds * s.spin;
+      } else {
+        // A stone turned in the hand does not hold a constant rate. ±18% on a
+        // 57s period, applied to the rate, so the angle stays monotonic.
+        const dt = Math.min(0.25, (now - spunAt) / 1000);
+        turns += s.spin * dt * (1 + 0.18 * Math.sin(seconds * 0.11));
+      }
+      spunAt = now;
       // Ease the parallax rather than tracking the pointer exactly: an
       // instant-following camera on a scene this reflective reads as jitter.
       pointer.x += (pointer.tx - pointer.x) * 0.045;
@@ -868,7 +889,7 @@ export default function GemLightning({
       gl.uniform1f(S.time, seconds);
       gl.uniform1f(S.disp, s.dispersion);
       gl.uniform1f(S.beam, s.beam);
-      gl.uniform1f(S.spin, s.spin);
+      gl.uniform1f(S.angle, turns);
       gl.uniform3f(S.cam, s.camDist, s.camHeight, s.zoom);
       gl.uniform1f(S.light, s.light);
       gl.uniform1f(S.arc, s.arc ?? 0);
@@ -938,7 +959,7 @@ export default function GemLightning({
 
     // Two ways to stop tracing: the tab going away, and the stone scrolling
     // away. The second one matters now that the story opens a landing page
-    // rather than owning a route — without it a raytracer runs at 55fps for
+    // rather than owning a route without it a raytracer runs at 55fps for
     // the whole of the page below it, which nobody is looking at.
     let hidden = false;
     let offscreen = false;

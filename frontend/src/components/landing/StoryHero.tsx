@@ -5,7 +5,7 @@
  *
  *   JD → Light → Stone → Refraction → Facets → Applications → Outcomes
  *
- * Five scenes, one scroll, and — the point — one scene. The stone is a single
+ * Five scenes, one scroll, and the point one scene. The stone is a single
  * WebGL canvas that never unmounts and never restarts; scroll position drives
  * its camera, spin, dispersion, exposure and shaft strength through
  * `lib/gemStory.ts`. Nothing here is five independent animations sharing a
@@ -17,7 +17,7 @@
  *   WebGL   the stone, its light, its fire, its floor. Everything physical.
  *   SVG     the beams that leave the stone and land on a card. These have to
  *           terminate exactly on an HTML element, so they are drawn in the
- *           same coordinate space as that element — a 0..100 viewBox with
+ *           same coordinate space as that element a 0..100 viewBox with
  *           `preserveAspectRatio="none"`, which is also what the cards use for
  *           their `left`/`top`. Two spaces would mean two rounding stories and
  *           a beam that misses its card at some viewport width. Stroke widths
@@ -36,7 +36,7 @@
  * The first beam is deliberately almost pure white. Colour is what the stone
  * *does*; if the light arrives already coloured, the refraction means nothing.
  *
- * Scroll drives motion values, not state — the stone's settings object is
+ * Scroll drives motion values, not state the stone's settings object is
  * mutated in place and the SVG is animated by framer-motion, so a full scroll
  * of this page causes zero React renders after mount.
  */
@@ -73,11 +73,11 @@ const HUES = [CYAN, GLINT, OK, WARN, BAD, WHITE];
 /* ------------------------------------------------------------------ beams */
 
 /** One beam: a wide soft pass under a thin bright one. Three strokes rather
- *  than a blur filter — a Gaussian in a `preserveAspectRatio="none"` viewBox
+ *  than a blur filter a Gaussian in a `preserveAspectRatio="none"` viewBox
  *  is skewed with the box, and this reads cleaner besides.
  *
  *  `width` is in CSS pixels, not viewBox units, because `non-scaling-stroke`
- *  is what stops the skew reaching the line weight — and that also means a
+ *  is what stops the skew reaching the line weight and that also means a
  *  width written as if it were a viewBox fraction draws a hairline nobody can
  *  see. It did, for one build. */
 function Beam({
@@ -106,7 +106,7 @@ function Beam({
   // here: `pathLength` animates `stroke-dasharray`, `non-scaling-stroke`
   // reinterprets a dash array in screen units rather than viewBox units, and
   // the two together draw a dotted line. Moving the endpoint also happens to
-  // be the more literal thing — this is light travelling outward.
+  // be the more literal thing this is light travelling outward.
   const span = (v: number, i: 0 | 1) => from[i] + (to[i] - from[i]) * (start + (1 - start) * v);
   const x2 = useTransform(draw, (v) => span(v, 0));
   const y2 = useTransform(draw, (v) => span(v, 1));
@@ -194,7 +194,7 @@ function Caption({
       style={{ opacity, y }}
     >
       <p className="story-index">
-        {index} <span aria-hidden>—</span> {name}
+        {index} <span aria-hidden>·</span> {name}
       </p>
       <h2 className="story-claim">{claim}</h2>
       <p className="story-body">{body}</p>
@@ -207,14 +207,14 @@ function Caption({
 const GEM: [number, number] = [50, 50];
 
 const JOBS: { at: [number, number]; title: string; meta: string }[] = [
-  { at: [14, 26], title: "Staff Engineer", meta: "88% — 14 of 16 terms" },
-  { at: [86, 22], title: "Platform Lead", meta: "81% — 13 of 16 terms" },
-  { at: [12, 64], title: "Backend, Payments", meta: "76% — 12 of 16 terms" },
-  { at: [88, 60], title: "Infrastructure", meta: "69% — 11 of 16 terms" },
+  { at: [14, 26], title: "Staff Engineer", meta: "88% 14 of 16 terms" },
+  { at: [86, 22], title: "Platform Lead", meta: "81% 13 of 16 terms" },
+  { at: [12, 64], title: "Backend, Payments", meta: "76% 12 of 16 terms" },
+  { at: [88, 60], title: "Infrastructure", meta: "69% 11 of 16 terms" },
 ];
 
 const DOCS: { at: [number, number]; title: string; meta: string }[] = [
-  { at: [83, 26], title: "Résumé", meta: "Chicago — one page" },
+  { at: [83, 26], title: "Résumé", meta: "Chicago one page" },
   { at: [88, 50], title: "Cover letter", meta: "Grounded in the Stone" },
   { at: [83, 74], title: "Recruiter pitch", meta: "120 words" },
 ];
@@ -255,8 +255,8 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
     const node = wrap.current;
     if (!node) return;
     // Scroll events are steps, not a signal: one wheel notch moves the page a
-    // fixed distance and fires once, so every knob downstream — the camera,
-    // the exposure, the length of every beam — stepped with it. The fix is not
+    // fixed distance and fires once, so every knob downstream the camera,
+    // the exposure, the length of every beam stepped with it. The fix is not
     // to smooth the events but to stop reading them directly: scroll writes a
     // target, and a frame loop walks the live value toward it. That also puts
     // the update on the compositor's clock rather than the input device's.
@@ -309,7 +309,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
     useTransform(p, [a - 0.035, a + 0.03, b - 0.045, b], [0, 1, 1, 0]);
   /** Absolute progress from a scene index and a fraction inside it. Every
    *  range below is written this way, because the arithmetic done inline is
-   *  how the first version ended up with non-monotonic input ranges — which
+   *  how the first version ended up with non-monotonic input ranges which
    *  framer silently accepts and then holds every card visible at once. */
   const at = (i: number, f: number) => (i + f) / 5;
   /** A beam draws itself over the first half of its own scene. */
@@ -321,7 +321,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
   const capOpacity = [band(0.0, 0.2), band(0.2, 0.4), band(0.4, 0.6), band(0.6, 0.8), band(0.8, 1.0)];
   const capY = [0, 1, 2, 3, 4].map((i) => useTransform(p, [i / 5, i / 5 + 0.08], [26, 0]));
 
-  // 02 — the fan. Each job beam starts a little after the last, so the split
+  // 02 the fan. Each job beam starts a little after the last, so the split
   // reads as a spectrum opening rather than four lines switching on.
   const jobDraw = JOBS.map((_, i) => drawIn(1, 0.08 + i * 0.05, 0.42 + i * 0.05));
   const jobOpacity = JOBS.map((_, i) =>
@@ -333,7 +333,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
   );
   const fanOpacity = band(0.2, 0.4);
 
-  // 03 — one posting in, three documents out. The chosen posting's beam runs
+  // 03 one posting in, three documents out. The chosen posting's beam runs
   // back into the stone, and three leave it.
   const chosenDraw = drawIn(2, 0.02, 0.24);
   const docDraw = DOCS.map((_, i) => drawIn(2, 0.28 + i * 0.06, 0.5 + i * 0.06));
@@ -346,7 +346,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
   );
   const cutOpacity = band(0.4, 0.6);
 
-  // 04 — the three collapse back into one application ray, which then travels
+  // 04 the three collapse back into one application ray, which then travels
   // and branches at the outcome.
   const trackDraw = drawIn(3, 0.05, 0.35);
   const branchDraw = drawIn(3, 0.5, 0.72);
@@ -359,7 +359,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
   );
   const cabOpacity = band(0.6, 0.8);
 
-  // 05 — the pull back and the bridge, both of which are the shader's. The one
+  // 05 the pull back and the bridge, both of which are the shader's. The one
   // thing left here is the payoff copy, which waits until the Bifröst is open.
   const payoffOpacity = useTransform(p, [0.9, 0.97], [0, 1]);
 
@@ -384,14 +384,14 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
                 drawn by the shader, in the same space as the stone it lands
                 on. An SVG line over the top of it was a second, flatter beam
                 that never lined up under the parallax. */}
-            {/* 02 — it splits, and the postings appear at the ends */}
+            {/* 02 it splits, and the postings appear at the ends */}
             <motion.g style={{ opacity: fanOpacity }}>
               {JOBS.map((j, i) => (
                 <Beam key={j.title} from={GEM} to={j.at} colour={HUES[i]} draw={jobDraw[i]} start={0.22} />
               ))}
             </motion.g>
 
-            {/* 03 — one back in, three out */}
+            {/* 03 one back in, three out */}
             <motion.g style={{ opacity: cutOpacity }}>
               <Beam from={JOBS[0].at} to={GEM} colour={CYAN} draw={chosenDraw} width={3.2} />
               {DOCS.map((d, i) => (
@@ -399,7 +399,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
               ))}
             </motion.g>
 
-            {/* 04 — one application ray, with stops on it */}
+            {/* 04 one application ray, with stops on it */}
             <motion.g style={{ opacity: cabOpacity }}>
               <Beam from={GEM} to={[82, 50]} colour={OK} draw={trackDraw} width={2.6} start={0.3} />
               <Beam from={[82, 50]} to={[88, 34]} colour={OK} draw={branchDraw} />
@@ -432,7 +432,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
 
             {/* 05 has no SVG at all. The ending is the Bifröst, and it is a
                 sheet of light with a normal, a spectrum across its width and a
-                thickness the view ray travels through — none of which an SVG
+                thickness the view ray travels through none of which an SVG
                 stroke has. It is drawn by the shader, in the same space as the
                 stone it leaves. The fan of fifty-four strokes that used to be
                 here read as fifty-four lines, because that is what it was. */}
@@ -481,7 +481,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
               index="01"
               name="The Stone"
               claim="Everything starts as one record."
-              body="A job description is white light: undifferentiated, and true of nobody in particular. Your Stone is what it lands on — one profile, written once, the only thing Facet is ever allowed to claim about you."
+              body="A job description is white light: undifferentiated, and true of nobody in particular. Your Stone is what it lands on one profile, written once, the only thing Facet is ever allowed to claim about you."
               opacity={capOpacity[0]}
               y={capY[0]}
             />
@@ -489,7 +489,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
               index="02"
               name="The Rough"
               claim="Matches are what the light does, not a list you were handed."
-              body="The beam enters the table and leaves as a spectrum. Each ray is a posting scored against your own vocabulary — the terms in your Stone, counted, with the evidence attached. No scraping: postings arrive from a provider's public API or a feed you subscribed to."
+              body="The beam enters the table and leaves as a spectrum. Each ray is a posting scored against your own vocabulary the terms in your Stone, counted, with the evidence attached. No scraping: postings arrive from a provider's public API or a feed you subscribed to."
               opacity={capOpacity[1]}
               y={capY[1]}
             />
@@ -497,7 +497,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
               index="03"
               name="The Cut"
               claim="One posting in. Three documents out."
-              body="Choose a ray and it travels back through the stone. What leaves is a résumé on the template you picked, a cover letter, and a recruiter pitch — each of them cut from the same record, none of them inventing anything that is not in it."
+              body="Choose a ray and it travels back through the stone. What leaves is a résumé on the template you picked, a cover letter, and a recruiter pitch each of them cut from the same record, none of them inventing anything that is not in it."
               opacity={capOpacity[2]}
               y={capY[2]}
             />
@@ -505,7 +505,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
               index="04"
               name="The Cabinet"
               claim="The ray keeps going after you send it."
-              body="Applied, interview, offer, rejected — every state is a stop on the same ray, with the date it happened and the reason it ended. What Facet knows about a job after you apply is the part most tools drop."
+              body="Applied, interview, offer, rejected every state is a stop on the same ray, with the date it happened and the reason it ended. What Facet knows about a job after you apply is the part most tools drop."
               opacity={capOpacity[3]}
               y={capY[3]}
             />
@@ -514,8 +514,8 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
                 live page that is the product's own heading and its real call
                 to action, arriving exactly where the bridge opens; on /test it
                 is the fallback below, because that route has nothing to sell.
-                One component, two endings, and the choreography — which is the
-                part that is hard to get right — is shared rather than copied. */}
+                One component, two endings, and the choreography which is the
+                part that is hard to get right is shared rather than copied. */}
             <motion.div className="story-payoff" style={{ opacity: payoffOpacity }}>
               {payoff ?? (
                 <>
