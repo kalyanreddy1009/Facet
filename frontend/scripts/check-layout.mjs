@@ -21,6 +21,14 @@
  * Exits non-zero on an overflow, a misalignment or an uncaught page error. The
  * landing page is exempt from the alignment rule — its hero is full-bleed on
  * purpose.
+ *
+ * Against a multi-user instance every app route redirects to /login, and this
+ * script then measured the same auth card eight times and reported a clean
+ * sweep. That is worse than no sweep: it is a green tick over pages nobody
+ * looked at. A route that lands somewhere other than where it was sent is now
+ * reported UNSWEPT and counted, so the run says plainly that it did not see
+ * the app. To sweep the real pages, point it at a single-user instance — a
+ * backend started with FACET_MULTIUSER unset, on a throwaway data dir.
  */
 
 import { chromium } from "playwright";
@@ -34,6 +42,15 @@ const sizes = [
   [834, 1112],
   [390, 844],
 ];
+// /profile describes an account, and a single-user instance has none: the page
+// itself sends you home rather than to a /login that would bounce you straight
+// back. That is a documented redirect, not an unswept route, so ask the backend
+// which mode it is in instead of reporting a failure on every local run.
+const singleUser = await fetch(`${base}/api/auth/me`)
+  .then((r) => r.json())
+  .then((s) => s.single_user === true)
+  .catch(() => false);
+
 const paths = [
   "/",
   "/rough",
@@ -42,11 +59,12 @@ const paths = [
   "/cabinet#interviews",
   "/stone",
   "/status",
-  "/profile",
+  ...(singleUser ? [] : ["/profile"]),
 ];
 
 const browser = await chromium.launch({ args: ["--no-sandbox"] });
 let bad = 0;
+const unseen = new Set();
 
 for (const [width, height] of sizes) {
   const page = await browser.newPage({ viewport: { width, height } });
@@ -76,6 +94,9 @@ for (const [width, height] of sizes) {
       };
     });
 
+    // Sent to /tailor, arrived at /login: whatever this page is, it is not the
+    // page under test, and every measurement below describes something else.
+    const unswept = m.url !== path;
     const over = m.scroll > m.client + 1;
     // The landing hero is full-bleed and the auth screens are a centred card;
     // neither is meant to sit on the content column's left edge. (An
@@ -85,12 +106,14 @@ for (const [width, height] of sizes) {
     const misaligned =
       !centred && width >= 1024 && m.mainL != null && Math.abs(m.mainL - m.navL) > 2;
     if (over || misaligned) bad++;
+    if (unswept) unseen.add(path);
 
     console.log(
       `${String(width).padStart(4)}px ${path.padEnd(20)} ${m.url.padEnd(20)} ` +
         `scroll=${m.scroll}/${m.client} nav=[${m.navL},${m.navR}] ` +
         `main=[${m.mainL},${m.mainR}] "${m.title}"` +
-        `${over ? " OVERFLOW" : ""}${misaligned ? " MISALIGNED" : ""}`
+        `${over ? " OVERFLOW" : ""}${misaligned ? " MISALIGNED" : ""}` +
+        `${unswept ? " UNSWEPT" : ""}`
     );
   }
 
@@ -102,5 +125,13 @@ for (const [width, height] of sizes) {
 }
 
 await browser.close();
-console.log(bad ? `\n✗ ${bad} problem(s)` : "\n✓ no overflow, no misalignment, no page errors");
-process.exit(bad ? 1 : 0);
+
+if (unseen.size) {
+  console.log(
+    `\n! ${unseen.size} route(s) never rendered, so nothing above is a ` +
+      `statement about them: ${[...unseen].join(", ")}`
+  );
+}
+if (bad) console.log(`\n✗ ${bad} problem(s)`);
+else if (!unseen.size) console.log("\n✓ no overflow, no misalignment, no page errors");
+process.exit(bad || unseen.size ? 1 : 0);

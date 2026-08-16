@@ -294,7 +294,15 @@ export default function StatusPage() {
               /* Staggered on first paint only — `.rise` runs once per mounted
                  node, and the key is the group, so a refresh re-renders these
                  in place rather than replaying the entrance every poll. */
-              <div key={group.key} className="rise" style={{ "--i": i } as React.CSSProperties}>
+              /* min-w-0: a grid item's default min-width is its min-content,
+                 and one unbreakable check line — a pid, an ISO timestamp —
+                 then sizes the whole track wider than the column. At 390px
+                 that scrolled the page sideways. */
+              <div
+                key={group.key}
+                className="rise min-w-0"
+                style={{ "--i": i } as React.CSSProperties}
+              >
                 <GroupSection group={group} />
               </div>
             ))}

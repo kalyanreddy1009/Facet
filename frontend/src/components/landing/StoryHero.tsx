@@ -47,7 +47,7 @@
    arrays. The number of hooks and their order are therefore fixed for the life
    of the component, which is the property the rule exists to protect; the
    alternative is thirty near-identical inline `useTransform` calls. */
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   motion,
@@ -248,7 +248,14 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
   // The stone's settings object is created once and mutated. `GemLightning`
   // holds this identity in a ref and reads it every frame, so the whole scroll
   // costs zero renders.
-  const gem = useRef<GemSettings>({ ...GEM_DEFAULTS });
+  //
+  // A lazy `useState` rather than a `useRef`, for one reason: this object is
+  // read during render to be passed down, and reading `.current` in render is
+  // what `react-hooks/refs` fails the lint on. The rule is right in general —
+  // a ref that changes during render will not re-render anything — and here
+  // that is precisely the intent, so the honest expression of "a stable
+  // identity available at render time" is state that is never set.
+  const [gem] = useState<GemSettings>(() => ({ ...GEM_DEFAULTS }));
 
   const p = useMotionValue(0);
   useEffect(() => {
@@ -286,8 +293,8 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
       // loop runs forever chasing the last thousandth.
       if (Math.abs(target - live) < 1e-4) live = target;
       p.set(live);
-      gemInto(gem.current, live);
-      if (reduced) gem.current.spin = 0;
+      gemInto(gem, live);
+      if (reduced) gem.spin = 0;
       raf = requestAnimationFrame(frame);
     };
     measure();
@@ -368,7 +375,7 @@ export default function StoryHero({ payoff }: { payoff?: ReactNode }) {
         <div className="story-stage">
           {/* The stone. One canvas, mounted once, for the whole page. */}
           <div className="absolute inset-0" aria-hidden>
-            <GemLightning className="h-full w-full" settings={gem.current} />
+            <GemLightning className="h-full w-full" settings={gem} />
           </div>
 
           {/* Everything the stone throws. Decorative: the same information is
